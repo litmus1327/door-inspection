@@ -753,6 +753,18 @@
     </div>
   </div>
 
+  <!-- ══════════════════════════════════
+       DUPLICATE DOOR PICKER MODAL
+  ══════════════════════════════════ -->
+  <div class="modal-overlay hidden" id="dupPickerModal">
+    <div class="modal" style="max-width:480px;">
+      <div class="modal-title">Select Door</div>
+      <div class="modal-sub">Multiple doors share this Asset ID. Select the one you are inspecting.</div>
+      <div id="dupPickerList" style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;"></div>
+      <button class="btn btn-secondary" onclick="closeDupPicker()">Cancel</button>
+    </div>
+  </div>
+
   <!-- Keep the drawer for CSV import access (hidden by default, accessible from Config) -->
   <div class="drawer-overlay hidden" id="drawerOverlay" onclick="closeProjectDrawer()"></div>
   <div class="drawer hidden" id="projectDrawer">
@@ -1412,25 +1424,37 @@ function processCSV(file) {
 
       for (let i = headerRowIdx + 1; i < rows.length; i++) {
         const row = rows[i];
-        const rawAssetId = idxAsset !== -1 ? (row[idxAsset] || '').trim() : '';
-        const iconVal    = idxIcon  !== -1 ? (row[idxIcon]  || '').trim() : '';
-        const projectVal = idxProject !== -1 ? (row[idxProject] || '').trim() : '';
+        // Strip surrounding quotes and treat empty-quoted values ("") as empty
+        const rawAssetId = idxAsset !== -1 ? (row[idxAsset] || '').trim().replace(/^"+$/, '') : '';
+        const iconVal    = idxIcon  !== -1 ? (row[idxIcon]  || '').trim().replace(/^"+$/, '') : '';
+        const projectVal = idxProject !== -1 ? (row[idxProject] || '').trim().replace(/^"+$/, '') : '';
 
         // Build unique key: prefer Asset ID, fall back to "PROJECT|ICONNO"
-        let key;
-        if (rawAssetId) {
-          key = rawAssetId;
-        } else if (iconVal) {
-          key = 'NOID|' + (projectVal || 'NOPROJECT') + '|' + iconVal;
-        } else {
-          continue; // no usable identifier, skip
-        }
-
+        // If Asset ID is duplicated (door pairs), append icon no to keep both
         const rawType   = idxType   !== -1 ? (row[idxType]   || '').trim().toLowerCase() : '';
         const rawRating = idxRating !== -1 ? (row[idxRating] || '').trim().toLowerCase() : '';
 
         // Use project column value, fall back to metadata project name
         const resolvedProject = projectVal || metadataProjectName;
+
+        let key;
+        if (rawAssetId) {
+          const simpleKey = rawAssetId;
+          if (existingSchedule[simpleKey] && iconVal &&
+              existingSchedule[simpleKey].iconNo !== iconVal) {
+            // Duplicate asset ID with different icon no — door pair
+            // Re-key the first entry with its icon no appended
+            existingSchedule[simpleKey + '|' + existingSchedule[simpleKey].iconNo] = existingSchedule[simpleKey];
+            delete existingSchedule[simpleKey];
+            key = simpleKey + '|' + iconVal;
+          } else {
+            key = simpleKey;
+          }
+        } else if (iconVal) {
+          key = 'NOID|' + (resolvedProject || 'NOPROJECT') + '|' + iconVal;
+        } else {
+          continue; // no usable identifier, skip
+        }
 
         const newEntry = {
           assetId:      rawAssetId || null,
@@ -1517,53 +1541,40 @@ function onAssetIdInput() {
 function lookupAsset(assetId) {
   const schedule = getDoorSchedule();
   const activeProject = getActiveProject();
+  const lower = assetId.toLowerCase();
 
-  // 1. Exact key match
-  let door = schedule[assetId];
+  // Find ALL doors matching this asset ID (handles duplicates/door pairs)
+  const matches = Object.values(schedule).filter(d =>
+    d.assetId && d.assetId.toLowerCase() === lower &&
+    (!activeProject || !d.project || d.project === activeProject)
+  );
 
-  // 2. Case-insensitive Asset ID match
-  if (!door) {
-    const lower = assetId.toLowerCase();
-    door = Object.values(schedule).find(d => d.assetId && d.assetId.toLowerCase() === lower);
-  }
+  // Also check exact key match (for non-duplicate case)
+  if (!matches.length && schedule[assetId]) matches.push(schedule[assetId]);
 
-  // 3. If typed value looks like an Icon No. (numeric or short), try matching
-  //    doors that have no Asset ID but match Icon No. + active project
-  if (!door) {
-    const lower = assetId.toLowerCase();
-    door = Object.values(schedule).find(d =>
+  // Icon No. fallback for doors with no asset ID
+  if (!matches.length) {
+    const iconMatch = Object.values(schedule).find(d =>
       d.noAssetId &&
       d.iconNo && d.iconNo.toLowerCase() === lower &&
       (!activeProject || !d.project || d.project === activeProject)
     );
+    if (iconMatch) matches.push(iconMatch);
   }
 
   const statusEl = document.getElementById('lookupStatus');
   const assetInput = document.getElementById('assetId');
 
-  if (door) {
-    // Auto-fill fields
-    setField('iconNo', door.iconNo, true);
-    setField('floorNo', door.floorNo, true);
-    setField('gridBlock', door.gridBlock, true);
-
-    if (door.assemblyType) {
-      const sel = document.getElementById('assemblyType');
-      sel.value = door.assemblyType;
-      sel.classList.add('autofilled');
-      onAssemblyTypeChange();
-    }
-    if (door.doorRating) {
-      const sel = document.getElementById('doorRating');
-      sel.value = door.doorRating;
-      sel.classList.add('autofilled');
-    }
-
+  if (matches.length > 1) {
+    // Multiple doors share this Asset ID — show picker
     assetInput.classList.remove('lookup-loading', 'lookup-notfound');
     assetInput.classList.add('lookup-found');
-    statusEl.textContent = '✓ Door found in schedule — fields auto-filled';
+    statusEl.textContent = matches.length + ' doors share this Asset ID — select one below';
     statusEl.className = 'lookup-status found';
     statusEl.classList.remove('hidden');
+    showDupPicker(matches);
+  } else if (matches.length === 1) {
+    applyDoorToForm(matches[0]);
   } else {
     clearAutoFill();
     if (Object.keys(schedule).length > 0) {
@@ -1573,6 +1584,57 @@ function lookupAsset(assetId) {
       statusEl.classList.remove('hidden');
     }
   }
+}
+
+function applyDoorToForm(door) {
+  setField('iconNo', door.iconNo, true);
+  setField('floorNo', door.floorNo, true);
+  setField('gridBlock', door.gridBlock, true);
+
+  if (door.assemblyType) {
+    const sel = document.getElementById('assemblyType');
+    sel.value = door.assemblyType;
+    sel.classList.add('autofilled');
+    onAssemblyTypeChange();
+  }
+  if (door.doorRating) {
+    const sel = document.getElementById('doorRating');
+    sel.value = door.doorRating;
+    sel.classList.add('autofilled');
+  }
+
+  const assetInput = document.getElementById('assetId');
+  const statusEl = document.getElementById('lookupStatus');
+  assetInput.classList.remove('lookup-loading', 'lookup-notfound');
+  assetInput.classList.add('lookup-found');
+  statusEl.textContent = '✓ Door found — fields auto-filled';
+  statusEl.className = 'lookup-status found';
+  statusEl.classList.remove('hidden');
+}
+
+function showDupPicker(doors) {
+  const list = document.getElementById('dupPickerList');
+  list.innerHTML = '';
+  doors.forEach(door => {
+    const btn = document.createElement('button');
+    btn.style.cssText = 'display:flex;flex-direction:column;gap:4px;padding:14px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;cursor:pointer;text-align:left;width:100%;transition:border-color 0.2s;';
+    btn.onmouseover = () => btn.style.borderColor = 'var(--accent)';
+    btn.onmouseout = () => btn.style.borderColor = 'var(--border)';
+    btn.innerHTML = `
+      <span style="font-family:var(--head);font-size:15px;font-weight:600;color:var(--text);letter-spacing:1px;">Icon No. ${door.iconNo || '—'}</span>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--text2);">Floor: ${door.floorNo || '—'} &nbsp;|&nbsp; Grid: ${door.gridBlock || '—'} &nbsp;|&nbsp; ${door.assemblyType ? (ASSEMBLY_TYPE_LABELS[door.assemblyType] || door.assemblyType) : '—'}</span>
+    `;
+    btn.onclick = () => {
+      applyDoorToForm(door);
+      closeDupPicker();
+    };
+    list.appendChild(btn);
+  });
+  document.getElementById('dupPickerModal').classList.remove('hidden');
+}
+
+function closeDupPicker() {
+  document.getElementById('dupPickerModal').classList.add('hidden');
 }
 
 function setField(id, value, autofill) {
