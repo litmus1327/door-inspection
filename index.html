@@ -1190,8 +1190,24 @@ function processCSV(file) {
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
-      const text = e.target.result;
-      const rows = parseCSV(text);
+      // ── Decode: handle UTF-16 LE/BE (Fieldwire) and UTF-8 ──────────
+      const buf = e.target.result;
+      const bytes = new Uint8Array(buf);
+      let text;
+      if (bytes[0] === 0xFF && bytes[1] === 0xFE) {
+        text = new TextDecoder('utf-16le').decode(buf);
+      } else if (bytes[0] === 0xFE && bytes[1] === 0xFF) {
+        text = new TextDecoder('utf-16be').decode(buf);
+      } else {
+        text = new TextDecoder('utf-8').decode(buf);
+      }
+      text = text.replace(/^\uFEFF/, ''); // strip BOM
+
+      // ── Detect delimiter: tab or comma ──────────────────────────────
+      const firstLine = text.split(/\r?\n/).find(l => l.trim()) || '';
+      const delimiter = (firstLine.split('\t').length > firstLine.split(',').length) ? '\t' : ',';
+
+      const rows = parseCSV(text, delimiter);
       if (rows.length < 2) { showToast('CSV appears empty or invalid.', 'error'); return; }
 
       // ── Auto-detect header row ──────────────────────────────────────
@@ -1307,10 +1323,10 @@ function processCSV(file) {
       showToast('Error parsing CSV: ' + err.message, 'error');
     }
   };
-  reader.readAsText(file);
+  reader.readAsArrayBuffer(file);
 }
 
-function parseCSV(text) {
+function parseCSV(text, delimiter = ',') {
   const rows = [];
   const lines = text.split(/\r?\n/);
   for (const line of lines) {
@@ -1323,7 +1339,7 @@ function parseCSV(text) {
       if (ch === '"') {
         if (inQuote && line[i+1] === '"') { cell += '"'; i++; }
         else inQuote = !inQuote;
-      } else if (ch === ',' && !inQuote) {
+      } else if (ch === delimiter && !inQuote) {
         row.push(cell); cell = '';
       } else {
         cell += ch;
