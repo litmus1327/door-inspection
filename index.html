@@ -734,21 +734,33 @@
   </div>
 
   <!-- ══════════════════════════════════
-       PROJECT DRAWER
+       PROJECT SELECT MODAL
   ══════════════════════════════════ -->
+  <div class="modal-overlay hidden" id="projectModal">
+    <div class="modal" style="max-width:520px;">
+      <div class="modal-title">Select Project</div>
+      <div class="modal-sub" id="projectModalSub">Choose the facility you are inspecting today.</div>
+      <div class="form-group" style="margin-bottom:20px;">
+        <label>Facility / Project</label>
+        <select id="projectSelect" style="font-size:15px;padding:12px;">
+          <option value="">— Select a project —</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="confirmProjectSelection()">Confirm →</button>
+        <button class="btn btn-secondary" id="projectModalCancelBtn" onclick="closeProjectModal()" style="display:none;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Keep the drawer for CSV import access (hidden by default, accessible from Config) -->
   <div class="drawer-overlay hidden" id="drawerOverlay" onclick="closeProjectDrawer()"></div>
   <div class="drawer hidden" id="projectDrawer">
     <div class="drawer-title">
-      Projects
+      Import Door Schedule
       <button class="drawer-close" onclick="closeProjectDrawer()">✕</button>
     </div>
-
-    <div id="projectListContainer">
-      <div class="project-list" id="projectList"></div>
-    </div>
-
     <div style="margin-bottom:16px;">
-      <div class="card-title" style="margin-bottom:12px;">Import Door Schedule from Fieldwire</div>
       <div class="config-note" style="margin-bottom:12px;">
         Export your door schedule from Fieldwire as a CSV. Required: <strong>Asset ID</strong>. The <strong>ID</strong> column (Fieldwire default) maps automatically to Icon No. Optional: Floor, Grid Block, Assembly Type, Door Rating, Project.<br><br>
         Fieldwire metadata rows at the top are skipped automatically. The <strong>Project</strong> column groups doors into selectable projects. Re-uploading adds new doors and updates existing ones — no duplicates.
@@ -767,7 +779,7 @@
   <!-- HEADER -->
   <header>
     <div class="logo">DOOR<span>INSP</span></div>
-    <div class="project-switcher" onclick="openProjectDrawer()">
+    <div class="project-switcher" onclick="openProjectModal(false)">
       <div>
         <div class="project-switcher-label">Project</div>
         <div class="project-switcher-name" id="activeProjectName">— Select —</div>
@@ -927,6 +939,7 @@
               <th>Deficiencies</th>
               <th>Inspector</th>
               <th>Date/Time</th>
+              <th></th>
             </tr>
           </thead>
           <tbody id="recordsBody"></tbody>
@@ -977,14 +990,15 @@
 
 CREATE TABLE door_schedule (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  asset_id text UNIQUE,
+  asset_id text,
   icon_no text,
   floor text,
   grid_block text,
   assembly_type text,
   door_rating text,
   project text,
-  uploaded_at timestamptz DEFAULT now()
+  uploaded_at timestamptz DEFAULT now(),
+  UNIQUE NULLS NOT DISTINCT (asset_id, project, icon_no)
 );
 
 ALTER TABLE door_inspections ENABLE ROW LEVEL SECURITY;
@@ -1003,6 +1017,16 @@ CREATE POLICY "Allow all" ON door_schedule FOR ALL USING (true);</pre>
         </div>
         <button class="btn btn-primary" onclick="saveConfig()">Save Configuration</button>
         <button class="btn btn-secondary" style="margin-left:10px;" onclick="testConnection()">Test Connection</button>
+        <button class="btn btn-secondary" style="margin-left:10px;" onclick="downloadScheduleFromSupabase().then(()=>showToast('Schedule refreshed from Supabase.'))">↓ Refresh Schedule</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Door Schedule Management</div>
+        <p style="font-size:13px; color:var(--text2); margin-bottom:14px;">Upload your Fieldwire door schedule to Supabase so all inspectors get it automatically. Import the CSV first, then click Upload.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="uploadScheduleToSupabase()">↑ Upload Schedule to Supabase</button>
+          <button class="btn btn-secondary" onclick="openProjectDrawer()">Import Fieldwire CSV</button>
+        </div>
       </div>
 
       <div class="card">
@@ -1029,6 +1053,8 @@ let answers = {};
 let deficiencies = [];
 let doorSchedule = {}; // asset_id -> door data
 let assetLookupTimer = null;
+let editingRecordId = null;
+let isSyncing = false;
 
 const ASSEMBLY_TYPE_LABELS = {
   fire_door: 'Fire Door',
@@ -1080,6 +1106,12 @@ function saveInspectorName() {
   localStorage.setItem('inspectorName', name);
   document.getElementById('firstRunModal').classList.add('hidden');
   applyInspectorName(name);
+  // Trigger background Supabase tasks now that we have a name
+  const cfg = getConfig();
+  if (cfg.url && cfg.key) {
+    downloadScheduleFromSupabase();
+    autoSync();
+  }
 }
 
 function applyInspectorName(name) {
@@ -1096,23 +1128,18 @@ function changeInspector() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  PROJECT DRAWER
+//  PROJECT SELECTION
 // ═══════════════════════════════════════════════════════════════════
-function openProjectDrawer() {
-  renderProjectList();
-  document.getElementById('drawerOverlay').classList.remove('hidden');
-  document.getElementById('projectDrawer').classList.remove('hidden');
-}
-
-function closeProjectDrawer() {
-  document.getElementById('drawerOverlay').classList.add('hidden');
-  document.getElementById('projectDrawer').classList.add('hidden');
-}
-
 function getProjects() {
   const schedule = getDoorSchedule();
   const projects = new Set();
   Object.values(schedule).forEach(d => { if (d.project) projects.add(d.project); });
+  Object.keys(schedule).forEach(k => {
+    if (k.startsWith('NOID|')) {
+      const parts = k.split('|');
+      if (parts[1] && parts[1] !== 'NOPROJECT') projects.add(parts[1]);
+    }
+  });
   return [...projects].sort();
 }
 
@@ -1123,34 +1150,89 @@ function getActiveProject() {
 function setActiveProject(name) {
   localStorage.setItem('activeProject', name);
   document.getElementById('activeProjectName').textContent = name || '— Select —';
-  closeProjectDrawer();
-  showToast('Project: ' + name);
 }
 
-function renderProjectList() {
-  const projects = getProjects();
-  const active = getActiveProject();
-  const list = document.getElementById('projectList');
-  list.innerHTML = '';
+// ── Project Modal ──────────────────────────────────────────────────
+async function openProjectModal(required = true) {
+  const sel = document.getElementById('projectSelect');
+  const cancelBtn = document.getElementById('projectModalCancelBtn');
+  const sub = document.getElementById('projectModalSub');
 
-  if (projects.length === 0) {
-    list.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:12px 0;">No projects loaded — import a Fieldwire CSV below.</div>';
-    return;
+  const hasProject = !!getActiveProject();
+  cancelBtn.style.display = hasProject ? '' : 'none';
+  sub.textContent = required && !hasProject
+    ? 'You must select a facility before inspecting.'
+    : 'Choose the facility you are inspecting today.';
+
+  // Show modal immediately with loading state
+  sel.innerHTML = '<option value="">Loading projects...</option>';
+  document.getElementById('projectModal').classList.remove('hidden');
+
+  // Always fetch fresh from Supabase — source of truth for project list
+  let projects = [];
+  const cfg = getConfig();
+  if (cfg.url && cfg.key && navigator.onLine) {
+    try {
+      const res = await fetch(cfg.url + '/rest/v1/door_schedule?select=project', {
+        headers: { 'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key }
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        const set = new Set(rows.map(r => r.project).filter(Boolean));
+        projects = [...set].sort();
+      }
+    } catch(e) { console.error('Project fetch error:', e); }
   }
 
-  projects.forEach(p => {
-    const schedule = getDoorSchedule();
-    const count = Object.values(schedule).filter(d => d.project === p).length;
-    const item = document.createElement('div');
-    item.className = 'project-item' + (p === active ? ' active' : '');
-    item.innerHTML = `
-      <div class="project-item-name">${p}</div>
-      <div class="project-item-count">${count} doors</div>
-    `;
-    item.onclick = () => setActiveProject(p);
-    list.appendChild(item);
-  });
+  // Fall back to local schedule if Supabase unavailable
+  if (!projects.length) {
+    projects = getProjects();
+  }
+
+  // Rebuild dropdown
+  const active = getActiveProject();
+  if (projects.length) {
+    sel.innerHTML = '<option value="">— Select a project —</option>';
+    projects.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = p;
+      if (p === active) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  } else {
+    sel.innerHTML = '<option value="">No projects found — check Supabase config</option>';
+  }
 }
+
+function closeProjectModal() {
+  document.getElementById('projectModal').classList.add('hidden');
+}
+
+function confirmProjectSelection() {
+  const sel = document.getElementById('projectSelect');
+  const chosen = sel.value;
+  if (!chosen) { showToast('Please select a project.', 'warn'); return; }
+  setActiveProject(chosen);
+  closeProjectModal();
+  showToast('Project: ' + chosen);
+
+  // Trigger schedule download scoped to this project
+  downloadScheduleFromSupabase();
+}
+
+// Keep drawer accessible for CSV import (called from Config tab)
+function openProjectDrawer() {
+  document.getElementById('drawerOverlay').classList.remove('hidden');
+  document.getElementById('projectDrawer').classList.remove('hidden');
+}
+
+function closeProjectDrawer() {
+  document.getElementById('drawerOverlay').classList.add('hidden');
+  document.getElementById('projectDrawer').classList.add('hidden');
+}
+
+function renderProjectList() {} // no-op, kept for compatibility
 
 // ═══════════════════════════════════════════════════════════════════
 //  DOOR SCHEDULE (CSV IMPORT)
@@ -1294,29 +1376,39 @@ function processCSV(file) {
 
       for (let i = headerRowIdx + 1; i < rows.length; i++) {
         const row = rows[i];
-        const assetId = row[idxAsset]?.trim();
-        if (!assetId) continue;
+        const rawAssetId = idxAsset !== -1 ? (row[idxAsset] || '').trim() : '';
+        const iconVal    = idxIcon  !== -1 ? (row[idxIcon]  || '').trim() : '';
+        const projectVal = idxProject !== -1 ? (row[idxProject] || '').trim() : '';
+
+        // Build unique key: prefer Asset ID, fall back to "PROJECT|ICONNO"
+        let key;
+        if (rawAssetId) {
+          key = rawAssetId;
+        } else if (iconVal) {
+          key = 'NOID|' + (projectVal || 'NOPROJECT') + '|' + iconVal;
+        } else {
+          continue; // no usable identifier, skip
+        }
 
         const rawType   = idxType   !== -1 ? (row[idxType]   || '').trim().toLowerCase() : '';
         const rawRating = idxRating !== -1 ? (row[idxRating] || '').trim().toLowerCase() : '';
-        const iconVal   = idxIcon   !== -1 ? (row[idxIcon]   || '').trim() : '';
 
         const newEntry = {
-          assetId,
+          assetId:      rawAssetId || null,
           iconNo:       iconVal,
-          floorNo:      idxFloor   !== -1 ? (row[idxFloor]   || '').trim() : '',
-          gridBlock:    idxGrid    !== -1 ? (row[idxGrid]    || '').trim() : '',
+          floorNo:      idxFloor !== -1 ? (row[idxFloor] || '').trim() : '',
+          gridBlock:    idxGrid  !== -1 ? (row[idxGrid]  || '').trim() : '',
           assemblyType: ASSEMBLY_TYPE_VALUES[rawType] || rawType || '',
           doorRating:   RATING_VALUES[rawRating] || rawRating || '',
-          project:      idxProject !== -1 ? (row[idxProject] || '').trim() : ''
+          project:      projectVal,
+          noAssetId:    !rawAssetId  // flag so lookup knows to match by icon no
         };
 
-        if (existingSchedule[assetId]) {
-          // Update existing entry only if new data has more info
-          existingSchedule[assetId] = { ...existingSchedule[assetId], ...newEntry };
+        if (existingSchedule[key]) {
+          existingSchedule[key] = { ...existingSchedule[key], ...newEntry };
           updated++;
         } else {
-          existingSchedule[assetId] = newEntry;
+          existingSchedule[key] = newEntry;
           added++;
         }
       }
@@ -1385,12 +1477,26 @@ function onAssetIdInput() {
 
 function lookupAsset(assetId) {
   const schedule = getDoorSchedule();
+  const activeProject = getActiveProject();
 
-  // Try exact match first, then case-insensitive
+  // 1. Exact key match
   let door = schedule[assetId];
+
+  // 2. Case-insensitive Asset ID match
   if (!door) {
     const lower = assetId.toLowerCase();
-    door = Object.values(schedule).find(d => d.assetId.toLowerCase() === lower);
+    door = Object.values(schedule).find(d => d.assetId && d.assetId.toLowerCase() === lower);
+  }
+
+  // 3. If typed value looks like an Icon No. (numeric or short), try matching
+  //    doors that have no Asset ID but match Icon No. + active project
+  if (!door) {
+    const lower = assetId.toLowerCase();
+    door = Object.values(schedule).find(d =>
+      d.noAssetId &&
+      d.iconNo && d.iconNo.toLowerCase() === lower &&
+      (!activeProject || !d.project || d.project === activeProject)
+    );
   }
 
   const statusEl = document.getElementById('lookupStatus');
@@ -1492,25 +1598,39 @@ function startInspection() {
   const assetId = document.getElementById('assetId').value.trim();
   const assemblyType = document.getElementById('assemblyType').value;
 
+  if (!getActiveProject()) { openProjectModal(true); return; }
   if (!assetId) { showToast('Asset ID is required.', 'warn'); return; }
   if (!assemblyType) { showToast('Select an Assembly Type.', 'warn'); return; }
 
   const inspectorName = localStorage.getItem('inspectorName') || '—';
   const activeProject = getActiveProject();
 
+  // If editing, preserve original record's project and start time
+  let startTime = new Date().toISOString();
+  let projectName = activeProject;
+  if (editingRecordId) {
+    const original = getRecords().find(r => r.id === editingRecordId);
+    if (original) {
+      startTime = original.startTime;
+      projectName = original.projectName || activeProject;
+    }
+    // answers already pre-loaded by editRecord()
+  } else {
+    answers = {};
+  }
+
   currentDoor = {
     inspectorName,
-    projectName: activeProject,
+    projectName,
     iconNo: document.getElementById('iconNo').value.trim(),
     assetId,
     floorNo: document.getElementById('floorNo').value.trim(),
     gridBlock: document.getElementById('gridBlock').value.trim(),
     assemblyType,
     doorRating: document.getElementById('doorRating').value,
-    startTime: new Date().toISOString()
+    startTime
   };
 
-  answers = {};
   deficiencies = [];
   currentPhaseIdx = 0;
   currentQIdx = 0;
@@ -2015,28 +2135,49 @@ function completeInspection() {
   if (hasFailures) overallStatus = 'fail';
   else if (hasWarnings) overallStatus = 'conditional';
 
-  const record = {
-    ...currentDoor,
-    id: Date.now().toString(36) + Math.random().toString(36).substr(2,5),
-    overallStatus,
-    deficiencies,
-    findings: answers,
-    additionalComments: answers['additional_comments']?.value || '',
-    postInspectionStatus: answers['post_inspection_status']?.label || '',
-    completedTime: new Date().toISOString(),
-    synced: false
-  };
-
   const records = getRecords();
-  records.push(record);
+
+  if (editingRecordId) {
+    // UPDATE existing record
+    const idx = records.findIndex(r => r.id === editingRecordId);
+    if (idx !== -1) {
+      records[idx] = {
+        ...records[idx],
+        ...currentDoor,
+        overallStatus,
+        deficiencies,
+        findings: answers,
+        additionalComments: answers['additional_comments']?.value || '',
+        postInspectionStatus: answers['post_inspection_status']?.label || '',
+        completedTime: new Date().toISOString(),
+        synced: false  // mark for re-sync
+      };
+      showToast('Inspection updated!' + (deficiencies.length > 0 ? ' ' + deficiencies.length + ' deficiency(ies).' : ' No deficiencies.'), deficiencies.length > 0 ? 'warn' : '');
+    }
+    editingRecordId = null;
+  } else {
+    // NEW record
+    const record = {
+      ...currentDoor,
+      id: Date.now().toString(36) + Math.random().toString(36).substr(2,5),
+      overallStatus,
+      deficiencies,
+      findings: answers,
+      additionalComments: answers['additional_comments']?.value || '',
+      postInspectionStatus: answers['post_inspection_status']?.label || '',
+      completedTime: new Date().toISOString(),
+      synced: false
+    };
+    records.push(record);
+    showToast('Inspection saved!' + (deficiencies.length > 0 ? ' ' + deficiencies.length + ' deficiency(ies).' : ' No deficiencies.'), deficiencies.length > 0 ? 'warn' : '');
+  }
+
   localStorage.setItem('doorInspections', JSON.stringify(records));
 
-  showToast(
-    'Inspection saved! ' + (deficiencies.length > 0 ? deficiencies.length + ' deficiency(ies) recorded.' : 'No deficiencies.'),
-    deficiencies.length > 0 ? 'warn' : ''
-  );
+  // Auto-sync immediately if online
+  setTimeout(() => autoSync(), 500);
 
-  // Reset for next door — keep project and floor
+  // Reset for next door
   document.getElementById('tab-inspect').classList.add('hidden');
   document.getElementById('tab-setup').classList.remove('hidden');
   document.querySelectorAll('.nav-tab').forEach((el,i) => el.classList.toggle('active', i===0));
@@ -2089,6 +2230,7 @@ function renderRecords() {
       <td style="font-size:12px;color:var(--text2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${defs}">${defs}</td>
       <td style="font-size:12px;">${r.inspectorName||'—'}</td>
       <td style="font-family:var(--mono);font-size:11px;color:var(--text2);">${dtStr}</td>
+      <td><button onclick="editRecord('${r.id}')" style="font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--text2);cursor:pointer;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">Edit</button></td>
     `;
     tbody.appendChild(tr);
   });
@@ -2132,7 +2274,7 @@ function exportExcel() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  SUPABASE
+//  SUPABASE CONFIG
 // ═══════════════════════════════════════════════════════════════════
 function getConfig() {
   return { url: localStorage.getItem('supabaseUrl')||'', key: localStorage.getItem('supabaseKey')||'' };
@@ -2149,6 +2291,11 @@ function saveConfig() {
   localStorage.setItem('supabaseKey', document.getElementById('supabaseKey').value.trim());
   showToast('Configuration saved.');
   updateSyncStatus();
+  // Fetch projects then show selector if none chosen yet
+  downloadScheduleFromSupabase().then(() => {
+    if (!getActiveProject()) openProjectModal(true);
+  });
+  autoSync();
 }
 
 async function testConnection() {
@@ -2168,22 +2315,27 @@ async function testConnection() {
   } catch(e) { showToast('Connection error: ' + e.message, 'error'); }
 }
 
-async function syncToSupabase() {
+// ─── AUTO-SYNC: runs on load, on reconnect, and after each inspection ───
+async function autoSync() {
   const cfg = getConfig();
-  if (!cfg.url || !cfg.key) { showToast('Configure Supabase in Config tab first.', 'warn'); return; }
-
+  if (!cfg.url || !cfg.key || !navigator.onLine || isSyncing) return;
   const records = getRecords();
   const unsynced = records.filter(r => !r.synced);
-  if (!unsynced.length) { showToast('All records already synced.'); return; }
+  if (!unsynced.length) return;
 
-  showToast('Syncing ' + unsynced.length + ' records...');
+  isSyncing = true;
   let ok = 0;
   for (const r of unsynced) {
     try {
       const res = await fetch(cfg.url + '/rest/v1/door_inspections', {
         method: 'POST',
-        headers: { 'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        headers: {
+          'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates,return=minimal'
+        },
         body: JSON.stringify({
+          id: r.id,
           icon_no: r.iconNo, asset_id: r.assetId, floor: r.floorNo, grid_block: r.gridBlock,
           assembly_type: ASSEMBLY_TYPE_LABELS[r.assemblyType]||r.assemblyType, door_rating: r.doorRating,
           inspector: r.inspectorName, project: r.projectName,
@@ -2195,10 +2347,22 @@ async function syncToSupabase() {
       if (res.ok || res.status === 201) { r.synced = true; ok++; }
     } catch(e) { console.error(e); }
   }
-  localStorage.setItem('doorInspections', JSON.stringify(records));
-  showToast('Synced ' + ok + ' of ' + unsynced.length + ' records.');
-  renderRecords();
-  updateSyncStatus();
+  isSyncing = false;
+  if (ok > 0) {
+    localStorage.setItem('doorInspections', JSON.stringify(records));
+    renderRecords();
+    updateSyncStatus();
+  }
+}
+
+// Manual sync button
+async function syncToSupabase() {
+  const cfg = getConfig();
+  if (!cfg.url || !cfg.key) { showToast('Configure Supabase in Config tab first.', 'warn'); return; }
+  showToast('Syncing...');
+  await autoSync();
+  const pending = getRecords().filter(r => !r.synced).length;
+  showToast(pending === 0 ? 'All records synced.' : pending + ' record(s) still pending (check connection).');
 }
 
 function updateSyncStatus() {
@@ -2206,7 +2370,7 @@ function updateSyncStatus() {
   const pending = getRecords().filter(r => !r.synced).length;
   document.getElementById('syncDot').className = cfg.url ? 'dot green' : 'dot orange';
   document.getElementById('syncStatus').textContent = cfg.url
-    ? 'Supabase configured — ' + pending + ' record(s) pending sync'
+    ? (pending > 0 ? pending + ' record(s) pending sync' : 'All records synced ✓')
     : 'Local storage only — configure Supabase to enable sync';
 }
 
@@ -2217,6 +2381,163 @@ function clearLocalData() {
   showToast('Local data cleared.');
 }
 
+// ─── DOOR SCHEDULE: upload to Supabase (run once by lead) ─────────────
+async function uploadScheduleToSupabase() {
+  const cfg = getConfig();
+  if (!cfg.url || !cfg.key) { showToast('Configure Supabase credentials first.', 'warn'); return; }
+  const schedule = getDoorSchedule();
+  const entries = Object.values(schedule);
+  if (!entries.length) { showToast('No door schedule loaded. Import a Fieldwire CSV first.', 'warn'); return; }
+
+  showToast('Uploading ' + entries.length + ' doors to Supabase...');
+
+  // First, clear existing schedule for this project to allow full re-upload
+  // Then insert all entries fresh — avoids upsert issues with null asset_ids
+  let ok = 0, failed = 0;
+  const batchSize = 50;
+
+  for (let i = 0; i < entries.length; i += batchSize) {
+    const batch = entries.slice(i, i + batchSize).map(d => ({
+      asset_id: d.assetId || null,
+      icon_no: d.iconNo || null,
+      floor: d.floorNo || null,
+      grid_block: d.gridBlock || null,
+      assembly_type: ASSEMBLY_TYPE_LABELS[d.assemblyType] || d.assemblyType || null,
+      door_rating: d.doorRating || null,
+      project: d.project || null
+    }));
+
+    try {
+      // Use INSERT with on-conflict ignore for rows with asset_id,
+      // and plain insert for rows without (NOID entries)
+      const withId   = batch.filter(d => d.asset_id);
+      const withoutId = batch.filter(d => !d.asset_id);
+
+      // Upsert rows that have an asset_id
+      if (withId.length) {
+        const r1 = await fetch(cfg.url + '/rest/v1/door_schedule', {
+          method: 'POST',
+          headers: {
+            'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates,return=minimal'
+          },
+          body: JSON.stringify(withId)
+        });
+        if (r1.ok || r1.status === 201) ok += withId.length;
+        else {
+          const err = await r1.text();
+          console.error('Upsert error:', r1.status, err);
+          failed += withId.length;
+        }
+      }
+
+      // Insert rows without asset_id (ignore duplicates by doing individual inserts)
+      for (const row of withoutId) {
+        const r2 = await fetch(cfg.url + '/rest/v1/door_schedule', {
+          method: 'POST',
+          headers: {
+            'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify(row)
+        });
+        if (r2.ok || r2.status === 201) ok++;
+        else failed++;
+      }
+    } catch(e) { console.error('Upload batch error:', e); failed += batch.length; }
+  }
+
+  if (failed > 0) {
+    showToast('Uploaded ' + ok + ' doors. ' + failed + ' failed — check console for details.', 'warn');
+  } else {
+    showToast('Successfully uploaded ' + ok + ' doors to Supabase.');
+  }
+}
+
+// ─── DOOR SCHEDULE: download from Supabase (inspectors, silent on first open) ───
+async function downloadScheduleFromSupabase() {
+  const cfg = getConfig();
+  if (!cfg.url || !cfg.key || !navigator.onLine) return;
+  try {
+    const activeProject = getActiveProject();
+    // Scope download to active project if one is selected
+    const projectFilter = activeProject
+      ? '&project=eq.' + encodeURIComponent(activeProject)
+      : '';
+    let allRows = [];
+    let from = 0;
+    while (true) {
+      const res = await fetch(cfg.url + '/rest/v1/door_schedule?select=*&order=asset_id' + projectFilter, {
+        headers: {
+          'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key,
+          'Range': from + '-' + (from + 999), 'Range-Unit': 'items'
+        }
+      });
+      if (!res.ok) break;
+      const rows = await res.json();
+      if (!rows.length) break;
+      allRows = allRows.concat(rows);
+      if (rows.length < 1000) break;
+      from += 1000;
+    }
+    if (!allRows.length) return;
+
+    const schedule = {};
+    for (const row of allRows) {
+      const key = row.asset_id || ('NOID|' + (row.project||'NOPROJECT') + '|' + (row.icon_no||''));
+      if (!key || key === 'NOID|NOPROJECT|') continue;
+      const ratingLabel = (row.door_rating||'').toLowerCase();
+      const typeLabel = (row.assembly_type||'').toLowerCase();
+      const assemblyTypeKey = Object.entries(ASSEMBLY_TYPE_LABELS).find(([k,v]) => v.toLowerCase() === typeLabel)?.[0] || typeLabel;
+      schedule[key] = {
+        assetId: row.asset_id || null,
+        iconNo: row.icon_no || '',
+        floorNo: row.floor || '',
+        gridBlock: row.grid_block || '',
+        assemblyType: assemblyTypeKey,
+        doorRating: RATING_VALUES[ratingLabel] || ratingLabel || '',
+        project: row.project || '',
+        noAssetId: !row.asset_id
+      };
+    }
+
+    doorSchedule = schedule;
+    localStorage.setItem('doorSchedule', JSON.stringify(doorSchedule));
+
+    const projects = getProjects();
+    const savedProj = localStorage.getItem('activeProject');
+    if (!savedProj && projects.length === 1) setActiveProject(projects[0]);
+    if (savedProj) document.getElementById('activeProjectName').textContent = savedProj;
+  } catch(e) { console.error('Schedule download error:', e); }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  RECORD EDITING
+// ═══════════════════════════════════════════════════════════════════
+
+function editRecord(recordId) {
+  const records = getRecords();
+  const record = records.find(r => r.id === recordId);
+  if (!record) return;
+
+  editingRecordId = recordId;
+  answers = record.findings || {};
+
+  document.getElementById('assetId').value = record.assetId || '';
+  document.getElementById('iconNo').value = record.iconNo || '';
+  document.getElementById('floorNo').value = record.floorNo || '';
+  document.getElementById('gridBlock').value = record.gridBlock || '';
+  document.getElementById('assemblyType').value = record.assemblyType || '';
+  document.getElementById('doorRating').value = record.doorRating || '';
+  onAssemblyTypeChange();
+
+  showTab('setup');
+  showToast('Edit mode: review answers and re-submit to update.', 'warn');
+  window.scrollTo(0, 0);
+}
+
 // ═══════════════════════════════════════════════════════════════════
 //  CONNECTIVITY + TOAST
 // ═══════════════════════════════════════════════════════════════════
@@ -2224,6 +2545,7 @@ function updateConnectivity() {
   const badge = document.getElementById('syncBadge');
   badge.className = 'sync-badge ' + (navigator.onLine ? 'online' : 'offline');
   badge.textContent = navigator.onLine ? 'ONLINE' : 'OFFLINE';
+  if (navigator.onLine) autoSync();
 }
 window.addEventListener('online', updateConnectivity);
 window.addEventListener('offline', updateConnectivity);
@@ -2249,8 +2571,15 @@ updateSyncStatus();
 const savedProject = localStorage.getItem('activeProject');
 if (savedProject) document.getElementById('activeProjectName').textContent = savedProject;
 
-// Load door schedule from storage
+// Load schedule locally first
 getDoorSchedule();
+
+// Supabase background tasks — only if configured
+const _cfg = getConfig();
+if (_cfg.url && _cfg.key) {
+  downloadScheduleFromSupabase();
+  autoSync();
+}
 </script>
 </body>
 </html>
