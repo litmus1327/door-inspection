@@ -2480,12 +2480,37 @@ function clearLocalData() {
 }
 
 // ─── DOOR SCHEDULE: upload to Supabase (run once by lead) ─────────────
+let _uploadCancelled = false;
+
 async function uploadScheduleToSupabase() {
   const cfg = getConfig();
   if (!cfg.url || !cfg.key) { showToast('Configure Supabase credentials first.', 'warn'); return; }
   const schedule = getDoorSchedule();
   const entries = Object.values(schedule);
   if (!entries.length) { showToast('No door schedule loaded. Import a Fieldwire CSV first.', 'warn'); return; }
+
+  // ── 3-second countdown with cancel ────────────────────────────
+  _uploadCancelled = false;
+  await new Promise((resolve) => {
+    let seconds = 3;
+    const t = document.getElementById('toast');
+
+    const tick = () => {
+      if (_uploadCancelled) { resolve('cancelled'); return; }
+      t.innerHTML = `Uploading ${entries.length} doors in ${seconds}s&nbsp;&nbsp;<button onclick="_uploadCancelled=true" style="font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:3px 10px;background:var(--fail);color:#fff;border:none;border-radius:3px;cursor:pointer;margin-left:8px;">Cancel</button>`;
+      t.className = 'toast warn';
+      t.classList.remove('hidden');
+      if (seconds === 0) { resolve('go'); return; }
+      seconds--;
+      setTimeout(tick, 1000);
+    };
+    tick();
+  });
+
+  if (_uploadCancelled) {
+    showToast('Upload cancelled.', 'warn');
+    return;
+  }
 
   showToast('Uploading ' + entries.length + ' doors to Supabase...');
 
