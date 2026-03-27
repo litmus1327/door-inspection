@@ -1190,22 +1190,34 @@ function processCSV(file) {
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
-      // ── Decode: handle UTF-16 LE/BE (Fieldwire) and UTF-8 ──────────
+      // ── Decode: try UTF-16 LE first (Fieldwire default), fall back to UTF-8 ──
       const buf = e.target.result;
       const bytes = new Uint8Array(buf);
       let text;
-      if (bytes[0] === 0xFF && bytes[1] === 0xFE) {
-        text = new TextDecoder('utf-16le').decode(buf);
-      } else if (bytes[0] === 0xFE && bytes[1] === 0xFF) {
-        text = new TextDecoder('utf-16be').decode(buf);
-      } else {
-        text = new TextDecoder('utf-8').decode(buf);
-      }
-      text = text.replace(/^\uFEFF/, ''); // strip BOM
 
-      // ── Detect delimiter: tab or comma ──────────────────────────────
-      const firstLine = text.split(/\r?\n/).find(l => l.trim()) || '';
-      const delimiter = (firstLine.split('\t').length > firstLine.split(',').length) ? '\t' : ',';
+      // Try UTF-16 LE (Fieldwire always exports this)
+      const utf16text = new TextDecoder('utf-16le').decode(buf).replace(/^\uFEFF/, '');
+      // UTF-16 LE decode is valid if result contains mostly printable ASCII
+      const printable = utf16text.replace(/[\x00-\x08\x0e-\x1f\x7f-\x9f]/g, '');
+      if (printable.length > utf16text.length * 0.8 && utf16text.includes('\t')) {
+        text = utf16text;
+      } else if (bytes[0] === 0xFF && bytes[1] === 0xFE) {
+        text = new TextDecoder('utf-16le').decode(buf).replace(/^\uFEFF/, '');
+      } else if (bytes[0] === 0xFE && bytes[1] === 0xFF) {
+        text = new TextDecoder('utf-16be').decode(buf).replace(/^\uFEFF/, '');
+      } else {
+        text = new TextDecoder('utf-8').decode(buf).replace(/^\uFEFF/, '');
+      }
+
+      // ── Detect delimiter from the line with the most separators ──────
+      // Use the line with the most tabs or commas (skips metadata rows)
+      const allLines = text.split(/\r?\n/).filter(l => l.trim());
+      let maxTabs = 0, maxCommas = 0;
+      for (const line of allLines.slice(0, 10)) {
+        maxTabs = Math.max(maxTabs, (line.match(/\t/g) || []).length);
+        maxCommas = Math.max(maxCommas, (line.match(/,/g) || []).length);
+      }
+      const delimiter = maxTabs > maxCommas ? '\t' : ',';
 
       const rows = parseCSV(text, delimiter);
       if (rows.length < 2) { showToast('CSV appears empty or invalid.', 'error'); return; }
