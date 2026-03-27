@@ -784,7 +784,19 @@
         <div class="import-sub">Tap to browse or drag and drop your CSV file here</div>
       </div>
       <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="handleCSVFile(event)">
-      <button class="btn btn-danger" style="font-size:12px;padding:8px 16px;" onclick="clearDoorSchedule()">Clear Door Schedule</button>
+
+      <!-- Preview panel shown after CSV import -->
+      <div id="schedulePreview" style="display:none;margin-top:16px;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Import Preview</div>
+        <div id="schedulePreviewList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-primary" style="font-size:12px;padding:8px 18px;" onclick="closeProjectDrawer();uploadScheduleToSupabase()">↑ Upload to Supabase</button>
+          <button class="btn btn-danger" style="font-size:12px;padding:8px 16px;" onclick="clearDoorSchedule()">Clear</button>
+        </div>
+      </div>
+      <div id="schedulePreviewEmpty" style="margin-top:12px;">
+        <button class="btn btn-danger" style="font-size:12px;padding:8px 16px;" onclick="clearDoorSchedule()">Clear Door Schedule</button>
+      </div>
     </div>
   </div>
 
@@ -1259,6 +1271,8 @@ function confirmProjectSelection() {
 function openProjectDrawer() {
   document.getElementById('drawerOverlay').classList.remove('hidden');
   document.getElementById('projectDrawer').classList.remove('hidden');
+  // Show preview if schedule already loaded
+  renderSchedulePreview();
 }
 
 function closeProjectDrawer() {
@@ -1480,9 +1494,9 @@ function processCSV(file) {
       localStorage.setItem('doorSchedule', JSON.stringify(doorSchedule));
 
       const projects = getProjects();
-      const msg = `Imported: ${added} new door(s) added, ${updated} updated. ${projects.length} project(s) total.`;
-      showToast(msg);
+      showToast('Imported ' + (added + updated) + ' doors across ' + projects.length + ' project(s). Review below before uploading.');
       renderProjectList();
+      renderSchedulePreview();
 
       if (projects.length === 1) setActiveProject(projects[0]);
 
@@ -1516,6 +1530,43 @@ function parseCSV(text, delimiter = ',') {
     rows.push(row);
   }
   return rows;
+}
+
+function renderSchedulePreview() {
+  const schedule = getDoorSchedule();
+  const previewEl = document.getElementById('schedulePreview');
+  const emptyEl = document.getElementById('schedulePreviewEmpty');
+  const listEl = document.getElementById('schedulePreviewList');
+  if (!previewEl) return;
+
+  // Count doors per project
+  const projectCounts = {};
+  Object.values(schedule).forEach(d => {
+    const p = d.project || '(No Project)';
+    projectCounts[p] = (projectCounts[p] || 0) + 1;
+  });
+
+  const projects = Object.keys(projectCounts).sort();
+
+  if (!projects.length) {
+    previewEl.style.display = 'none';
+    if (emptyEl) emptyEl.style.display = '';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  projects.forEach(p => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;';
+    row.innerHTML = `
+      <span style="font-family:var(--head);font-size:15px;font-weight:600;color:var(--text);letter-spacing:1px;">${p}</span>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--accent);">${projectCounts[p]} doors</span>
+    `;
+    listEl.appendChild(row);
+  });
+
+  previewEl.style.display = '';
+  if (emptyEl) emptyEl.style.display = 'none';
 }
 
 function clearDoorSchedule() {
@@ -2514,8 +2565,24 @@ async function uploadScheduleToSupabase() {
 
   showToast('Uploading ' + entries.length + ' doors to Supabase...');
 
-  // First, clear existing schedule for this project to allow full re-upload
-  // Then insert all entries fresh — avoids upsert issues with null asset_ids
+  // ── Delete existing rows for these projects first (prevents duplicates) ──
+  const projectsToUpload = [...new Set(entries.map(d => d.project).filter(Boolean))];
+  for (const proj of projectsToUpload) {
+    try {
+      await fetch(cfg.url + '/rest/v1/door_schedule?project=eq.' + encodeURIComponent(proj), {
+        method: 'DELETE',
+        headers: { 'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key }
+      });
+    } catch(e) { console.error('Delete error:', e); }
+  }
+  // Also delete rows with null project to avoid orphans
+  try {
+    await fetch(cfg.url + '/rest/v1/door_schedule?project=is.null', {
+      method: 'DELETE',
+      headers: { 'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key }
+    });
+  } catch(e) {}
+
   let ok = 0, failed = 0;
   const batchSize = 50;
 
