@@ -750,8 +750,8 @@
     <div style="margin-bottom:16px;">
       <div class="card-title" style="margin-bottom:12px;">Import Door Schedule from Fieldwire</div>
       <div class="config-note" style="margin-bottom:12px;">
-        Export your door schedule from Fieldwire as a CSV. Required columns: <strong>Asset ID</strong> and <strong>Icon No.</strong> — optional: Floor, Grid Block, Assembly Type, Door Rating, Project.<br><br>
-        The <strong>Project</strong> column (if present) will group doors into projects automatically. Each unique project name becomes a selectable project above.
+        Export your door schedule from Fieldwire as a CSV. Required: <strong>Asset ID</strong>. The <strong>ID</strong> column (Fieldwire default) maps automatically to Icon No. Optional: Floor, Grid Block, Assembly Type, Door Rating, Project.<br><br>
+        Fieldwire metadata rows at the top are skipped automatically. The <strong>Project</strong> column groups doors into selectable projects. Re-uploading adds new doors and updates existing ones — no duplicates.
       </div>
       <div class="import-zone" id="importZone" onclick="document.getElementById('csvFileInput').click()"
         ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
@@ -1194,7 +1194,29 @@ function processCSV(file) {
       const rows = parseCSV(text);
       if (rows.length < 2) { showToast('CSV appears empty or invalid.', 'error'); return; }
 
-      const headers = rows[0].map(h => h.trim().toLowerCase());
+      // ── Auto-detect header row ──────────────────────────────────────
+      // Fieldwire exports have 1-4 metadata rows before real headers.
+      // Find the first row that contains a recognized column keyword.
+      const HEADER_KEYWORDS = [
+        'asset id','asset_id','assetid','asset',
+        'id','icon no','icon no.','icon_no','icon number','icon',
+        'floor','grid block','grid_block','assembly type','door rating','project'
+      ];
+
+      let headerRowIdx = -1;
+      for (let i = 0; i < Math.min(rows.length, 10); i++) {
+        const rowLower = rows[i].map(c => c.trim().toLowerCase());
+        const matches = rowLower.filter(c => HEADER_KEYWORDS.includes(c)).length;
+        if (matches >= 2) { headerRowIdx = i; break; }
+      }
+
+      if (headerRowIdx === -1) {
+        showToast('Could not find column headers in CSV. Check that your export includes column names like "Asset ID" and "ID".', 'error');
+        return;
+      }
+
+      const headers = rows[headerRowIdx].map(h => h.trim().toLowerCase());
+
       const find = (variants) => {
         for (const v of variants) {
           const idx = headers.indexOf(v);
@@ -1203,50 +1225,62 @@ function processCSV(file) {
         return -1;
       };
 
-      const idxAsset    = find(['asset id', 'asset_id', 'assetid', 'asset']);
-      const idxIcon     = find(['icon no', 'icon no.', 'icon_no', 'icon number', 'iconno', 'icon']);
-      const idxFloor    = find(['floor', 'floor no', 'floor no.', 'floor_no', 'level']);
-      const idxGrid     = find(['grid block', 'grid_block', 'grid', 'zone', 'gridblock']);
-      const idxType     = find(['assembly type', 'assembly_type', 'type', 'door type', 'door_type']);
-      const idxRating   = find(['door rating', 'door_rating', 'rating', 'fire rating']);
-      const idxProject  = find(['project', 'project name', 'facility', 'building']);
-
+      // Asset ID — required
+      const idxAsset = find(['asset id','asset_id','assetid','asset']);
       if (idxAsset === -1) {
         showToast('CSV must have an "Asset ID" column.', 'error');
         return;
       }
 
-      const schedule = {};
-      let count = 0;
+      // Icon No. — also accept plain "id" (Fieldwire default)
+      const idxIcon    = find(['icon no','icon no.','icon_no','icon number','iconno','icon','id']);
+      const idxFloor   = find(['floor','floor no','floor no.','floor_no','level']);
+      const idxGrid    = find(['grid block','grid_block','grid','zone','gridblock']);
+      const idxType    = find(['assembly type','assembly_type','type','door type','door_type','category']);
+      const idxRating  = find(['door rating','door_rating','rating','fire rating','door ratin']);
+      const idxProject = find(['project','project name','facility','building']);
 
-      for (let i = 1; i < rows.length; i++) {
+      // ── Load existing schedule and merge (no duplicates) ──────────
+      const existingSchedule = getDoorSchedule();
+      let added = 0, updated = 0;
+
+      for (let i = headerRowIdx + 1; i < rows.length; i++) {
         const row = rows[i];
         const assetId = row[idxAsset]?.trim();
         if (!assetId) continue;
 
-        const rawType = idxType !== -1 ? (row[idxType] || '').trim().toLowerCase() : '';
+        const rawType   = idxType   !== -1 ? (row[idxType]   || '').trim().toLowerCase() : '';
         const rawRating = idxRating !== -1 ? (row[idxRating] || '').trim().toLowerCase() : '';
+        const iconVal   = idxIcon   !== -1 ? (row[idxIcon]   || '').trim() : '';
 
-        schedule[assetId] = {
+        const newEntry = {
           assetId,
-          iconNo:       idxIcon    !== -1 ? (row[idxIcon]    || '').trim() : '',
+          iconNo:       iconVal,
           floorNo:      idxFloor   !== -1 ? (row[idxFloor]   || '').trim() : '',
           gridBlock:    idxGrid    !== -1 ? (row[idxGrid]    || '').trim() : '',
           assemblyType: ASSEMBLY_TYPE_VALUES[rawType] || rawType || '',
           doorRating:   RATING_VALUES[rawRating] || rawRating || '',
           project:      idxProject !== -1 ? (row[idxProject] || '').trim() : ''
         };
-        count++;
+
+        if (existingSchedule[assetId]) {
+          // Update existing entry only if new data has more info
+          existingSchedule[assetId] = { ...existingSchedule[assetId], ...newEntry };
+          updated++;
+        } else {
+          existingSchedule[assetId] = newEntry;
+          added++;
+        }
       }
 
-      doorSchedule = schedule;
-      localStorage.setItem('doorSchedule', JSON.stringify(schedule));
+      doorSchedule = existingSchedule;
+      localStorage.setItem('doorSchedule', JSON.stringify(doorSchedule));
 
       const projects = getProjects();
-      showToast(`Imported ${count} doors across ${projects.length} project(s).`);
+      const msg = `Imported: ${added} new door(s) added, ${updated} updated. ${projects.length} project(s) total.`;
+      showToast(msg);
       renderProjectList();
 
-      // Auto-select project if only one
       if (projects.length === 1) setActiveProject(projects[0]);
 
     } catch (err) {
