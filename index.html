@@ -781,9 +781,10 @@
         ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
         <div class="import-icon">📋</div>
         <div class="import-title">Upload Fieldwire CSV</div>
-        <div class="import-sub">Tap to browse or drag and drop your CSV file here</div>
+        <div class="import-sub">Tap to browse or drag and drop one or more CSV files here</div>
+        <div id="importProgress" style="display:none;margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:1px;"></div>
       </div>
-      <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="handleCSVFile(event)">
+      <input type="file" id="csvFileInput" accept=".csv" multiple style="display:none" onchange="handleCSVFile(event)">
 
       <!-- Preview panel shown after CSV import -->
       <div id="schedulePreview" style="display:none;margin-top:16px;">
@@ -1306,17 +1307,41 @@ function handleDragLeave(e) {
 function handleDrop(e) {
   e.preventDefault();
   document.getElementById('importZone').classList.remove('dragover');
-  const file = e.dataTransfer.files[0];
-  if (file) processCSV(file);
+  const files = [...e.dataTransfer.files].filter(f => f.name.toLowerCase().endsWith('.csv'));
+  if (files.length) processMultipleCSVs(files);
+  else showToast('Please drop CSV files only.', 'warn');
 }
 
 function handleCSVFile(e) {
-  const file = e.target.files[0];
-  if (file) processCSV(file);
+  const files = [...e.target.files];
+  if (files.length) processMultipleCSVs(files);
   e.target.value = '';
 }
 
-function processCSV(file) {
+async function processMultipleCSVs(files) {
+  const progressEl = document.getElementById('importProgress');
+  if (progressEl) progressEl.style.display = '';
+
+  // Clear existing schedule before importing fresh batch
+  doorSchedule = {};
+  localStorage.removeItem('doorSchedule');
+
+  let totalAdded = 0, totalUpdated = 0;
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    if (progressEl) progressEl.textContent = `Processing ${i + 1} of ${files.length}: ${file.name}`;
+    await new Promise(resolve => processCSV(file, resolve));
+    // Small pause between files
+    await new Promise(r => setTimeout(r, 100));
+  }
+
+  if (progressEl) progressEl.style.display = 'none';
+  renderSchedulePreview();
+  const projects = getProjects();
+  showToast(`Imported ${files.length} file(s) — ${Object.keys(getDoorSchedule()).length} doors across ${projects.length} project(s). Review below.`);
+}
+
+function processCSV(file, onComplete) {
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
@@ -1494,16 +1519,21 @@ function processCSV(file) {
       localStorage.setItem('doorSchedule', JSON.stringify(doorSchedule));
 
       const projects = getProjects();
-      showToast('Imported ' + (added + updated) + ' doors across ' + projects.length + ' project(s). Review below before uploading.');
+      // Only show individual toast if processing a single file directly
+      if (!onComplete) {
+        showToast('Imported ' + (added + updated) + ' doors across ' + projects.length + ' project(s). Review below before uploading.');
+        renderSchedulePreview();
+      }
       renderProjectList();
-      renderSchedulePreview();
 
       if (projects.length === 1) setActiveProject(projects[0]);
 
     } catch (err) {
       showToast('Error parsing CSV: ' + err.message, 'error');
     }
+    if (onComplete) onComplete();
   };
+  reader.onerror = () => { if (onComplete) onComplete(); };
   reader.readAsArrayBuffer(file);
 }
 
