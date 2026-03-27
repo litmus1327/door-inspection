@@ -1,0 +1,1951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Door Inspection System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Barlow:wght@300;400;500&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f12;
+    --surface: #151820;
+    --surface2: #1c2030;
+    --surface3: #232840;
+    --border: #2a3050;
+    --accent: #e8a020;
+    --accent2: #3d7fff;
+    --pass: #28c76f;
+    --fail: #ea5455;
+    --warn: #ff9f43;
+    --text: #dce3f0;
+    --text2: #8892aa;
+    --text3: #4a5570;
+    --mono: 'Share Tech Mono', monospace;
+    --head: 'Barlow Condensed', sans-serif;
+    --body: 'Barlow', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 15px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* GRID BACKGROUND */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.18;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #app { position: relative; z-index: 1; }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--surface);
+    border-bottom: 2px solid var(--accent);
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: var(--head);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .logo span { color: var(--accent); }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .sync-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 3px;
+    border: 1px solid;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: default;
+  }
+  .sync-badge.online { border-color: var(--pass); color: var(--pass); background: rgba(40,199,111,0.08); }
+  .sync-badge.offline { border-color: var(--warn); color: var(--warn); background: rgba(255,159,67,0.08); }
+
+  .inspector-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+  }
+
+  /* ── NAV TABS ── */
+  .nav-tabs {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    gap: 0;
+  }
+
+  .nav-tab {
+    font-family: var(--head);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 12px 20px;
+    color: var(--text3);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.2s;
+    border: none;
+    background: none;
+  }
+  .nav-tab:hover { color: var(--text2); }
+  .nav-tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+
+  /* ── MAIN LAYOUT ── */
+  main { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+
+  /* ── SETUP SCREEN ── */
+  .setup-screen { animation: fadeIn 0.3s ease; }
+
+  .screen-title {
+    font-family: var(--head);
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  .screen-sub {
+    font-size: 13px;
+    color: var(--text2);
+    margin-bottom: 32px;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+
+  .card-title {
+    font-family: var(--head);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 14px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  /* ── FORM ELEMENTS ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+
+  label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  input, select, textarea {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 14px;
+    padding: 10px 12px;
+    transition: border-color 0.2s;
+    width: 100%;
+    outline: none;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent2);
+  }
+  select { cursor: pointer; }
+  select option { background: var(--surface2); }
+  textarea { resize: vertical; min-height: 80px; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    font-family: var(--head);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 12px 28px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #0d0f12;
+  }
+  .btn-primary:hover { background: #f0b030; transform: translateY(-1px); }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--text2); color: var(--text); }
+
+  .btn-danger {
+    background: transparent;
+    color: var(--fail);
+    border: 1px solid var(--fail);
+  }
+  .btn-danger:hover { background: rgba(234,84,85,0.1); }
+
+  .btn-pass {
+    background: var(--pass);
+    color: #0d0f12;
+    flex: 1;
+  }
+  .btn-pass:hover { background: #35d97f; }
+
+  .btn-fail {
+    background: var(--fail);
+    color: #fff;
+    flex: 1;
+  }
+  .btn-fail:hover { background: #f06060; }
+
+  .btn-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+  }
+
+  /* ── SUPABASE CONFIG ── */
+  .config-note {
+    font-size: 12px;
+    color: var(--text2);
+    line-height: 1.6;
+    padding: 12px;
+    background: rgba(61,127,255,0.06);
+    border: 1px solid rgba(61,127,255,0.2);
+    border-radius: 4px;
+    margin-bottom: 16px;
+  }
+  .config-note a { color: var(--accent2); }
+  .config-note code {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--surface3);
+    padding: 1px 5px;
+    border-radius: 2px;
+  }
+
+  /* ── INSPECTION WIZARD ── */
+  .wizard { animation: fadeIn 0.3s ease; }
+
+  .progress-bar {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 32px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .step-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 80px;
+  }
+
+  .step-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text3);
+    background: var(--surface);
+    transition: all 0.3s;
+    position: relative;
+    z-index: 1;
+  }
+  .step-circle.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(232,160,32,0.15);
+  }
+  .step-circle.done {
+    border-color: var(--pass);
+    background: var(--pass);
+    color: #0d0f12;
+  }
+
+  .step-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .step-label.active { color: var(--accent); }
+  .step-label.done { color: var(--pass); }
+
+  .step-line {
+    flex: 1;
+    height: 2px;
+    background: var(--border);
+    margin-bottom: 22px;
+    min-width: 20px;
+    transition: background 0.3s;
+  }
+  .step-line.done { background: var(--pass); }
+
+  /* ── QUESTION BLOCKS ── */
+  .question-block {
+    animation: slideIn 0.25s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(12px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .question-ref {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent2);
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .question-text {
+    font-family: var(--head);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--text);
+    margin-bottom: 20px;
+    line-height: 1.3;
+  }
+
+  .choices {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .choice-btn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+    width: 100%;
+    font-family: var(--body);
+    font-size: 14px;
+    color: var(--text);
+  }
+  .choice-btn:hover { border-color: var(--accent2); background: var(--surface3); }
+  .choice-btn.selected-pass { border-color: var(--pass); background: rgba(40,199,111,0.08); color: var(--pass); }
+  .choice-btn.selected-fail { border-color: var(--fail); background: rgba(234,84,85,0.08); color: var(--fail); }
+  .choice-btn.selected-neutral { border-color: var(--accent2); background: rgba(61,127,255,0.08); color: var(--accent2); }
+
+  .choice-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .ind-pass { background: var(--pass); }
+  .ind-fail { background: var(--fail); }
+  .ind-warn { background: var(--warn); }
+  .ind-na { background: var(--text3); }
+
+  /* ── DEFICIENCY PANEL ── */
+  .deficiency-panel {
+    background: rgba(234,84,85,0.06);
+    border: 1px solid rgba(234,84,85,0.25);
+    border-radius: 5px;
+    padding: 16px;
+    margin-top: 12px;
+    animation: fadeIn 0.2s ease;
+  }
+
+  .deficiency-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--fail);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  /* ── SUMMARY / RESULTS ── */
+  .summary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .result-badge {
+    font-family: var(--head);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    padding: 8px 20px;
+    border-radius: 4px;
+  }
+  .result-badge.pass { background: rgba(40,199,111,0.12); color: var(--pass); border: 1px solid var(--pass); }
+  .result-badge.fail { background: rgba(234,84,85,0.12); color: var(--fail); border: 1px solid var(--fail); }
+  .result-badge.conditional { background: rgba(255,159,67,0.12); color: var(--warn); border: 1px solid var(--warn); }
+
+  .finding-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+  }
+  .finding-row:last-child { border-bottom: none; }
+
+  .finding-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+    letter-spacing: 0.5px;
+    min-width: 160px;
+  }
+
+  .finding-val {
+    font-size: 13px;
+    color: var(--text);
+    text-align: right;
+    flex: 1;
+  }
+
+  .finding-val.fail { color: var(--fail); }
+  .finding-val.pass { color: var(--pass); }
+
+  /* ── RECORDS TABLE ── */
+  .records-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .records-table th {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text2);
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+  }
+
+  .records-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  .records-table tr:hover td { background: var(--surface2); }
+
+  .status-pill {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 20px;
+    display: inline-block;
+  }
+  .status-pill.pass { background: rgba(40,199,111,0.12); color: var(--pass); }
+  .status-pill.fail { background: rgba(234,84,85,0.12); color: var(--fail); }
+  .status-pill.conditional { background: rgba(255,159,67,0.12); color: var(--warn); }
+  .status-pill.pending { background: rgba(138,148,170,0.12); color: var(--text2); }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text3);
+  }
+  .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+  .empty-state p { font-family: var(--mono); font-size: 12px; letter-spacing: 1px; }
+
+  /* ── STATS ROW ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .stat-num {
+    font-family: var(--head);
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text2);
+  }
+
+  /* ── SYNC STATUS ── */
+  .sync-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+    margin-bottom: 16px;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  .dot.green { background: var(--pass); }
+  .dot.orange { background: var(--warn); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--pass);
+    border-radius: 5px;
+    padding: 14px 20px;
+    font-size: 13px;
+    color: var(--text);
+    z-index: 999;
+    animation: toastIn 0.3s ease;
+    max-width: 320px;
+  }
+  .toast.error { border-left-color: var(--fail); }
+  .toast.warn { border-left-color: var(--warn); }
+
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .hidden { display: none !important; }
+
+  /* ── DOOR HEADER STRIP ── */
+  .door-header-strip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 20px;
+    margin-bottom: 24px;
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .door-meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .door-meta-key {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text3);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .door-meta-val {
+    font-family: var(--head);
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--text);
+  }
+
+  .phase-title {
+    font-family: var(--head);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .phase-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    background: var(--surface3);
+    border-radius: 3px;
+    color: var(--accent);
+    letter-spacing: 1px;
+  }
+
+  @media (max-width: 600px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .form-grid.three { grid-template-columns: 1fr; }
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    main { padding: 20px 16px; }
+    .progress-bar { gap: 0; }
+    .step-node { min-width: 60px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">DOOR<span>INSP</span></div>
+    <div class="header-right">
+      <span class="inspector-tag" id="inspectorTag">—</span>
+      <span class="sync-badge offline" id="syncBadge">OFFLINE</span>
+    </div>
+  </header>
+
+  <!-- NAV -->
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showTab('setup')">Setup</button>
+    <button class="nav-tab" onclick="showTab('inspect')">Inspect</button>
+    <button class="nav-tab" onclick="showTab('records')">Records</button>
+    <button class="nav-tab" onclick="showTab('config')">Config</button>
+  </div>
+
+  <!-- MAIN -->
+  <main>
+
+    <!-- ═══════════════════════════════════════════════
+         TAB: SETUP
+    ════════════════════════════════════════════════ -->
+    <div id="tab-setup" class="setup-screen">
+      <div class="screen-title">New Inspection</div>
+      <div class="screen-sub">Enter door identification and assembly details before beginning the inspection sequence.</div>
+
+      <div class="card">
+        <div class="card-title">Inspector & Session</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Inspector Name</label>
+            <input type="text" id="inspectorName" placeholder="Full name" oninput="updateInspectorTag()">
+          </div>
+          <div class="form-group">
+            <label>Project / Facility</label>
+            <input type="text" id="projectName" placeholder="e.g. St. Luke's Medical Center">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Door Identification</div>
+        <div class="form-grid three">
+          <div class="form-group">
+            <label>Icon No.</label>
+            <input type="text" id="iconNo" placeholder="e.g. FD-042">
+          </div>
+          <div class="form-group">
+            <label>Asset ID</label>
+            <input type="text" id="assetId" placeholder="e.g. AST-10042">
+          </div>
+          <div class="form-group">
+            <label>Floor</label>
+            <input type="text" id="floorNo" placeholder="e.g. 3">
+          </div>
+        </div>
+        <div class="form-grid" style="margin-top:16px;">
+          <div class="form-group">
+            <label>Grid Block / Zone</label>
+            <input type="text" id="gridBlock" placeholder="e.g. B-7">
+          </div>
+          <div class="form-group">
+            <label>Location Description</label>
+            <input type="text" id="locationDesc" placeholder="e.g. ICU East Corridor">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Assembly Classification</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Assembly Type</label>
+            <select id="assemblyType" onchange="onAssemblyTypeChange()">
+              <option value="">— Select —</option>
+              <option value="fire_door">Fire Door (NFPA 80)</option>
+              <option value="smoke_barrier">Smoke Barrier Door (NFPA 101)</option>
+              <option value="smoke_partition">Smoke Partition Door — Non-Rated Hazardous (NFPA 101)</option>
+              <option value="suite_perimeter">Suite Perimeter Door (TJC / NFPA 101)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Door Rating</label>
+            <select id="doorRating">
+              <option value="">— Select —</option>
+              <option value="3hr">3 Hour</option>
+              <option value="90min">90 Minute</option>
+              <option value="60min">60 Minute</option>
+              <option value="45min">45 Minute</option>
+              <option value="20min">20 Minute</option>
+              <option value="nonrated">Non-Rated</option>
+              <option value="na">N/A</option>
+            </select>
+          </div>
+        </div>
+        <div id="standardNote" style="margin-top:14px; font-family:var(--mono); font-size:11px; color:var(--accent2); letter-spacing:0.5px; display:none;"></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="startInspection()">Begin Inspection →</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         TAB: INSPECT (WIZARD)
+    ════════════════════════════════════════════════ -->
+    <div id="tab-inspect" class="wizard hidden">
+      <!-- Door header strip -->
+      <div class="door-header-strip" id="doorHeaderStrip">
+        <div class="door-meta-item">
+          <div class="door-meta-key">Icon No.</div>
+          <div class="door-meta-val" id="stripIcon">—</div>
+        </div>
+        <div class="door-meta-item">
+          <div class="door-meta-key">Asset ID</div>
+          <div class="door-meta-val" id="stripAsset">—</div>
+        </div>
+        <div class="door-meta-item">
+          <div class="door-meta-key">Floor</div>
+          <div class="door-meta-val" id="stripFloor">—</div>
+        </div>
+        <div class="door-meta-item">
+          <div class="door-meta-key">Grid</div>
+          <div class="door-meta-val" id="stripGrid">—</div>
+        </div>
+        <div class="door-meta-item">
+          <div class="door-meta-key">Type</div>
+          <div class="door-meta-val" id="stripType">—</div>
+        </div>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="progress-bar" id="progressBar"></div>
+
+      <!-- Phase title -->
+      <div class="phase-title" id="phaseTitle"></div>
+
+      <!-- Question area -->
+      <div id="questionArea"></div>
+
+      <!-- Nav buttons -->
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="btnBack" onclick="wizardBack()">← Back</button>
+        <button class="btn btn-primary" id="btnNext" onclick="wizardNext()">Next →</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         TAB: RECORDS
+    ════════════════════════════════════════════════ -->
+    <div id="tab-records" class="hidden">
+      <div class="screen-title">Inspection Records</div>
+      <div class="screen-sub">All completed inspections for this session. Export to Excel when ready.</div>
+
+      <div class="stats-row" id="statsRow">
+        <div class="stat-card">
+          <div class="stat-num" id="statTotal" style="color:var(--text)">0</div>
+          <div class="stat-label">Total</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="statPass" style="color:var(--pass)">0</div>
+          <div class="stat-label">Passed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="statFail" style="color:var(--fail)">0</div>
+          <div class="stat-label">Failed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="statPending" style="color:var(--warn)">0</div>
+          <div class="stat-label">Pending Sync</div>
+        </div>
+      </div>
+
+      <div class="sync-row">
+        <div class="dot orange" id="syncDot"></div>
+        <span id="syncStatus">Local storage only — configure Supabase to enable sync</span>
+      </div>
+
+      <div style="display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="exportExcel()">Export Excel</button>
+        <button class="btn btn-secondary" onclick="syncToSupabase()">↑ Sync to Cloud</button>
+        <button class="btn btn-secondary" onclick="refreshRecords()">Refresh</button>
+      </div>
+
+      <div class="card" style="padding:0; overflow:auto;">
+        <table class="records-table" id="recordsTable">
+          <thead>
+            <tr>
+              <th>Icon No.</th>
+              <th>Asset ID</th>
+              <th>Floor</th>
+              <th>Grid</th>
+              <th>Type</th>
+              <th>Rating</th>
+              <th>Status</th>
+              <th>Deficiencies</th>
+              <th>Inspector</th>
+              <th>Date/Time</th>
+            </tr>
+          </thead>
+          <tbody id="recordsBody"></tbody>
+        </table>
+        <div class="empty-state hidden" id="emptyState">
+          <div class="icon">🚪</div>
+          <p>No inspections recorded yet</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         TAB: CONFIG
+    ════════════════════════════════════════════════ -->
+    <div id="tab-config" class="hidden">
+      <div class="screen-title">Configuration</div>
+      <div class="screen-sub">Connect to Supabase for multi-inspector cloud sync and Excel export.</div>
+
+      <div class="card">
+        <div class="card-title">Supabase Connection</div>
+        <div class="config-note">
+          1. Go to <a href="https://supabase.com" target="_blank">supabase.com</a> → create a free project.<br>
+          2. In your project: <strong>SQL Editor</strong> → run the setup SQL below.<br>
+          3. Go to <strong>Project Settings → API</strong> → copy your Project URL and anon/public key.<br>
+          4. Paste them here and click Save. All inspectors use the same credentials.
+        </div>
+
+        <details style="margin-bottom:16px;">
+          <summary style="font-family:var(--mono); font-size:11px; color:var(--accent2); cursor:pointer; letter-spacing:1px;">▶ VIEW SUPABASE SETUP SQL</summary>
+          <pre style="margin-top:12px; background:var(--surface3); padding:14px; border-radius:4px; font-family:var(--mono); font-size:11px; color:var(--text2); overflow-x:auto; line-height:1.6;">CREATE TABLE door_inspections (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  icon_no text,
+  asset_id text,
+  floor text,
+  grid_block text,
+  location_desc text,
+  assembly_type text,
+  door_rating text,
+  inspector text,
+  project text,
+  inspection_date timestamptz DEFAULT now(),
+  overall_status text,
+  deficiencies jsonb,
+  findings jsonb,
+  additional_comments text,
+  post_inspection_status text,
+  synced_at timestamptz DEFAULT now()
+);
+
+-- Enable Row Level Security (open for now, lock down later)
+ALTER TABLE door_inspections ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all" ON door_inspections FOR ALL USING (true);</pre>
+        </details>
+
+        <div class="form-group" style="margin-bottom:16px;">
+          <label>Supabase Project URL</label>
+          <input type="text" id="supabaseUrl" placeholder="https://xxxxxxxxxxxx.supabase.co">
+        </div>
+        <div class="form-group" style="margin-bottom:20px;">
+          <label>Supabase Anon Key</label>
+          <input type="text" id="supabaseKey" placeholder="eyJhbGciOiJIUzI1NiIs...">
+        </div>
+        <button class="btn btn-primary" onclick="saveConfig()">Save Configuration</button>
+        <button class="btn btn-secondary" style="margin-left:12px;" onclick="testConnection()">Test Connection</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Data Management</div>
+        <p style="font-size:13px; color:var(--text2); margin-bottom:16px;">Clear all locally stored inspections. This does not affect cloud data.</p>
+        <button class="btn btn-danger" onclick="clearLocalData()">Clear Local Data</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast hidden"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════════
+let currentDoor = {};
+let wizardPhases = [];
+let currentPhaseIdx = 0;
+let currentQIdx = 0;
+let answers = {};  // questionId -> { value, text, status, deficiency }
+let deficiencies = [];
+
+// ═══════════════════════════════════════════════════════════════════
+//  INSPECTION LOGIC TREES
+//  Each phase has questions; each question has choices that may
+//  branch or flag deficiencies.
+// ═══════════════════════════════════════════════════════════════════
+
+const ASSEMBLY_TYPE_LABELS = {
+  fire_door: 'Fire Door',
+  smoke_barrier: 'Smoke Barrier Door',
+  smoke_partition: 'Smoke Partition Door',
+  suite_perimeter: 'Suite Perimeter Door'
+};
+
+function buildWizard(assemblyType) {
+  const phases = [];
+
+  // ─── PHASE 1: DOOR & FRAME CONDITION (All types) ───
+  const frameQuestions = [
+    {
+      id: 'frame_condition',
+      ref: 'NFPA 80 §4.1 / NFPA 101 §8.3',
+      text: 'Is the door frame free of visible damage, warping, or unauthorized modifications?',
+      choices: [
+        { label: 'Yes — frame is intact and unmodified', status: 'pass', indicator: 'pass' },
+        { label: 'Minor surface damage only (cosmetic)', status: 'warn', indicator: 'warn', deficiency: 'Frame has minor cosmetic damage' },
+        { label: 'Structural damage, warping, or modification present', status: 'fail', indicator: 'fail', deficiency: 'Frame damage/modification — non-compliant', requiresNote: true }
+      ]
+    },
+    {
+      id: 'label_present',
+      ref: assemblyType === 'fire_door' ? 'NFPA 80 §5.1.3' : 'NFPA 101 §8.3.4',
+      text: assemblyType === 'fire_door'
+        ? 'Is the fire door label (UL or equivalent listing label) present, legible, and on both the door leaf and frame?'
+        : 'Is the door label or listing marking present and legible?',
+      choices: [
+        { label: 'Yes — label present and legible on door and frame', status: 'pass', indicator: 'pass' },
+        { label: 'Label present but damaged/partially illegible', status: 'fail', indicator: 'fail', deficiency: 'Label damaged or partially illegible', requiresNote: true },
+        { label: 'Label missing from door leaf', status: 'fail', indicator: 'fail', deficiency: 'Door label missing' },
+        { label: 'Label missing from frame/frame not labeled', status: 'fail', indicator: 'fail', deficiency: 'Frame label missing' },
+        assemblyType === 'smoke_partition' || assemblyType === 'suite_perimeter'
+          ? { label: 'N/A — non-rated, label not required', status: 'na', indicator: 'na' }
+          : null
+      ].filter(Boolean)
+    },
+    {
+      id: 'door_leaf_condition',
+      ref: 'NFPA 80 §4.1.3',
+      text: 'Is the door leaf free of holes, breaks, or unauthorized modifications that could compromise the assembly?',
+      choices: [
+        { label: 'Yes — door leaf is intact', status: 'pass', indicator: 'pass' },
+        { label: 'Minor dents/dings only — no penetration', status: 'warn', indicator: 'warn', deficiency: 'Minor cosmetic damage to door leaf' },
+        { label: 'Holes, breaks, or penetrations present', status: 'fail', indicator: 'fail', deficiency: 'Door leaf has holes/breaks/penetrations', requiresNote: true },
+        { label: 'Unauthorized louver, view panel, or cutout', status: 'fail', indicator: 'fail', deficiency: 'Unauthorized modification to door leaf', requiresNote: true }
+      ]
+    }
+  ];
+
+  phases.push({ id: 'frame', label: 'Frame & Leaf', questions: frameQuestions });
+
+  // ─── PHASE 2: HARDWARE (varies by type) ───
+  const hardwareQuestions = [];
+
+  if (assemblyType === 'fire_door' || assemblyType === 'smoke_barrier') {
+    hardwareQuestions.push({
+      id: 'closer_present',
+      ref: 'NFPA 80 §5.2.1 / NFPA 101 §8.3.4',
+      text: 'Is a self-closing device (door closer) installed and functioning properly?',
+      choices: [
+        { label: 'Yes — closer installed and door self-closes fully', status: 'pass', indicator: 'pass' },
+        { label: 'Closer installed but door does not fully close/latch', status: 'fail', indicator: 'fail', deficiency: 'Closer present but door fails to self-close and latch', requiresNote: true },
+        { label: 'Closer missing', status: 'fail', indicator: 'fail', deficiency: 'Self-closing device missing' },
+        { label: 'Closer held open by unapproved device (wedge, tie-back, etc.)', status: 'fail', indicator: 'fail', deficiency: 'Door held open — self-closing device defeated' }
+      ]
+    });
+    hardwareQuestions.push({
+      id: 'latching',
+      ref: 'NFPA 80 §5.2.4',
+      text: 'Does the door latch positively into the frame upon self-closing (without manual assistance)?',
+      choices: [
+        { label: 'Yes — latches positively and completely', status: 'pass', indicator: 'pass' },
+        { label: 'No — requires manual assistance to fully latch', status: 'fail', indicator: 'fail', deficiency: 'Door does not latch positively — manual assistance required', requiresNote: true },
+        { label: 'Door rebounds or fails to stay closed', status: 'fail', indicator: 'fail', deficiency: 'Door rebounds or fails to remain closed' }
+      ]
+    });
+  }
+
+  if (assemblyType === 'fire_door') {
+    hardwareQuestions.push({
+      id: 'coordinator',
+      ref: 'NFPA 80 §5.3.7',
+      text: 'Is this a pair of doors? If so, is an astragal/coordinator installed to ensure correct leaf sequencing?',
+      choices: [
+        { label: 'Single door — not applicable', status: 'na', indicator: 'na' },
+        { label: 'Pair of doors — coordinator/astragal present and functioning', status: 'pass', indicator: 'pass' },
+        { label: 'Pair of doors — coordinator missing or non-functional', status: 'fail', indicator: 'fail', deficiency: 'Pair doors: coordinator/astragal missing or non-functional' }
+      ]
+    });
+    hardwareQuestions.push({
+      id: 'hardware_listing',
+      ref: 'NFPA 80 §5.1.5',
+      text: 'Is all hardware (hinges, lockset, closer, etc.) listed/labeled for use with this fire door assembly?',
+      choices: [
+        { label: 'Yes — all visible hardware appears listed and appropriate', status: 'pass', indicator: 'pass' },
+        { label: 'Unlisted or non-compliant hardware identified', status: 'fail', indicator: 'fail', deficiency: 'Unlisted/non-compliant hardware present', requiresNote: true },
+        { label: 'Cannot verify — hardware markings missing or inaccessible', status: 'warn', indicator: 'warn', deficiency: 'Hardware listing status unverified' }
+      ]
+    });
+  }
+
+  if (assemblyType === 'smoke_barrier' || assemblyType === 'smoke_partition' || assemblyType === 'suite_perimeter') {
+    hardwareQuestions.push({
+      id: 'self_latching',
+      ref: 'NFPA 101 §8.3.4',
+      text: 'Does the door self-latch into the frame (or coordinate with the smoke barrier/partition system)?',
+      choices: [
+        { label: 'Yes — self-latches or is part of compliant coordinated system', status: 'pass', indicator: 'pass' },
+        { label: 'Does not self-latch', status: 'fail', indicator: 'fail', deficiency: 'Smoke door does not self-latch — non-compliant', requiresNote: true }
+      ]
+    });
+  }
+
+  // Hinges — all types
+  hardwareQuestions.push({
+    id: 'hinges',
+    ref: 'NFPA 80 §5.2.2',
+    text: 'Are all hinges present, secure, and free of missing or damaged components?',
+    choices: [
+      { label: 'Yes — all hinges intact and secure', status: 'pass', indicator: 'pass' },
+      { label: 'Loose hinge(s) identified', status: 'fail', indicator: 'fail', deficiency: 'Loose hinge(s) — requires correction', requiresNote: true },
+      { label: 'Missing hinge(s) or hinge leaves', status: 'fail', indicator: 'fail', deficiency: 'Missing hinge(s) or hinge leaves' },
+      { label: 'Non-listed or modified hinges', status: 'fail', indicator: 'fail', deficiency: 'Non-listed or modified hinges present', requiresNote: true }
+    ]
+  });
+
+  phases.push({ id: 'hardware', label: 'Hardware', questions: hardwareQuestions });
+
+  // ─── PHASE 3: GAPS & CLEARANCES ───
+  const gapQuestions = [];
+
+  if (assemblyType === 'fire_door') {
+    gapQuestions.push({
+      id: 'undercut',
+      ref: 'NFPA 80 §5.3.4',
+      text: 'Is the undercut (bottom clearance) at or below ¾ inch (19mm)?',
+      choices: [
+        { label: 'Yes — ¾" or less', status: 'pass', indicator: 'pass' },
+        { label: 'Exceeds ¾" — measured excess present', status: 'fail', indicator: 'fail', deficiency: 'Undercut exceeds ¾" maximum — non-compliant', requiresNote: true },
+        { label: 'Cannot measure — obstruction or threshold present', status: 'warn', indicator: 'warn', deficiency: 'Undercut could not be verified' }
+      ]
+    });
+    gapQuestions.push({
+      id: 'vertical_gap',
+      ref: 'NFPA 80 §5.3.4',
+      text: 'Are vertical edge gaps (between door and frame) at or below ⅛ inch (3.2mm)?',
+      choices: [
+        { label: 'Yes — ⅛" or less on all vertical edges', status: 'pass', indicator: 'pass' },
+        { label: 'Exceeds ⅛" on latch side', status: 'fail', indicator: 'fail', deficiency: 'Latch-side vertical gap exceeds ⅛"', requiresNote: true },
+        { label: 'Exceeds ⅛" on hinge side', status: 'fail', indicator: 'fail', deficiency: 'Hinge-side vertical gap exceeds ⅛"', requiresNote: true },
+        { label: 'Exceeds ⅛" on both sides', status: 'fail', indicator: 'fail', deficiency: 'Both vertical edge gaps exceed ⅛"', requiresNote: true }
+      ]
+    });
+    gapQuestions.push({
+      id: 'meeting_edge',
+      ref: 'NFPA 80 §5.3.4',
+      text: 'For pairs: is the meeting edge gap ⅛" or less? For singles: does the door meet the stop consistently along the full height?',
+      choices: [
+        { label: 'Single door — meets stop fully along height', status: 'pass', indicator: 'pass' },
+        { label: 'Pair — meeting edge gap ⅛" or less', status: 'pass', indicator: 'pass' },
+        { label: 'Pair — meeting edge gap exceeds ⅛"', status: 'fail', indicator: 'fail', deficiency: 'Pair meeting edge gap exceeds ⅛"' },
+        { label: 'Single — does not contact stop along full height', status: 'fail', indicator: 'fail', deficiency: 'Single door fails to contact stop fully', requiresNote: true }
+      ]
+    });
+  }
+
+  if (assemblyType === 'smoke_barrier' || assemblyType === 'smoke_partition' || assemblyType === 'suite_perimeter') {
+    gapQuestions.push({
+      id: 'smoke_gap',
+      ref: 'NFPA 101 §8.3.4',
+      text: 'Are gaps around the door assembly consistent with the listed assembly or otherwise minimal to limit smoke passage?',
+      choices: [
+        { label: 'Yes — gaps are minimal and consistent with listing', status: 'pass', indicator: 'pass' },
+        { label: 'Gaps present that could allow significant smoke passage', status: 'fail', indicator: 'fail', deficiency: 'Gaps allow potential smoke passage — non-compliant', requiresNote: true },
+        { label: 'Unable to fully assess — document condition', status: 'warn', indicator: 'warn', deficiency: 'Gap compliance could not be fully assessed' }
+      ]
+    });
+  }
+
+  gapQuestions.push({
+    id: 'threshold',
+    ref: 'NFPA 80 §5.3.4 / ADA',
+    text: 'Is the threshold condition acceptable — no tripping hazard and compliant with assembly requirements?',
+    choices: [
+      { label: 'Yes — threshold is compliant and in good condition', status: 'pass', indicator: 'pass' },
+      { label: 'Threshold worn or damaged but not creating excessive gap', status: 'warn', indicator: 'warn', deficiency: 'Threshold worn or damaged — monitor' },
+      { label: 'Threshold creates non-compliant gap or tripping hazard', status: 'fail', indicator: 'fail', deficiency: 'Threshold non-compliant or hazardous', requiresNote: true }
+    ]
+  });
+
+  phases.push({ id: 'gaps', label: 'Gaps & Clearances', questions: gapQuestions });
+
+  // ─── PHASE 4: SEALS & GASKETING ───
+  const sealQuestions = [];
+
+  if (assemblyType === 'fire_door') {
+    sealQuestions.push({
+      id: 'intumescent',
+      ref: 'NFPA 80 §5.3.6',
+      text: 'Are intumescent seals present on all required edges and are they in good condition (not compressed, missing, or damaged)?',
+      choices: [
+        { label: 'Yes — seals present and in good condition', status: 'pass', indicator: 'pass' },
+        { label: 'Seals present but compressed, worn, or partially missing', status: 'fail', indicator: 'fail', deficiency: 'Intumescent seals compressed/worn/partially missing', requiresNote: true },
+        { label: 'Seals missing from one or more required edges', status: 'fail', indicator: 'fail', deficiency: 'Intumescent seals missing from required edge(s)', requiresNote: true },
+        { label: 'Not required per listing — confirmed', status: 'na', indicator: 'na' }
+      ]
+    });
+  }
+
+  if (assemblyType === 'smoke_barrier' || assemblyType === 'smoke_partition' || assemblyType === 'suite_perimeter') {
+    sealQuestions.push({
+      id: 'smoke_seal',
+      ref: 'NFPA 101 §8.3.4',
+      text: 'Are smoke seals/gasketing present and in acceptable condition on all required edges?',
+      choices: [
+        { label: 'Yes — smoke seals present and in good condition', status: 'pass', indicator: 'pass' },
+        { label: 'Seals present but damaged or compressed', status: 'fail', indicator: 'fail', deficiency: 'Smoke seals damaged or compressed', requiresNote: true },
+        { label: 'Smoke seals missing', status: 'fail', indicator: 'fail', deficiency: 'Smoke seals missing — non-compliant' }
+      ]
+    });
+  }
+
+  sealQuestions.push({
+    id: 'door_bottom_seal',
+    ref: 'NFPA 101 §8.3.4',
+    text: 'Is the door bottom seal or automatic drop seal (if required/installed) present and functional?',
+    choices: [
+      { label: 'Present and functional', status: 'pass', indicator: 'pass' },
+      { label: 'Damaged or not deploying correctly', status: 'fail', indicator: 'fail', deficiency: 'Door bottom/drop seal damaged or non-functional', requiresNote: true },
+      { label: 'Missing — was previously installed', status: 'fail', indicator: 'fail', deficiency: 'Door bottom seal missing' },
+      { label: 'Not required / not installed — acceptable', status: 'na', indicator: 'na' }
+    ]
+  });
+
+  phases.push({ id: 'seals', label: 'Seals', questions: sealQuestions });
+
+  // ─── PHASE 5: GLAZING & OPENINGS ───
+  const glazingQuestions = [
+    {
+      id: 'glazing_present',
+      ref: 'NFPA 80 §5.4',
+      text: 'Does the door contain glazing, view panels, or borrowed lights?',
+      choices: [
+        { label: 'No glazing — solid door', status: 'na', indicator: 'na', skip_to_phase: true },
+        { label: 'Yes — glazing is present', status: 'neutral', indicator: 'warn' }
+      ]
+    },
+    {
+      id: 'glazing_label',
+      ref: 'NFPA 80 §5.4.1',
+      text: 'Is the glazing labeled/listed for use in this fire door or smoke assembly?',
+      choices: [
+        { label: 'Yes — glazing is listed and labeled', status: 'pass', indicator: 'pass' },
+        { label: 'Glazing label missing or unverifiable', status: 'fail', indicator: 'fail', deficiency: 'Glazing label missing or unverifiable', requiresNote: true },
+        { label: 'Glazing is clearly not listed (e.g., standard glass)', status: 'fail', indicator: 'fail', deficiency: 'Non-listed glazing in fire/smoke door assembly', requiresNote: true }
+      ]
+    },
+    {
+      id: 'glazing_size',
+      ref: 'NFPA 80 §5.4.2',
+      text: 'Is the glazing size within the limits allowed by the listing for this door rating?',
+      choices: [
+        { label: 'Yes — size consistent with listing', status: 'pass', indicator: 'pass' },
+        { label: 'Glazing appears oversized for the rating', status: 'fail', indicator: 'fail', deficiency: 'Glazing may exceed listed size limits for door rating', requiresNote: true },
+        { label: 'Cannot verify — listing documentation unavailable', status: 'warn', indicator: 'warn', deficiency: 'Glazing size compliance unverified' }
+      ]
+    },
+    {
+      id: 'glazing_condition',
+      ref: 'NFPA 80 §5.4',
+      text: 'Is the glazing free of cracks, chips, or damage that could compromise the assembly?',
+      choices: [
+        { label: 'Yes — glazing is intact and undamaged', status: 'pass', indicator: 'pass' },
+        { label: 'Cracked or chipped glazing', status: 'fail', indicator: 'fail', deficiency: 'Glazing cracked or chipped — replace', requiresNote: true }
+      ]
+    }
+  ];
+
+  phases.push({ id: 'glazing', label: 'Glazing', questions: glazingQuestions });
+
+  // ─── PHASE 6: OPERATIONAL TEST (Fire / Smoke Barrier) ───
+  if (assemblyType === 'fire_door' || assemblyType === 'smoke_barrier') {
+    const opQuestions = [
+      {
+        id: 'release_device',
+        ref: 'NFPA 80 §5.2.7 / NFPA 101 §8.3.4',
+        text: 'If the door is held open by a magnetic hold-open device, does it release and self-close upon activation of the fire alarm?',
+        choices: [
+          { label: 'No hold-open device — N/A', status: 'na', indicator: 'na' },
+          { label: 'Yes — releases and closes properly on alarm', status: 'pass', indicator: 'pass' },
+          { label: 'Hold-open device present but release not confirmed/tested', status: 'warn', indicator: 'warn', deficiency: 'Hold-open release not tested — verify with facility' },
+          { label: 'Hold-open device fails to release on alarm', status: 'fail', indicator: 'fail', deficiency: 'Hold-open device does not release on alarm signal', requiresNote: true }
+        ]
+      },
+      {
+        id: 'operation_force',
+        ref: 'ADA / NFPA 101 §7.2.1',
+        text: 'Can the door be opened with 30 lbs or less of force (5 lbs for interior non-fire-rated)?',
+        choices: [
+          { label: 'Yes — opens within force requirements', status: 'pass', indicator: 'pass' },
+          { label: 'Excessive force required to operate', status: 'fail', indicator: 'fail', deficiency: 'Door requires excessive force to operate', requiresNote: true }
+        ]
+      }
+    ];
+    phases.push({ id: 'operation', label: 'Operation', questions: opQuestions });
+  }
+
+  // ─── PHASE 7: TJC / LIFE SAFETY ───
+  if (assemblyType === 'suite_perimeter' || assemblyType === 'smoke_barrier') {
+    const tjcQuestions = [
+      {
+        id: 'tjc_egress',
+        ref: 'TJC EC.02.06.01 / NFPA 101 §7.2',
+        text: 'Does the door assembly comply with means of egress requirements — no obstructions, proper swing direction, compliant hardware?',
+        choices: [
+          { label: 'Yes — egress path is clear and compliant', status: 'pass', indicator: 'pass' },
+          { label: 'Minor obstruction — not blocking egress width', status: 'warn', indicator: 'warn', deficiency: 'Minor obstruction near egress door — monitor' },
+          { label: 'Egress path obstructed or hardware non-compliant', status: 'fail', indicator: 'fail', deficiency: 'Egress obstruction or non-compliant hardware', requiresNote: true }
+        ]
+      },
+      {
+        id: 'tjc_signage',
+        ref: 'TJC / NFPA 101 §7.10',
+        text: 'Is any required signage (exit sign, fire door instruction placard) present and in good condition?',
+        choices: [
+          { label: 'All required signage present and legible', status: 'pass', indicator: 'pass' },
+          { label: 'Signage missing or illegible', status: 'fail', indicator: 'fail', deficiency: 'Required signage missing or illegible', requiresNote: true },
+          { label: 'No signage required for this door type', status: 'na', indicator: 'na' }
+        ]
+      }
+    ];
+    phases.push({ id: 'tjc', label: 'TJC / Egress', questions: tjcQuestions });
+  }
+
+  // ─── PHASE 8: FINAL ───
+  const finalQuestions = [
+    {
+      id: 'additional_comments',
+      ref: 'Inspector Notes',
+      text: 'Additional comments or observations (optional)?',
+      type: 'textarea',
+      placeholder: 'Enter any additional notes, conditions, or observations...'
+    },
+    {
+      id: 'post_inspection_status',
+      ref: 'Post-Inspection Disposition',
+      text: 'Post-inspection status determination:',
+      choices: [
+        { label: 'Compliant — no action required', status: 'pass', indicator: 'pass' },
+        { label: 'Conditional — minor deficiency noted, monitor or schedule repair', status: 'warn', indicator: 'warn' },
+        { label: 'Non-compliant — repair required before next inspection cycle', status: 'fail', indicator: 'fail' },
+        { label: 'Non-compliant — immediate action required (life safety)', status: 'fail', indicator: 'fail' }
+      ]
+    }
+  ];
+
+  phases.push({ id: 'final', label: 'Final', questions: finalQuestions });
+
+  return phases;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  TAB NAVIGATION
+// ═══════════════════════════════════════════════════════════════════
+function showTab(name) {
+  ['setup', 'inspect', 'records', 'config'].forEach(t => {
+    document.getElementById('tab-' + t).classList.add('hidden');
+  });
+  document.querySelectorAll('.nav-tab').forEach((el, i) => {
+    el.classList.toggle('active', el.textContent.toLowerCase().startsWith(name));
+  });
+  document.getElementById('tab-' + name).classList.remove('hidden');
+  if (name === 'records') renderRecords();
+  if (name === 'config') loadConfig();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SETUP
+// ═══════════════════════════════════════════════════════════════════
+function updateInspectorTag() {
+  const n = document.getElementById('inspectorName').value;
+  document.getElementById('inspectorTag').textContent = n || '—';
+}
+
+const STANDARD_NOTES = {
+  fire_door: '⚡ Governed by NFPA 80 (Standard for Fire Doors and Other Opening Protectives). Annual inspection required.',
+  smoke_barrier: '⚡ Governed by NFPA 101 §8.3.4 — smoke barrier door. Self-closing and positive-latching required.',
+  smoke_partition: '⚡ Governed by NFPA 101 §8.4.4 — smoke partition door in non-rated hazardous area. Self-closing required.',
+  suite_perimeter: '⚡ Governed by TJC EC standards and NFPA 101 Chapter 7. Egress compliance critical.'
+};
+
+function onAssemblyTypeChange() {
+  const val = document.getElementById('assemblyType').value;
+  const note = document.getElementById('standardNote');
+  if (val && STANDARD_NOTES[val]) {
+    note.textContent = STANDARD_NOTES[val];
+    note.style.display = 'block';
+  } else {
+    note.style.display = 'none';
+  }
+}
+
+function startInspection() {
+  const required = ['inspectorName', 'iconNo', 'assemblyType'];
+  for (const id of required) {
+    if (!document.getElementById(id).value.trim()) {
+      showToast('Please fill in: ' + id.replace(/([A-Z])/g, ' $1'), 'error');
+      return;
+    }
+  }
+
+  currentDoor = {
+    inspectorName: document.getElementById('inspectorName').value.trim(),
+    projectName: document.getElementById('projectName').value.trim(),
+    iconNo: document.getElementById('iconNo').value.trim(),
+    assetId: document.getElementById('assetId').value.trim(),
+    floorNo: document.getElementById('floorNo').value.trim(),
+    gridBlock: document.getElementById('gridBlock').value.trim(),
+    locationDesc: document.getElementById('locationDesc').value.trim(),
+    assemblyType: document.getElementById('assemblyType').value,
+    doorRating: document.getElementById('doorRating').value,
+    startTime: new Date().toISOString()
+  };
+
+  answers = {};
+  deficiencies = [];
+  currentPhaseIdx = 0;
+  currentQIdx = 0;
+
+  wizardPhases = buildWizard(currentDoor.assemblyType);
+
+  // Update strip
+  document.getElementById('stripIcon').textContent = currentDoor.iconNo || '—';
+  document.getElementById('stripAsset').textContent = currentDoor.assetId || '—';
+  document.getElementById('stripFloor').textContent = currentDoor.floorNo || '—';
+  document.getElementById('stripGrid').textContent = currentDoor.gridBlock || '—';
+  document.getElementById('stripType').textContent = ASSEMBLY_TYPE_LABELS[currentDoor.assemblyType] || '—';
+
+  showTab('inspect');
+  renderWizard();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  WIZARD
+// ═══════════════════════════════════════════════════════════════════
+function renderWizard() {
+  renderProgressBar();
+  renderQuestion();
+  document.getElementById('btnBack').style.display = (currentPhaseIdx === 0 && currentQIdx === 0) ? 'none' : '';
+}
+
+function renderProgressBar() {
+  const bar = document.getElementById('progressBar');
+  bar.innerHTML = '';
+  wizardPhases.forEach((phase, i) => {
+    if (i > 0) {
+      const line = document.createElement('div');
+      line.className = 'step-line' + (i <= currentPhaseIdx ? ' done' : '');
+      bar.appendChild(line);
+    }
+    const node = document.createElement('div');
+    node.className = 'step-node';
+    const circle = document.createElement('div');
+    const isDone = i < currentPhaseIdx;
+    const isActive = i === currentPhaseIdx;
+    circle.className = 'step-circle' + (isDone ? ' done' : isActive ? ' active' : '');
+    circle.textContent = isDone ? '✓' : (i + 1);
+    const lbl = document.createElement('div');
+    lbl.className = 'step-label' + (isDone ? ' done' : isActive ? ' active' : '');
+    lbl.textContent = phase.label;
+    node.appendChild(circle);
+    node.appendChild(lbl);
+    bar.appendChild(node);
+  });
+}
+
+function renderQuestion() {
+  const phase = wizardPhases[currentPhaseIdx];
+  const q = phase.questions[currentQIdx];
+
+  document.getElementById('phaseTitle').innerHTML =
+    phase.label.toUpperCase() + ' <span class="phase-badge">' + (currentQIdx + 1) + ' / ' + phase.questions.length + '</span>';
+
+  const area = document.getElementById('questionArea');
+  area.innerHTML = '';
+
+  const block = document.createElement('div');
+  block.className = 'question-block';
+
+  const ref = document.createElement('div');
+  ref.className = 'question-ref';
+  ref.textContent = q.ref;
+  block.appendChild(ref);
+
+  const qtext = document.createElement('div');
+  qtext.className = 'question-text';
+  qtext.textContent = q.text;
+  block.appendChild(qtext);
+
+  if (q.type === 'textarea') {
+    const ta = document.createElement('textarea');
+    ta.id = 'answer_' + q.id;
+    ta.placeholder = q.placeholder || '';
+    ta.value = answers[q.id]?.value || '';
+    ta.style.width = '100%';
+    block.appendChild(ta);
+  } else {
+    const choices = document.createElement('div');
+    choices.className = 'choices';
+
+    q.choices.forEach((choice, ci) => {
+      const btn = document.createElement('button');
+      const existing = answers[q.id];
+      const isSelected = existing && existing.value === ci;
+      btn.className = 'choice-btn' + (isSelected ? getSelectedClass(choice.status) : '');
+      btn.innerHTML = `<div class="choice-indicator ind-${choice.indicator}"></div>${choice.label}`;
+      btn.onclick = () => selectChoice(q, ci, choice);
+      choices.appendChild(btn);
+    });
+
+    block.appendChild(choices);
+
+    // Show deficiency note field if previously selected a requiresNote choice
+    const prevAnswer = answers[q.id];
+    if (prevAnswer && prevAnswer.requiresNote) {
+      block.appendChild(buildDeficiencyInput(q.id, prevAnswer.deficiencyNote || ''));
+    }
+  }
+
+  area.appendChild(block);
+}
+
+function getSelectedClass(status) {
+  if (status === 'pass' || status === 'na') return ' selected-pass';
+  if (status === 'fail') return ' selected-fail';
+  return ' selected-neutral';
+}
+
+function selectChoice(q, ci, choice) {
+  answers[q.id] = {
+    value: ci,
+    label: choice.label,
+    status: choice.status,
+    deficiency: choice.deficiency || null,
+    requiresNote: choice.requiresNote || false,
+    deficiencyNote: answers[q.id]?.deficiencyNote || '',
+    skip_to_phase: choice.skip_to_phase || false
+  };
+
+  // Re-render to show/hide deficiency input
+  renderQuestion();
+}
+
+function buildDeficiencyInput(qid, existingNote) {
+  const panel = document.createElement('div');
+  panel.className = 'deficiency-panel';
+  const lbl = document.createElement('div');
+  lbl.className = 'deficiency-label';
+  lbl.textContent = '⚠ Deficiency Note (describe location/extent)';
+  panel.appendChild(lbl);
+  const inp = document.createElement('textarea');
+  inp.id = 'defNote_' + qid;
+  inp.placeholder = 'e.g., Latch-side gap measured at 3/16" — full height of door';
+  inp.style.width = '100%';
+  inp.value = existingNote;
+  inp.oninput = () => {
+    if (answers[qid]) answers[qid].deficiencyNote = inp.value;
+  };
+  panel.appendChild(inp);
+  return panel;
+}
+
+function wizardNext() {
+  const phase = wizardPhases[currentPhaseIdx];
+  const q = phase.questions[currentQIdx];
+
+  // Validate
+  if (q.type === 'textarea') {
+    const val = document.getElementById('answer_' + q.id)?.value || '';
+    answers[q.id] = { value: val, status: 'na' };
+  } else {
+    if (!answers[q.id]) {
+      showToast('Please select an answer to continue.', 'warn');
+      return;
+    }
+  }
+
+  // Handle skip_to_phase (e.g., no glazing → skip glazing questions)
+  const ans = answers[q.id];
+  if (ans && ans.skip_to_phase) {
+    // Skip remaining questions in this phase
+    currentPhaseIdx++;
+    currentQIdx = 0;
+    if (currentPhaseIdx >= wizardPhases.length) {
+      completeInspection();
+      return;
+    }
+    renderWizard();
+    return;
+  }
+
+  // Advance
+  if (currentQIdx < phase.questions.length - 1) {
+    currentQIdx++;
+  } else if (currentPhaseIdx < wizardPhases.length - 1) {
+    currentPhaseIdx++;
+    currentQIdx = 0;
+  } else {
+    completeInspection();
+    return;
+  }
+
+  renderWizard();
+}
+
+function wizardBack() {
+  if (currentQIdx > 0) {
+    currentQIdx--;
+  } else if (currentPhaseIdx > 0) {
+    currentPhaseIdx--;
+    currentQIdx = wizardPhases[currentPhaseIdx].questions.length - 1;
+  }
+  renderWizard();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  COMPLETE INSPECTION
+// ═══════════════════════════════════════════════════════════════════
+function completeInspection() {
+  // Collect deficiencies
+  deficiencies = [];
+  for (const [qid, ans] of Object.entries(answers)) {
+    if (ans.deficiency) {
+      deficiencies.push({
+        question: qid,
+        deficiency: ans.deficiency,
+        note: ans.deficiencyNote || ''
+      });
+    }
+  }
+
+  // Determine overall status
+  const hasFailures = Object.values(answers).some(a => a.status === 'fail');
+  const hasWarnings = Object.values(answers).some(a => a.status === 'warn');
+  const postStatus = answers['post_inspection_status']?.label || '';
+
+  let overallStatus = 'pass';
+  if (hasFailures) overallStatus = 'fail';
+  else if (hasWarnings) overallStatus = 'conditional';
+
+  const record = {
+    ...currentDoor,
+    id: generateId(),
+    overallStatus,
+    deficiencies,
+    findings: answers,
+    additionalComments: answers['additional_comments']?.value || '',
+    postInspectionStatus: postStatus,
+    completedTime: new Date().toISOString(),
+    synced: false
+  };
+
+  saveRecord(record);
+  showToast('Inspection saved! ' + (deficiencies.length > 0 ? deficiencies.length + ' deficiency(ies) recorded.' : 'No deficiencies.'),
+    deficiencies.length > 0 ? 'warn' : '');
+
+  // Reset to setup for next door
+  showTab('setup');
+  // Pre-fill inspector/project for convenience
+  // (icon/asset cleared for next door)
+  document.getElementById('iconNo').value = '';
+  document.getElementById('assetId').value = '';
+  document.getElementById('floorNo').value = currentDoor.floorNo;
+  document.getElementById('gridBlock').value = '';
+  document.getElementById('locationDesc').value = '';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  LOCAL STORAGE
+// ═══════════════════════════════════════════════════════════════════
+function saveRecord(record) {
+  const records = getRecords();
+  records.push(record);
+  localStorage.setItem('doorInspections', JSON.stringify(records));
+}
+
+function getRecords() {
+  try {
+    return JSON.parse(localStorage.getItem('doorInspections') || '[]');
+  } catch { return []; }
+}
+
+function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  RECORDS TABLE
+// ═══════════════════════════════════════════════════════════════════
+function renderRecords() {
+  const records = getRecords();
+  const tbody = document.getElementById('recordsBody');
+  const empty = document.getElementById('emptyState');
+
+  // Stats
+  document.getElementById('statTotal').textContent = records.length;
+  document.getElementById('statPass').textContent = records.filter(r => r.overallStatus === 'pass').length;
+  document.getElementById('statFail').textContent = records.filter(r => r.overallStatus === 'fail').length;
+  document.getElementById('statPending').textContent = records.filter(r => !r.synced).length;
+
+  tbody.innerHTML = '';
+  if (records.length === 0) {
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  records.slice().reverse().forEach(r => {
+    const tr = document.createElement('tr');
+    const defs = r.deficiencies?.map(d => d.deficiency).join('; ') || '—';
+    const dt = new Date(r.completedTime || r.startTime);
+    const dtStr = dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    tr.innerHTML = `
+      <td style="font-family:var(--mono);font-size:12px;">${r.iconNo || '—'}</td>
+      <td style="font-family:var(--mono);font-size:12px;">${r.assetId || '—'}</td>
+      <td>${r.floorNo || '—'}</td>
+      <td>${r.gridBlock || '—'}</td>
+      <td style="font-size:12px;">${ASSEMBLY_TYPE_LABELS[r.assemblyType] || r.assemblyType || '—'}</td>
+      <td style="font-size:12px;">${r.doorRating || '—'}</td>
+      <td><span class="status-pill ${r.overallStatus}">${r.overallStatus}</span></td>
+      <td style="font-size:12px;color:var(--text2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${defs}">${defs}</td>
+      <td style="font-size:12px;">${r.inspectorName || '—'}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--text2);">${dtStr}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function refreshRecords() { renderRecords(); }
+
+// ═══════════════════════════════════════════════════════════════════
+//  EXCEL EXPORT (CSV → downloadable, opens in Excel)
+// ═══════════════════════════════════════════════════════════════════
+function exportExcel() {
+  const records = getRecords();
+  if (records.length === 0) { showToast('No records to export.', 'warn'); return; }
+
+  const headers = [
+    'Icon No.', 'Asset ID', 'Floor', 'Grid Block', 'Location',
+    'Assembly Type', 'Door Rating', 'Inspector', 'Project',
+    'Date/Time', 'Overall Status', 'Post-Inspection Status',
+    'Deficiency Count', 'Deficiency Descriptions', 'Deficiency Notes',
+    'Additional Comments', 'Synced'
+  ];
+
+  const rows = records.map(r => {
+    const defs = r.deficiencies || [];
+    return [
+      r.iconNo, r.assetId, r.floorNo, r.gridBlock, r.locationDesc,
+      ASSEMBLY_TYPE_LABELS[r.assemblyType] || r.assemblyType, r.doorRating,
+      r.inspectorName, r.projectName,
+      new Date(r.completedTime || r.startTime).toLocaleString(),
+      r.overallStatus, r.postInspectionStatus,
+      defs.length,
+      defs.map(d => d.deficiency).join(' | '),
+      defs.map(d => d.note).filter(Boolean).join(' | '),
+      r.additionalComments || '',
+      r.synced ? 'Yes' : 'No'
+    ].map(v => '"' + String(v || '').replace(/"/g, '""') + '"');
+  });
+
+  const csv = [headers.map(h => '"' + h + '"').join(','), ...rows.map(r => r.join(','))].join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'door_inspections_' + new Date().toISOString().split('T')[0] + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Exported ' + records.length + ' records to CSV (opens in Excel).');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SUPABASE SYNC
+// ═══════════════════════════════════════════════════════════════════
+function getConfig() {
+  return {
+    url: localStorage.getItem('supabaseUrl') || '',
+    key: localStorage.getItem('supabaseKey') || ''
+  };
+}
+
+function loadConfig() {
+  const cfg = getConfig();
+  document.getElementById('supabaseUrl').value = cfg.url;
+  document.getElementById('supabaseKey').value = cfg.key;
+}
+
+function saveConfig() {
+  const url = document.getElementById('supabaseUrl').value.trim();
+  const key = document.getElementById('supabaseKey').value.trim();
+  localStorage.setItem('supabaseUrl', url);
+  localStorage.setItem('supabaseKey', key);
+  showToast('Configuration saved.');
+  updateSyncStatus();
+}
+
+async function testConnection() {
+  const cfg = getConfig();
+  if (!cfg.url || !cfg.key) { showToast('Enter Supabase URL and key first.', 'error'); return; }
+  try {
+    const res = await fetch(cfg.url + '/rest/v1/door_inspections?limit=1', {
+      headers: { 'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key }
+    });
+    if (res.ok || res.status === 200) {
+      showToast('✓ Connected to Supabase successfully!');
+      document.getElementById('syncBadge').className = 'sync-badge online';
+      document.getElementById('syncBadge').textContent = 'ONLINE';
+    } else {
+      showToast('Connection failed: ' + res.status + ' — check URL and key.', 'error');
+    }
+  } catch (e) {
+    showToast('Connection error: ' + e.message, 'error');
+  }
+}
+
+async function syncToSupabase() {
+  const cfg = getConfig();
+  if (!cfg.url || !cfg.key) {
+    showToast('Configure Supabase credentials in the Config tab first.', 'warn');
+    return;
+  }
+
+  const records = getRecords();
+  const unsynced = records.filter(r => !r.synced);
+
+  if (unsynced.length === 0) { showToast('All records already synced.'); return; }
+
+  showToast('Syncing ' + unsynced.length + ' records...');
+
+  let successCount = 0;
+  for (const r of unsynced) {
+    const payload = {
+      icon_no: r.iconNo,
+      asset_id: r.assetId,
+      floor: r.floorNo,
+      grid_block: r.gridBlock,
+      location_desc: r.locationDesc,
+      assembly_type: ASSEMBLY_TYPE_LABELS[r.assemblyType] || r.assemblyType,
+      door_rating: r.doorRating,
+      inspector: r.inspectorName,
+      project: r.projectName,
+      inspection_date: r.completedTime || r.startTime,
+      overall_status: r.overallStatus,
+      deficiencies: r.deficiencies,
+      findings: r.findings,
+      additional_comments: r.additionalComments,
+      post_inspection_status: r.postInspectionStatus
+    };
+    try {
+      const res = await fetch(cfg.url + '/rest/v1/door_inspections', {
+        method: 'POST',
+        headers: {
+          'apikey': cfg.key,
+          'Authorization': 'Bearer ' + cfg.key,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok || res.status === 201) {
+        r.synced = true;
+        successCount++;
+      }
+    } catch (e) {
+      console.error('Sync error for', r.iconNo, e);
+    }
+  }
+
+  // Save updated records
+  localStorage.setItem('doorInspections', JSON.stringify(records));
+  showToast('Synced ' + successCount + ' of ' + unsynced.length + ' records.');
+  renderRecords();
+  updateSyncStatus();
+}
+
+function updateSyncStatus() {
+  const cfg = getConfig();
+  const records = getRecords();
+  const pending = records.filter(r => !r.synced).length;
+  const dot = document.getElementById('syncDot');
+  const status = document.getElementById('syncStatus');
+
+  if (cfg.url && cfg.key) {
+    dot.className = 'dot green';
+    status.textContent = 'Supabase configured — ' + pending + ' record(s) pending sync';
+  } else {
+    dot.className = 'dot orange';
+    status.textContent = 'Local storage only — configure Supabase to enable sync';
+  }
+}
+
+function clearLocalData() {
+  if (!confirm('Clear all local inspection records? This cannot be undone. Cloud data (if synced) is unaffected.')) return;
+  localStorage.removeItem('doorInspections');
+  renderRecords();
+  showToast('Local data cleared.');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  CONNECTIVITY
+// ═══════════════════════════════════════════════════════════════════
+function updateConnectivity() {
+  const badge = document.getElementById('syncBadge');
+  if (navigator.onLine) {
+    badge.className = 'sync-badge online';
+    badge.textContent = 'ONLINE';
+  } else {
+    badge.className = 'sync-badge offline';
+    badge.textContent = 'OFFLINE';
+  }
+}
+
+window.addEventListener('online', updateConnectivity);
+window.addEventListener('offline', updateConnectivity);
+updateConnectivity();
+
+// ═══════════════════════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (type ? ' ' + type : '');
+  t.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.add('hidden'), 4000);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════
+updateSyncStatus();
+</script>
+</body>
+</html>
