@@ -37,7 +37,6 @@
     overflow-x: hidden;
   }
 
-  /* GRID BACKGROUND */
   body::before {
     content: '';
     position: fixed;
@@ -57,7 +56,7 @@
   header {
     background: var(--surface);
     border-bottom: 2px solid var(--accent);
-    padding: 0 24px;
+    padding: 0 16px;
     height: 56px;
     display: flex;
     align-items: center;
@@ -65,28 +64,72 @@
     position: sticky;
     top: 0;
     z-index: 100;
+    gap: 12px;
   }
 
   .logo {
     font-family: var(--head);
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 700;
     letter-spacing: 3px;
     text-transform: uppercase;
     color: var(--text);
+    flex-shrink: 0;
   }
   .logo span { color: var(--accent); }
+
+  /* Project switcher in header */
+  .project-switcher {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 5px 10px;
+    cursor: pointer;
+    flex: 1;
+    min-width: 0;
+    max-width: 300px;
+    transition: border-color 0.2s;
+  }
+  .project-switcher:hover { border-color: var(--accent); }
+
+  .project-switcher-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text3);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .project-switcher-name {
+    font-family: var(--head);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: 1px;
+  }
+  .project-switcher-arrow {
+    font-size: 10px;
+    color: var(--text3);
+    flex-shrink: 0;
+  }
 
   .header-right {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 10px;
+    flex-shrink: 0;
   }
 
   .sync-badge {
     font-family: var(--mono);
-    font-size: 11px;
-    padding: 4px 10px;
+    font-size: 10px;
+    padding: 4px 8px;
     border-radius: 3px;
     border: 1px solid;
     text-transform: uppercase;
@@ -96,19 +139,12 @@
   .sync-badge.online { border-color: var(--pass); color: var(--pass); background: rgba(40,199,111,0.08); }
   .sync-badge.offline { border-color: var(--warn); color: var(--warn); background: rgba(255,159,67,0.08); }
 
-  .inspector-tag {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--text2);
-  }
-
   /* ── NAV TABS ── */
   .nav-tabs {
     display: flex;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
-    padding: 0 24px;
-    gap: 0;
+    padding: 0 16px;
   }
 
   .nav-tab {
@@ -117,47 +153,171 @@
     font-weight: 600;
     letter-spacing: 2px;
     text-transform: uppercase;
-    padding: 12px 20px;
+    padding: 12px 16px;
     color: var(--text3);
     cursor: pointer;
     border-bottom: 2px solid transparent;
     margin-bottom: -1px;
     transition: all 0.2s;
-    border: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
     background: none;
   }
   .nav-tab:hover { color: var(--text2); }
   .nav-tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
 
-  /* ── MAIN LAYOUT ── */
-  main { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+  /* ── MAIN ── */
+  main { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
 
-  /* ── SETUP SCREEN ── */
-  .setup-screen { animation: fadeIn 0.3s ease; }
+  /* ── FIRST RUN MODAL ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.hidden { display: none; }
 
-  .screen-title {
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 28px;
+    width: 100%;
+    max-width: 480px;
+  }
+
+  .modal-title {
     font-family: var(--head);
-    font-size: 28px;
+    font-size: 22px;
     font-weight: 700;
     letter-spacing: 3px;
     text-transform: uppercase;
     color: var(--text);
     margin-bottom: 6px;
   }
-  .screen-sub {
+  .modal-sub {
     font-size: 13px;
     color: var(--text2);
-    margin-bottom: 32px;
-    letter-spacing: 0.5px;
+    margin-bottom: 24px;
+    line-height: 1.5;
   }
+
+  /* ── PROJECT DRAWER ── */
+  .drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 150;
+  }
+  .drawer-overlay.hidden { display: none; }
+
+  .drawer {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--surface);
+    z-index: 151;
+    overflow-y: auto;
+    padding: 24px 16px;
+    animation: slideUp 0.25s ease;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .drawer-title {
+    font-family: var(--head);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .drawer-close {
+    background: none;
+    border: none;
+    color: var(--text2);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px;
+  }
+
+  .project-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+
+  .project-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .project-item:hover { border-color: var(--accent); }
+  .project-item.active { border-color: var(--accent); background: rgba(232,160,32,0.06); }
+
+  .project-item-name {
+    font-family: var(--head);
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--text);
+  }
+  .project-item-count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+  }
+  .project-item.active .project-item-name { color: var(--accent); }
+
+  .import-zone {
+    border: 2px dashed var(--border);
+    border-radius: 6px;
+    padding: 28px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    margin-bottom: 16px;
+  }
+  .import-zone:hover { border-color: var(--accent2); }
+  .import-zone.dragover { border-color: var(--accent); background: rgba(232,160,32,0.05); }
+
+  .import-icon { font-size: 32px; margin-bottom: 10px; }
+  .import-title {
+    font-family: var(--head);
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 6px;
+  }
+  .import-sub { font-size: 12px; color: var(--text3); line-height: 1.5; }
 
   /* ── CARDS ── */
   .card {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 24px;
-    margin-bottom: 20px;
+    padding: 20px;
+    margin-bottom: 16px;
   }
 
   .card-title {
@@ -167,7 +327,7 @@
     letter-spacing: 2px;
     text-transform: uppercase;
     color: var(--accent);
-    margin-bottom: 16px;
+    margin-bottom: 14px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -181,15 +341,15 @@
     border-radius: 2px;
   }
 
-  /* ── FORM ELEMENTS ── */
-  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  /* ── FORM ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .form-grid.three { grid-template-columns: 1fr 1fr 1fr; }
   .form-group { display: flex; flex-direction: column; gap: 6px; }
   .form-group.full { grid-column: 1 / -1; }
 
   label {
     font-family: var(--mono);
-    font-size: 11px;
+    font-size: 10px;
     color: var(--text2);
     letter-spacing: 1px;
     text-transform: uppercase;
@@ -207,12 +367,31 @@
     width: 100%;
     outline: none;
   }
-  input:focus, select:focus, textarea:focus {
-    border-color: var(--accent2);
-  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent2); }
   select { cursor: pointer; }
   select option { background: var(--surface2); }
   textarea { resize: vertical; min-height: 80px; }
+
+  /* Asset ID lookup state */
+  input.lookup-loading { border-color: var(--warn); }
+  input.lookup-found { border-color: var(--pass); }
+  input.lookup-notfound { border-color: var(--fail); }
+
+  .lookup-status {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+  }
+  .lookup-status.found { color: var(--pass); }
+  .lookup-status.notfound { color: var(--text3); }
+  .lookup-status.loading { color: var(--warn); }
+
+  .autofilled {
+    background: rgba(40,199,111,0.06) !important;
+    border-color: rgba(40,199,111,0.3) !important;
+    color: var(--pass) !important;
+  }
 
   /* ── BUTTONS ── */
   .btn {
@@ -221,81 +400,108 @@
     font-weight: 600;
     letter-spacing: 2px;
     text-transform: uppercase;
-    padding: 12px 28px;
+    padding: 12px 24px;
     border-radius: 4px;
     border: none;
     cursor: pointer;
     transition: all 0.2s;
   }
 
-  .btn-primary {
-    background: var(--accent);
-    color: #0d0f12;
-  }
+  .btn-primary { background: var(--accent); color: #0d0f12; }
   .btn-primary:hover { background: #f0b030; transform: translateY(-1px); }
-
-  .btn-secondary {
-    background: transparent;
-    color: var(--text2);
-    border: 1px solid var(--border);
-  }
+  .btn-secondary { background: transparent; color: var(--text2); border: 1px solid var(--border); }
   .btn-secondary:hover { border-color: var(--text2); color: var(--text); }
-
-  .btn-danger {
-    background: transparent;
-    color: var(--fail);
-    border: 1px solid var(--fail);
-  }
+  .btn-danger { background: transparent; color: var(--fail); border: 1px solid var(--fail); }
   .btn-danger:hover { background: rgba(234,84,85,0.1); }
 
-  .btn-pass {
-    background: var(--pass);
-    color: #0d0f12;
-    flex: 1;
-  }
-  .btn-pass:hover { background: #35d97f; }
+  .btn-row { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
 
-  .btn-fail {
-    background: var(--fail);
-    color: #fff;
-    flex: 1;
+  /* ── SCREEN TITLES ── */
+  .screen-title {
+    font-family: var(--head);
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text);
+    margin-bottom: 4px;
   }
-  .btn-fail:hover { background: #f06060; }
-
-  .btn-row {
-    display: flex;
-    gap: 12px;
-    margin-top: 24px;
-  }
-
-  /* ── SUPABASE CONFIG ── */
-  .config-note {
-    font-size: 12px;
+  .screen-sub {
+    font-size: 13px;
     color: var(--text2);
-    line-height: 1.6;
-    padding: 12px;
-    background: rgba(61,127,255,0.06);
-    border: 1px solid rgba(61,127,255,0.2);
-    border-radius: 4px;
-    margin-bottom: 16px;
-  }
-  .config-note a { color: var(--accent2); }
-  .config-note code {
-    font-family: var(--mono);
-    font-size: 11px;
-    background: var(--surface3);
-    padding: 1px 5px;
-    border-radius: 2px;
+    margin-bottom: 24px;
+    letter-spacing: 0.5px;
   }
 
-  /* ── INSPECTION WIZARD ── */
+  /* ── INSPECTOR BANNER ── */
+  .inspector-banner {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .inspector-banner-left { display: flex; align-items: center; gap: 12px; }
+
+  .inspector-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--surface3);
+    border: 2px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--head);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .inspector-banner-name {
+    font-family: var(--head);
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--text);
+  }
+  .inspector-banner-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text3);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .btn-change-inspector {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 4px 10px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+  .btn-change-inspector:hover { color: var(--text2); border-color: var(--text3); }
+
+  /* ── WIZARD ── */
   .wizard { animation: fadeIn 0.3s ease; }
 
   .progress-bar {
     display: flex;
     align-items: center;
-    gap: 0;
-    margin-bottom: 32px;
+    margin-bottom: 28px;
     overflow-x: auto;
     padding-bottom: 4px;
   }
@@ -305,35 +511,27 @@
     flex-direction: column;
     align-items: center;
     gap: 6px;
-    min-width: 80px;
+    min-width: 70px;
   }
 
   .step-circle {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     border: 2px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: center;
     font-family: var(--mono);
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text3);
     background: var(--surface);
     transition: all 0.3s;
     position: relative;
     z-index: 1;
   }
-  .step-circle.active {
-    border-color: var(--accent);
-    color: var(--accent);
-    box-shadow: 0 0 0 4px rgba(232,160,32,0.15);
-  }
-  .step-circle.done {
-    border-color: var(--pass);
-    background: var(--pass);
-    color: #0d0f12;
-  }
+  .step-circle.active { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 4px rgba(232,160,32,0.15); }
+  .step-circle.done { border-color: var(--pass); background: var(--pass); color: #0d0f12; }
 
   .step-label {
     font-family: var(--mono);
@@ -352,15 +550,13 @@
     height: 2px;
     background: var(--border);
     margin-bottom: 22px;
-    min-width: 20px;
+    min-width: 16px;
     transition: background 0.3s;
   }
   .step-line.done { background: var(--pass); }
 
-  /* ── QUESTION BLOCKS ── */
-  .question-block {
-    animation: slideIn 0.25s ease;
-  }
+  /* ── QUESTIONS ── */
+  .question-block { animation: slideIn 0.25s ease; }
 
   @keyframes slideIn {
     from { opacity: 0; transform: translateX(12px); }
@@ -385,18 +581,13 @@
     line-height: 1.3;
   }
 
-  .choices {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 24px;
-  }
+  .choices { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
 
   .choice-btn {
     display: flex;
     align-items: center;
     gap: 14px;
-    padding: 14px 18px;
+    padding: 14px 16px;
     background: var(--surface2);
     border: 1px solid var(--border);
     border-radius: 5px;
@@ -413,27 +604,20 @@
   .choice-btn.selected-fail { border-color: var(--fail); background: rgba(234,84,85,0.08); color: var(--fail); }
   .choice-btn.selected-neutral { border-color: var(--accent2); background: rgba(61,127,255,0.08); color: var(--accent2); }
 
-  .choice-indicator {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
+  .choice-indicator { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .ind-pass { background: var(--pass); }
   .ind-fail { background: var(--fail); }
   .ind-warn { background: var(--warn); }
   .ind-na { background: var(--text3); }
 
-  /* ── DEFICIENCY PANEL ── */
   .deficiency-panel {
     background: rgba(234,84,85,0.06);
     border: 1px solid rgba(234,84,85,0.25);
     border-radius: 5px;
-    padding: 16px;
-    margin-top: 12px;
+    padding: 14px;
+    margin-top: 10px;
     animation: fadeIn 0.2s ease;
   }
-
   .deficiency-label {
     font-family: var(--mono);
     font-size: 10px;
@@ -443,230 +627,21 @@
     margin-bottom: 8px;
   }
 
-  /* ── SUMMARY / RESULTS ── */
-  .summary-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 24px;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-
-  .result-badge {
-    font-family: var(--head);
-    font-size: 18px;
-    font-weight: 700;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    padding: 8px 20px;
-    border-radius: 4px;
-  }
-  .result-badge.pass { background: rgba(40,199,111,0.12); color: var(--pass); border: 1px solid var(--pass); }
-  .result-badge.fail { background: rgba(234,84,85,0.12); color: var(--fail); border: 1px solid var(--fail); }
-  .result-badge.conditional { background: rgba(255,159,67,0.12); color: var(--warn); border: 1px solid var(--warn); }
-
-  .finding-row {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
-    gap: 12px;
-  }
-  .finding-row:last-child { border-bottom: none; }
-
-  .finding-label {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--text2);
-    letter-spacing: 0.5px;
-    min-width: 160px;
-  }
-
-  .finding-val {
-    font-size: 13px;
-    color: var(--text);
-    text-align: right;
-    flex: 1;
-  }
-
-  .finding-val.fail { color: var(--fail); }
-  .finding-val.pass { color: var(--pass); }
-
-  /* ── RECORDS TABLE ── */
-  .records-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
-
-  .records-table th {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: var(--text2);
-    padding: 10px 12px;
-    text-align: left;
-    border-bottom: 2px solid var(--border);
-    white-space: nowrap;
-  }
-
-  .records-table td {
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border);
-    vertical-align: middle;
-  }
-
-  .records-table tr:hover td { background: var(--surface2); }
-
-  .status-pill {
-    font-family: var(--mono);
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    padding: 3px 10px;
-    border-radius: 20px;
-    display: inline-block;
-  }
-  .status-pill.pass { background: rgba(40,199,111,0.12); color: var(--pass); }
-  .status-pill.fail { background: rgba(234,84,85,0.12); color: var(--fail); }
-  .status-pill.conditional { background: rgba(255,159,67,0.12); color: var(--warn); }
-  .status-pill.pending { background: rgba(138,148,170,0.12); color: var(--text2); }
-
-  .empty-state {
-    text-align: center;
-    padding: 60px 20px;
-    color: var(--text3);
-  }
-  .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
-  .empty-state p { font-family: var(--mono); font-size: 12px; letter-spacing: 1px; }
-
-  /* ── STATS ROW ── */
-  .stats-row {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-    margin-bottom: 28px;
-  }
-
-  .stat-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 16px;
-    text-align: center;
-  }
-
-  .stat-num {
-    font-family: var(--head);
-    font-size: 32px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    line-height: 1;
-    margin-bottom: 4px;
-  }
-
-  .stat-label {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: var(--text2);
-  }
-
-  /* ── SYNC STATUS ── */
-  .sync-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--text2);
-    margin-bottom: 16px;
-  }
-
-  .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    animation: pulse 2s infinite;
-  }
-  .dot.green { background: var(--pass); }
-  .dot.orange { background: var(--warn); }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-
-  /* ── TOAST ── */
-  .toast {
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--pass);
-    border-radius: 5px;
-    padding: 14px 20px;
-    font-size: 13px;
-    color: var(--text);
-    z-index: 999;
-    animation: toastIn 0.3s ease;
-    max-width: 320px;
-  }
-  .toast.error { border-left-color: var(--fail); }
-  .toast.warn { border-left-color: var(--warn); }
-
-  @keyframes toastIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-
-  .hidden { display: none !important; }
-
   /* ── DOOR HEADER STRIP ── */
   .door-header-strip {
     background: var(--surface2);
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 14px 20px;
-    margin-bottom: 24px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
     display: flex;
-    gap: 32px;
+    gap: 20px;
     flex-wrap: wrap;
     align-items: center;
   }
-
-  .door-meta-item {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .door-meta-key {
-    font-family: var(--mono);
-    font-size: 9px;
-    color: var(--text3);
-    letter-spacing: 1px;
-    text-transform: uppercase;
-  }
-
-  .door-meta-val {
-    font-family: var(--head);
-    font-size: 16px;
-    font-weight: 600;
-    letter-spacing: 1px;
-    color: var(--text);
-  }
+  .door-meta-item { display: flex; flex-direction: column; gap: 2px; }
+  .door-meta-key { font-family: var(--mono); font-size: 9px; color: var(--text3); letter-spacing: 1px; text-transform: uppercase; }
+  .door-meta-val { font-family: var(--head); font-size: 15px; font-weight: 600; letter-spacing: 1px; color: var(--text); }
 
   .phase-title {
     font-family: var(--head);
@@ -675,14 +650,13 @@
     letter-spacing: 2px;
     text-transform: uppercase;
     color: var(--text2);
-    margin-bottom: 20px;
+    margin-bottom: 18px;
     padding-bottom: 10px;
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
     gap: 10px;
   }
-
   .phase-badge {
     font-size: 10px;
     padding: 2px 8px;
@@ -692,84 +666,168 @@
     letter-spacing: 1px;
   }
 
+  /* ── RECORDS ── */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px; text-align: center; }
+  .stat-num { font-family: var(--head); font-size: 30px; font-weight: 700; letter-spacing: 2px; line-height: 1; margin-bottom: 4px; }
+  .stat-label { font-family: var(--mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text2); }
+
+  .sync-row { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; color: var(--text2); margin-bottom: 14px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; animation: pulse 2s infinite; }
+  .dot.green { background: var(--pass); }
+  .dot.orange { background: var(--warn); }
+
+  .records-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .records-table th { font-family: var(--mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text2); padding: 10px 12px; text-align: left; border-bottom: 2px solid var(--border); white-space: nowrap; }
+  .records-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .records-table tr:hover td { background: var(--surface2); }
+
+  .status-pill { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; padding: 3px 10px; border-radius: 20px; display: inline-block; }
+  .status-pill.pass { background: rgba(40,199,111,0.12); color: var(--pass); }
+  .status-pill.fail { background: rgba(234,84,85,0.12); color: var(--fail); }
+  .status-pill.conditional { background: rgba(255,159,67,0.12); color: var(--warn); }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text3); }
+  .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+  .empty-state p { font-family: var(--mono); font-size: 12px; letter-spacing: 1px; }
+
+  /* ── CONFIG ── */
+  .config-note { font-size: 12px; color: var(--text2); line-height: 1.6; padding: 12px; background: rgba(61,127,255,0.06); border: 1px solid rgba(61,127,255,0.2); border-radius: 4px; margin-bottom: 16px; }
+  .config-note a { color: var(--accent2); }
+
+  /* ── TOAST ── */
+  .toast { position: fixed; bottom: 24px; right: 16px; left: 16px; max-width: 420px; margin: 0 auto; background: var(--surface2); border: 1px solid var(--border); border-left: 3px solid var(--pass); border-radius: 5px; padding: 14px 18px; font-size: 13px; color: var(--text); z-index: 999; animation: toastIn 0.3s ease; }
+  .toast.error { border-left-color: var(--fail); }
+  .toast.warn { border-left-color: var(--warn); }
+
+  @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .hidden { display: none !important; }
+
   @media (max-width: 600px) {
     .form-grid { grid-template-columns: 1fr; }
-    .form-grid.three { grid-template-columns: 1fr; }
+    .form-grid.three { grid-template-columns: 1fr 1fr; }
     .stats-row { grid-template-columns: 1fr 1fr; }
-    main { padding: 20px 16px; }
-    .progress-bar { gap: 0; }
-    .step-node { min-width: 60px; }
+    .step-node { min-width: 56px; }
   }
 </style>
 </head>
 <body>
 <div id="app">
 
+  <!-- ══════════════════════════════════
+       FIRST-RUN MODAL (name entry)
+  ══════════════════════════════════ -->
+  <div class="modal-overlay" id="firstRunModal">
+    <div class="modal">
+      <div class="modal-title">Welcome</div>
+      <div class="modal-sub">Enter your name once. It will be remembered on this device for all future inspections.</div>
+      <div class="form-group" style="margin-bottom:20px;">
+        <label>Your Name</label>
+        <input type="text" id="firstRunName" placeholder="Full name" autocomplete="name"
+          onkeydown="if(event.key==='Enter') saveInspectorName()">
+      </div>
+      <button class="btn btn-primary" onclick="saveInspectorName()">Continue →</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       PROJECT DRAWER
+  ══════════════════════════════════ -->
+  <div class="drawer-overlay hidden" id="drawerOverlay" onclick="closeProjectDrawer()"></div>
+  <div class="drawer hidden" id="projectDrawer">
+    <div class="drawer-title">
+      Projects
+      <button class="drawer-close" onclick="closeProjectDrawer()">✕</button>
+    </div>
+
+    <div id="projectListContainer">
+      <div class="project-list" id="projectList"></div>
+    </div>
+
+    <div style="margin-bottom:16px;">
+      <div class="card-title" style="margin-bottom:12px;">Import Door Schedule from Fieldwire</div>
+      <div class="config-note" style="margin-bottom:12px;">
+        Export your door schedule from Fieldwire as a CSV. Required columns: <strong>Asset ID</strong> and <strong>Icon No.</strong> — optional: Floor, Grid Block, Assembly Type, Door Rating, Project.<br><br>
+        The <strong>Project</strong> column (if present) will group doors into projects automatically. Each unique project name becomes a selectable project above.
+      </div>
+      <div class="import-zone" id="importZone" onclick="document.getElementById('csvFileInput').click()"
+        ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+        <div class="import-icon">📋</div>
+        <div class="import-title">Upload Fieldwire CSV</div>
+        <div class="import-sub">Tap to browse or drag and drop your CSV file here</div>
+      </div>
+      <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="handleCSVFile(event)">
+      <button class="btn btn-danger" style="font-size:12px;padding:8px 16px;" onclick="clearDoorSchedule()">Clear Door Schedule</button>
+    </div>
+  </div>
+
   <!-- HEADER -->
   <header>
     <div class="logo">DOOR<span>INSP</span></div>
+    <div class="project-switcher" onclick="openProjectDrawer()">
+      <div>
+        <div class="project-switcher-label">Project</div>
+        <div class="project-switcher-name" id="activeProjectName">— Select —</div>
+      </div>
+      <div class="project-switcher-arrow">▼</div>
+    </div>
     <div class="header-right">
-      <span class="inspector-tag" id="inspectorTag">—</span>
       <span class="sync-badge offline" id="syncBadge">OFFLINE</span>
     </div>
   </header>
 
   <!-- NAV -->
   <div class="nav-tabs">
-    <button class="nav-tab active" onclick="showTab('setup')">Setup</button>
-    <button class="nav-tab" onclick="showTab('inspect')">Inspect</button>
+    <button class="nav-tab active" onclick="showTab('setup')">Inspect</button>
     <button class="nav-tab" onclick="showTab('records')">Records</button>
     <button class="nav-tab" onclick="showTab('config')">Config</button>
   </div>
 
-  <!-- MAIN -->
   <main>
 
-    <!-- ═══════════════════════════════════════════════
-         TAB: SETUP
-    ════════════════════════════════════════════════ -->
-    <div id="tab-setup" class="setup-screen">
-      <div class="screen-title">New Inspection</div>
-      <div class="screen-sub">Enter door identification and assembly details before beginning the inspection sequence.</div>
+    <!-- ══════════════════════════════════
+         TAB: SETUP / NEW INSPECTION
+    ══════════════════════════════════ -->
+    <div id="tab-setup">
 
-      <div class="card">
-        <div class="card-title">Inspector & Session</div>
-        <div class="form-grid">
-          <div class="form-group">
-            <label>Inspector Name</label>
-            <input type="text" id="inspectorName" placeholder="Full name" oninput="updateInspectorTag()">
-          </div>
-          <div class="form-group">
-            <label>Project / Facility</label>
-            <input type="text" id="projectName" placeholder="e.g. St. Luke's Medical Center">
+      <!-- Inspector banner -->
+      <div class="inspector-banner">
+        <div class="inspector-banner-left">
+          <div class="inspector-avatar" id="inspectorAvatar">?</div>
+          <div>
+            <div class="inspector-banner-label">Inspector</div>
+            <div class="inspector-banner-name" id="inspectorBannerName">—</div>
           </div>
         </div>
+        <button class="btn-change-inspector" onclick="changeInspector()">Change</button>
       </div>
 
       <div class="card">
         <div class="card-title">Door Identification</div>
+
+        <!-- Asset ID with lookup -->
+        <div class="form-group" style="margin-bottom:14px;">
+          <label>Asset ID <span style="color:var(--text3)">— type to auto-fill from schedule</span></label>
+          <input type="text" id="assetId" placeholder="e.g. AST-10042"
+            oninput="onAssetIdInput()" autocomplete="off" autocorrect="off" spellcheck="false">
+          <div class="lookup-status hidden" id="lookupStatus"></div>
+        </div>
+
         <div class="form-grid three">
           <div class="form-group">
             <label>Icon No.</label>
             <input type="text" id="iconNo" placeholder="e.g. FD-042">
           </div>
           <div class="form-group">
-            <label>Asset ID</label>
-            <input type="text" id="assetId" placeholder="e.g. AST-10042">
-          </div>
-          <div class="form-group">
             <label>Floor</label>
             <input type="text" id="floorNo" placeholder="e.g. 3">
           </div>
-        </div>
-        <div class="form-grid" style="margin-top:16px;">
           <div class="form-group">
-            <label>Grid Block / Zone</label>
+            <label>Grid Block</label>
             <input type="text" id="gridBlock" placeholder="e.g. B-7">
-          </div>
-          <div class="form-group">
-            <label>Location Description</label>
-            <input type="text" id="locationDesc" placeholder="e.g. ICU East Corridor">
           </div>
         </div>
       </div>
@@ -801,7 +859,7 @@
             </select>
           </div>
         </div>
-        <div id="standardNote" style="margin-top:14px; font-family:var(--mono); font-size:11px; color:var(--accent2); letter-spacing:0.5px; display:none;"></div>
+        <div id="standardNote" style="margin-top:12px; font-family:var(--mono); font-size:11px; color:var(--accent2); letter-spacing:0.5px; display:none;"></div>
       </div>
 
       <div class="btn-row">
@@ -809,74 +867,38 @@
       </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════
+    <!-- ══════════════════════════════════
          TAB: INSPECT (WIZARD)
-    ════════════════════════════════════════════════ -->
+    ══════════════════════════════════ -->
     <div id="tab-inspect" class="wizard hidden">
-      <!-- Door header strip -->
       <div class="door-header-strip" id="doorHeaderStrip">
-        <div class="door-meta-item">
-          <div class="door-meta-key">Icon No.</div>
-          <div class="door-meta-val" id="stripIcon">—</div>
-        </div>
-        <div class="door-meta-item">
-          <div class="door-meta-key">Asset ID</div>
-          <div class="door-meta-val" id="stripAsset">—</div>
-        </div>
-        <div class="door-meta-item">
-          <div class="door-meta-key">Floor</div>
-          <div class="door-meta-val" id="stripFloor">—</div>
-        </div>
-        <div class="door-meta-item">
-          <div class="door-meta-key">Grid</div>
-          <div class="door-meta-val" id="stripGrid">—</div>
-        </div>
-        <div class="door-meta-item">
-          <div class="door-meta-key">Type</div>
-          <div class="door-meta-val" id="stripType">—</div>
-        </div>
+        <div class="door-meta-item"><div class="door-meta-key">Icon No.</div><div class="door-meta-val" id="stripIcon">—</div></div>
+        <div class="door-meta-item"><div class="door-meta-key">Asset ID</div><div class="door-meta-val" id="stripAsset">—</div></div>
+        <div class="door-meta-item"><div class="door-meta-key">Floor</div><div class="door-meta-val" id="stripFloor">—</div></div>
+        <div class="door-meta-item"><div class="door-meta-key">Grid</div><div class="door-meta-val" id="stripGrid">—</div></div>
+        <div class="door-meta-item"><div class="door-meta-key">Type</div><div class="door-meta-val" id="stripType">—</div></div>
       </div>
-
-      <!-- Progress bar -->
       <div class="progress-bar" id="progressBar"></div>
-
-      <!-- Phase title -->
       <div class="phase-title" id="phaseTitle"></div>
-
-      <!-- Question area -->
       <div id="questionArea"></div>
-
-      <!-- Nav buttons -->
       <div class="btn-row">
         <button class="btn btn-secondary" id="btnBack" onclick="wizardBack()">← Back</button>
         <button class="btn btn-primary" id="btnNext" onclick="wizardNext()">Next →</button>
       </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════
+    <!-- ══════════════════════════════════
          TAB: RECORDS
-    ════════════════════════════════════════════════ -->
+    ══════════════════════════════════ -->
     <div id="tab-records" class="hidden">
-      <div class="screen-title">Inspection Records</div>
-      <div class="screen-sub">All completed inspections for this session. Export to Excel when ready.</div>
+      <div class="screen-title">Records</div>
+      <div class="screen-sub">Completed inspections. Export or sync when ready.</div>
 
-      <div class="stats-row" id="statsRow">
-        <div class="stat-card">
-          <div class="stat-num" id="statTotal" style="color:var(--text)">0</div>
-          <div class="stat-label">Total</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-num" id="statPass" style="color:var(--pass)">0</div>
-          <div class="stat-label">Passed</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-num" id="statFail" style="color:var(--fail)">0</div>
-          <div class="stat-label">Failed</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-num" id="statPending" style="color:var(--warn)">0</div>
-          <div class="stat-label">Pending Sync</div>
-        </div>
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-num" id="statTotal" style="color:var(--text)">0</div><div class="stat-label">Total</div></div>
+        <div class="stat-card"><div class="stat-num" id="statPass" style="color:var(--pass)">0</div><div class="stat-label">Passed</div></div>
+        <div class="stat-card"><div class="stat-num" id="statFail" style="color:var(--fail)">0</div><div class="stat-label">Failed</div></div>
+        <div class="stat-card"><div class="stat-num" id="statPending" style="color:var(--warn)">0</div><div class="stat-label">Pending Sync</div></div>
       </div>
 
       <div class="sync-row">
@@ -884,20 +906,21 @@
         <span id="syncStatus">Local storage only — configure Supabase to enable sync</span>
       </div>
 
-      <div style="display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
+      <div style="display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap;">
         <button class="btn btn-primary" onclick="exportExcel()">Export Excel</button>
         <button class="btn btn-secondary" onclick="syncToSupabase()">↑ Sync to Cloud</button>
-        <button class="btn btn-secondary" onclick="refreshRecords()">Refresh</button>
+        <button class="btn btn-secondary" onclick="renderRecords()">Refresh</button>
       </div>
 
       <div class="card" style="padding:0; overflow:auto;">
-        <table class="records-table" id="recordsTable">
+        <table class="records-table">
           <thead>
             <tr>
               <th>Icon No.</th>
               <th>Asset ID</th>
               <th>Floor</th>
               <th>Grid</th>
+              <th>Project</th>
               <th>Type</th>
               <th>Rating</th>
               <th>Status</th>
@@ -915,20 +938,20 @@
       </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════
+    <!-- ══════════════════════════════════
          TAB: CONFIG
-    ════════════════════════════════════════════════ -->
+    ══════════════════════════════════ -->
     <div id="tab-config" class="hidden">
       <div class="screen-title">Configuration</div>
-      <div class="screen-sub">Connect to Supabase for multi-inspector cloud sync and Excel export.</div>
+      <div class="screen-sub">Connect to Supabase for multi-inspector cloud sync.</div>
 
       <div class="card">
         <div class="card-title">Supabase Connection</div>
         <div class="config-note">
           1. Go to <a href="https://supabase.com" target="_blank">supabase.com</a> → create a free project.<br>
           2. In your project: <strong>SQL Editor</strong> → run the setup SQL below.<br>
-          3. Go to <strong>Project Settings → API</strong> → copy your Project URL and anon/public key.<br>
-          4. Paste them here and click Save. All inspectors use the same credentials.
+          3. Go to <strong>Settings → Data API</strong> → copy your Project URL and anon/public key.<br>
+          4. Paste them here and click Save.
         </div>
 
         <details style="margin-bottom:16px;">
@@ -939,7 +962,6 @@
   asset_id text,
   floor text,
   grid_block text,
-  location_desc text,
   assembly_type text,
   door_rating text,
   inspector text,
@@ -953,34 +975,46 @@
   synced_at timestamptz DEFAULT now()
 );
 
--- Enable Row Level Security (open for now, lock down later)
+CREATE TABLE door_schedule (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  asset_id text UNIQUE,
+  icon_no text,
+  floor text,
+  grid_block text,
+  assembly_type text,
+  door_rating text,
+  project text,
+  uploaded_at timestamptz DEFAULT now()
+);
+
 ALTER TABLE door_inspections ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all" ON door_inspections FOR ALL USING (true);</pre>
+CREATE POLICY "Allow all" ON door_inspections FOR ALL USING (true);
+ALTER TABLE door_schedule ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all" ON door_schedule FOR ALL USING (true);</pre>
         </details>
 
-        <div class="form-group" style="margin-bottom:16px;">
+        <div class="form-group" style="margin-bottom:14px;">
           <label>Supabase Project URL</label>
           <input type="text" id="supabaseUrl" placeholder="https://xxxxxxxxxxxx.supabase.co">
         </div>
-        <div class="form-group" style="margin-bottom:20px;">
+        <div class="form-group" style="margin-bottom:18px;">
           <label>Supabase Anon Key</label>
           <input type="text" id="supabaseKey" placeholder="eyJhbGciOiJIUzI1NiIs...">
         </div>
         <button class="btn btn-primary" onclick="saveConfig()">Save Configuration</button>
-        <button class="btn btn-secondary" style="margin-left:12px;" onclick="testConnection()">Test Connection</button>
+        <button class="btn btn-secondary" style="margin-left:10px;" onclick="testConnection()">Test Connection</button>
       </div>
 
       <div class="card">
         <div class="card-title">Data Management</div>
-        <p style="font-size:13px; color:var(--text2); margin-bottom:16px;">Clear all locally stored inspections. This does not affect cloud data.</p>
-        <button class="btn btn-danger" onclick="clearLocalData()">Clear Local Data</button>
+        <p style="font-size:13px; color:var(--text2); margin-bottom:14px;">Clear all locally stored inspection records. Does not affect cloud data or the door schedule.</p>
+        <button class="btn btn-danger" onclick="clearLocalData()">Clear Local Inspection Data</button>
       </div>
     </div>
 
   </main>
 </div>
 
-<!-- TOAST -->
 <div id="toast" class="toast hidden"></div>
 
 <script>
@@ -991,14 +1025,10 @@ let currentDoor = {};
 let wizardPhases = [];
 let currentPhaseIdx = 0;
 let currentQIdx = 0;
-let answers = {};  // questionId -> { value, text, status, deficiency }
+let answers = {};
 let deficiencies = [];
-
-// ═══════════════════════════════════════════════════════════════════
-//  INSPECTION LOGIC TREES
-//  Each phase has questions; each question has choices that may
-//  branch or flag deficiencies.
-// ═══════════════════════════════════════════════════════════════════
+let doorSchedule = {}; // asset_id -> door data
+let assetLookupTimer = null;
 
 const ASSEMBLY_TYPE_LABELS = {
   fire_door: 'Fire Door',
@@ -1007,14 +1037,426 @@ const ASSEMBLY_TYPE_LABELS = {
   suite_perimeter: 'Suite Perimeter Door'
 };
 
+const ASSEMBLY_TYPE_VALUES = {
+  'fire door': 'fire_door',
+  'fire_door': 'fire_door',
+  'smoke barrier': 'smoke_barrier',
+  'smoke barrier door': 'smoke_barrier',
+  'smoke_barrier': 'smoke_barrier',
+  'smoke partition': 'smoke_partition',
+  'smoke partition door': 'smoke_partition',
+  'smoke_partition': 'smoke_partition',
+  'suite perimeter': 'suite_perimeter',
+  'suite perimeter door': 'suite_perimeter',
+  'suite_perimeter': 'suite_perimeter'
+};
+
+const RATING_VALUES = {
+  '3 hour': '3hr', '3hr': '3hr', '3-hour': '3hr',
+  '90 minute': '90min', '90min': '90min', '90-minute': '90min',
+  '60 minute': '60min', '60min': '60min', '60-minute': '60min',
+  '45 minute': '45min', '45min': '45min', '45-minute': '45min',
+  '20 minute': '20min', '20min': '20min', '20-minute': '20min',
+  'non-rated': 'nonrated', 'nonrated': 'nonrated', 'non rated': 'nonrated',
+  'n/a': 'na', 'na': 'na'
+};
+
+// ═══════════════════════════════════════════════════════════════════
+//  INSPECTOR MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════
+function initInspector() {
+  const name = localStorage.getItem('inspectorName');
+  if (!name) {
+    document.getElementById('firstRunModal').classList.remove('hidden');
+    setTimeout(() => document.getElementById('firstRunName').focus(), 100);
+  } else {
+    applyInspectorName(name);
+  }
+}
+
+function saveInspectorName() {
+  const name = document.getElementById('firstRunName').value.trim();
+  if (!name) { showToast('Please enter your name.', 'warn'); return; }
+  localStorage.setItem('inspectorName', name);
+  document.getElementById('firstRunModal').classList.add('hidden');
+  applyInspectorName(name);
+}
+
+function applyInspectorName(name) {
+  document.getElementById('inspectorBannerName').textContent = name;
+  const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('inspectorAvatar').textContent = initials;
+}
+
+function changeInspector() {
+  const current = localStorage.getItem('inspectorName') || '';
+  document.getElementById('firstRunName').value = current;
+  document.getElementById('firstRunModal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('firstRunName').focus(), 100);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  PROJECT DRAWER
+// ═══════════════════════════════════════════════════════════════════
+function openProjectDrawer() {
+  renderProjectList();
+  document.getElementById('drawerOverlay').classList.remove('hidden');
+  document.getElementById('projectDrawer').classList.remove('hidden');
+}
+
+function closeProjectDrawer() {
+  document.getElementById('drawerOverlay').classList.add('hidden');
+  document.getElementById('projectDrawer').classList.add('hidden');
+}
+
+function getProjects() {
+  const schedule = getDoorSchedule();
+  const projects = new Set();
+  Object.values(schedule).forEach(d => { if (d.project) projects.add(d.project); });
+  return [...projects].sort();
+}
+
+function getActiveProject() {
+  return localStorage.getItem('activeProject') || '';
+}
+
+function setActiveProject(name) {
+  localStorage.setItem('activeProject', name);
+  document.getElementById('activeProjectName').textContent = name || '— Select —';
+  closeProjectDrawer();
+  showToast('Project: ' + name);
+}
+
+function renderProjectList() {
+  const projects = getProjects();
+  const active = getActiveProject();
+  const list = document.getElementById('projectList');
+  list.innerHTML = '';
+
+  if (projects.length === 0) {
+    list.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:12px 0;">No projects loaded — import a Fieldwire CSV below.</div>';
+    return;
+  }
+
+  projects.forEach(p => {
+    const schedule = getDoorSchedule();
+    const count = Object.values(schedule).filter(d => d.project === p).length;
+    const item = document.createElement('div');
+    item.className = 'project-item' + (p === active ? ' active' : '');
+    item.innerHTML = `
+      <div class="project-item-name">${p}</div>
+      <div class="project-item-count">${count} doors</div>
+    `;
+    item.onclick = () => setActiveProject(p);
+    list.appendChild(item);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  DOOR SCHEDULE (CSV IMPORT)
+// ═══════════════════════════════════════════════════════════════════
+function getDoorSchedule() {
+  if (Object.keys(doorSchedule).length > 0) return doorSchedule;
+  try {
+    const saved = localStorage.getItem('doorSchedule');
+    if (saved) { doorSchedule = JSON.parse(saved); }
+  } catch {}
+  return doorSchedule;
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('importZone').classList.add('dragover');
+}
+
+function handleDragLeave(e) {
+  document.getElementById('importZone').classList.remove('dragover');
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('importZone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) processCSV(file);
+}
+
+function handleCSVFile(e) {
+  const file = e.target.files[0];
+  if (file) processCSV(file);
+  e.target.value = '';
+}
+
+function processCSV(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const text = e.target.result;
+      const rows = parseCSV(text);
+      if (rows.length < 2) { showToast('CSV appears empty or invalid.', 'error'); return; }
+
+      const headers = rows[0].map(h => h.trim().toLowerCase());
+      const find = (variants) => {
+        for (const v of variants) {
+          const idx = headers.indexOf(v);
+          if (idx !== -1) return idx;
+        }
+        return -1;
+      };
+
+      const idxAsset    = find(['asset id', 'asset_id', 'assetid', 'asset']);
+      const idxIcon     = find(['icon no', 'icon no.', 'icon_no', 'icon number', 'iconno', 'icon']);
+      const idxFloor    = find(['floor', 'floor no', 'floor no.', 'floor_no', 'level']);
+      const idxGrid     = find(['grid block', 'grid_block', 'grid', 'zone', 'gridblock']);
+      const idxType     = find(['assembly type', 'assembly_type', 'type', 'door type', 'door_type']);
+      const idxRating   = find(['door rating', 'door_rating', 'rating', 'fire rating']);
+      const idxProject  = find(['project', 'project name', 'facility', 'building']);
+
+      if (idxAsset === -1) {
+        showToast('CSV must have an "Asset ID" column.', 'error');
+        return;
+      }
+
+      const schedule = {};
+      let count = 0;
+
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const assetId = row[idxAsset]?.trim();
+        if (!assetId) continue;
+
+        const rawType = idxType !== -1 ? (row[idxType] || '').trim().toLowerCase() : '';
+        const rawRating = idxRating !== -1 ? (row[idxRating] || '').trim().toLowerCase() : '';
+
+        schedule[assetId] = {
+          assetId,
+          iconNo:       idxIcon    !== -1 ? (row[idxIcon]    || '').trim() : '',
+          floorNo:      idxFloor   !== -1 ? (row[idxFloor]   || '').trim() : '',
+          gridBlock:    idxGrid    !== -1 ? (row[idxGrid]    || '').trim() : '',
+          assemblyType: ASSEMBLY_TYPE_VALUES[rawType] || rawType || '',
+          doorRating:   RATING_VALUES[rawRating] || rawRating || '',
+          project:      idxProject !== -1 ? (row[idxProject] || '').trim() : ''
+        };
+        count++;
+      }
+
+      doorSchedule = schedule;
+      localStorage.setItem('doorSchedule', JSON.stringify(schedule));
+
+      const projects = getProjects();
+      showToast(`Imported ${count} doors across ${projects.length} project(s).`);
+      renderProjectList();
+
+      // Auto-select project if only one
+      if (projects.length === 1) setActiveProject(projects[0]);
+
+    } catch (err) {
+      showToast('Error parsing CSV: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function parseCSV(text) {
+  const rows = [];
+  const lines = text.split(/\r?\n/);
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const row = [];
+    let inQuote = false;
+    let cell = '';
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuote && line[i+1] === '"') { cell += '"'; i++; }
+        else inQuote = !inQuote;
+      } else if (ch === ',' && !inQuote) {
+        row.push(cell); cell = '';
+      } else {
+        cell += ch;
+      }
+    }
+    row.push(cell);
+    rows.push(row);
+  }
+  return rows;
+}
+
+function clearDoorSchedule() {
+  if (!confirm('Clear the door schedule? This will remove all imported Fieldwire data.')) return;
+  doorSchedule = {};
+  localStorage.removeItem('doorSchedule');
+  localStorage.removeItem('activeProject');
+  document.getElementById('activeProjectName').textContent = '— Select —';
+  renderProjectList();
+  showToast('Door schedule cleared.');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  ASSET ID LOOKUP
+// ═══════════════════════════════════════════════════════════════════
+function onAssetIdInput() {
+  clearTimeout(assetLookupTimer);
+  const val = document.getElementById('assetId').value.trim();
+  if (!val) { clearAutoFill(); return; }
+  assetLookupTimer = setTimeout(() => lookupAsset(val), 300);
+}
+
+function lookupAsset(assetId) {
+  const schedule = getDoorSchedule();
+
+  // Try exact match first, then case-insensitive
+  let door = schedule[assetId];
+  if (!door) {
+    const lower = assetId.toLowerCase();
+    door = Object.values(schedule).find(d => d.assetId.toLowerCase() === lower);
+  }
+
+  const statusEl = document.getElementById('lookupStatus');
+  const assetInput = document.getElementById('assetId');
+
+  if (door) {
+    // Auto-fill fields
+    setField('iconNo', door.iconNo, true);
+    setField('floorNo', door.floorNo, true);
+    setField('gridBlock', door.gridBlock, true);
+
+    if (door.assemblyType) {
+      const sel = document.getElementById('assemblyType');
+      sel.value = door.assemblyType;
+      sel.classList.add('autofilled');
+      onAssemblyTypeChange();
+    }
+    if (door.doorRating) {
+      const sel = document.getElementById('doorRating');
+      sel.value = door.doorRating;
+      sel.classList.add('autofilled');
+    }
+
+    assetInput.classList.remove('lookup-loading', 'lookup-notfound');
+    assetInput.classList.add('lookup-found');
+    statusEl.textContent = '✓ Door found in schedule — fields auto-filled';
+    statusEl.className = 'lookup-status found';
+    statusEl.classList.remove('hidden');
+  } else {
+    clearAutoFill();
+    if (Object.keys(schedule).length > 0) {
+      assetInput.classList.add('lookup-notfound');
+      statusEl.textContent = 'Asset ID not found in schedule — enter fields manually';
+      statusEl.className = 'lookup-status notfound';
+      statusEl.classList.remove('hidden');
+    }
+  }
+}
+
+function setField(id, value, autofill) {
+  const el = document.getElementById(id);
+  el.value = value || '';
+  if (autofill && value) el.classList.add('autofilled');
+  else el.classList.remove('autofilled');
+}
+
+function clearAutoFill() {
+  ['iconNo', 'floorNo', 'gridBlock'].forEach(id => {
+    document.getElementById(id).classList.remove('autofilled');
+  });
+  ['assemblyType', 'doorRating'].forEach(id => {
+    document.getElementById(id).classList.remove('autofilled');
+  });
+  document.getElementById('assetId').classList.remove('lookup-found', 'lookup-notfound');
+  document.getElementById('lookupStatus').classList.add('hidden');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  ASSEMBLY TYPE NOTE
+// ═══════════════════════════════════════════════════════════════════
+const STANDARD_NOTES = {
+  fire_door: '⚡ NFPA 80 — Annual inspection required.',
+  smoke_barrier: '⚡ NFPA 101 §8.3.4 — Self-closing and positive-latching required.',
+  smoke_partition: '⚡ NFPA 101 §8.4.4 — Non-rated hazardous area. Self-closing required.',
+  suite_perimeter: '⚡ TJC EC standards + NFPA 101 Chapter 7 — Egress compliance critical.'
+};
+
+function onAssemblyTypeChange() {
+  const val = document.getElementById('assemblyType').value;
+  const note = document.getElementById('standardNote');
+  note.textContent = STANDARD_NOTES[val] || '';
+  note.style.display = val ? 'block' : 'none';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  TAB NAVIGATION
+// ═══════════════════════════════════════════════════════════════════
+function showTab(name) {
+  ['setup', 'inspect', 'records', 'config'].forEach(t => {
+    document.getElementById('tab-' + t).classList.add('hidden');
+  });
+  document.querySelectorAll('.nav-tab').forEach(el => {
+    const tabName = el.textContent.toLowerCase().trim();
+    el.classList.toggle('active',
+      (name === 'setup' && tabName === 'inspect') ||
+      (name === 'records' && tabName === 'records') ||
+      (name === 'config' && tabName === 'config')
+    );
+  });
+  document.getElementById('tab-' + name).classList.remove('hidden');
+  if (name === 'records') renderRecords();
+  if (name === 'config') loadConfig();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  START INSPECTION
+// ═══════════════════════════════════════════════════════════════════
+function startInspection() {
+  const assetId = document.getElementById('assetId').value.trim();
+  const assemblyType = document.getElementById('assemblyType').value;
+
+  if (!assetId) { showToast('Asset ID is required.', 'warn'); return; }
+  if (!assemblyType) { showToast('Select an Assembly Type.', 'warn'); return; }
+
+  const inspectorName = localStorage.getItem('inspectorName') || '—';
+  const activeProject = getActiveProject();
+
+  currentDoor = {
+    inspectorName,
+    projectName: activeProject,
+    iconNo: document.getElementById('iconNo').value.trim(),
+    assetId,
+    floorNo: document.getElementById('floorNo').value.trim(),
+    gridBlock: document.getElementById('gridBlock').value.trim(),
+    assemblyType,
+    doorRating: document.getElementById('doorRating').value,
+    startTime: new Date().toISOString()
+  };
+
+  answers = {};
+  deficiencies = [];
+  currentPhaseIdx = 0;
+  currentQIdx = 0;
+  wizardPhases = buildWizard(assemblyType);
+
+  document.getElementById('stripIcon').textContent  = currentDoor.iconNo  || '—';
+  document.getElementById('stripAsset').textContent = currentDoor.assetId || '—';
+  document.getElementById('stripFloor').textContent = currentDoor.floorNo || '—';
+  document.getElementById('stripGrid').textContent  = currentDoor.gridBlock || '—';
+  document.getElementById('stripType').textContent  = ASSEMBLY_TYPE_LABELS[assemblyType] || '—';
+
+  document.getElementById('tab-setup').classList.add('hidden');
+  document.getElementById('tab-inspect').classList.remove('hidden');
+  document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+
+  renderWizard();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  INSPECTION WIZARD BUILDER
+// ═══════════════════════════════════════════════════════════════════
 function buildWizard(assemblyType) {
   const phases = [];
 
-  // ─── PHASE 1: DOOR & FRAME CONDITION (All types) ───
-  const frameQuestions = [
+  // PHASE 1: FRAME & LEAF
+  phases.push({ id: 'frame', label: 'Frame & Leaf', questions: [
     {
-      id: 'frame_condition',
-      ref: 'NFPA 80 §4.1 / NFPA 101 §8.3',
+      id: 'frame_condition', ref: 'NFPA 80 §4.1 / NFPA 101 §8.3',
       text: 'Is the door frame free of visible damage, warping, or unauthorized modifications?',
       choices: [
         { label: 'Yes — frame is intact and unmodified', status: 'pass', indicator: 'pass' },
@@ -1033,14 +1475,12 @@ function buildWizard(assemblyType) {
         { label: 'Label present but damaged/partially illegible', status: 'fail', indicator: 'fail', deficiency: 'Label damaged or partially illegible', requiresNote: true },
         { label: 'Label missing from door leaf', status: 'fail', indicator: 'fail', deficiency: 'Door label missing' },
         { label: 'Label missing from frame/frame not labeled', status: 'fail', indicator: 'fail', deficiency: 'Frame label missing' },
-        assemblyType === 'smoke_partition' || assemblyType === 'suite_perimeter'
-          ? { label: 'N/A — non-rated, label not required', status: 'na', indicator: 'na' }
-          : null
-      ].filter(Boolean)
+        ...(assemblyType === 'smoke_partition' || assemblyType === 'suite_perimeter'
+          ? [{ label: 'N/A — non-rated, label not required', status: 'na', indicator: 'na' }] : [])
+      ]
     },
     {
-      id: 'door_leaf_condition',
-      ref: 'NFPA 80 §4.1.3',
+      id: 'door_leaf_condition', ref: 'NFPA 80 §4.1.3',
       text: 'Is the door leaf free of holes, breaks, or unauthorized modifications that could compromise the assembly?',
       choices: [
         { label: 'Yes — door leaf is intact', status: 'pass', indicator: 'pass' },
@@ -1049,17 +1489,13 @@ function buildWizard(assemblyType) {
         { label: 'Unauthorized louver, view panel, or cutout', status: 'fail', indicator: 'fail', deficiency: 'Unauthorized modification to door leaf', requiresNote: true }
       ]
     }
-  ];
+  ]});
 
-  phases.push({ id: 'frame', label: 'Frame & Leaf', questions: frameQuestions });
-
-  // ─── PHASE 2: HARDWARE (varies by type) ───
-  const hardwareQuestions = [];
-
+  // PHASE 2: HARDWARE
+  const hwQ = [];
   if (assemblyType === 'fire_door' || assemblyType === 'smoke_barrier') {
-    hardwareQuestions.push({
-      id: 'closer_present',
-      ref: 'NFPA 80 §5.2.1 / NFPA 101 §8.3.4',
+    hwQ.push({
+      id: 'closer_present', ref: 'NFPA 80 §5.2.1 / NFPA 101 §8.3.4',
       text: 'Is a self-closing device (door closer) installed and functioning properly?',
       choices: [
         { label: 'Yes — closer installed and door self-closes fully', status: 'pass', indicator: 'pass' },
@@ -1068,9 +1504,8 @@ function buildWizard(assemblyType) {
         { label: 'Closer held open by unapproved device (wedge, tie-back, etc.)', status: 'fail', indicator: 'fail', deficiency: 'Door held open — self-closing device defeated' }
       ]
     });
-    hardwareQuestions.push({
-      id: 'latching',
-      ref: 'NFPA 80 §5.2.4',
+    hwQ.push({
+      id: 'latching', ref: 'NFPA 80 §5.2.4',
       text: 'Does the door latch positively into the frame upon self-closing (without manual assistance)?',
       choices: [
         { label: 'Yes — latches positively and completely', status: 'pass', indicator: 'pass' },
@@ -1079,11 +1514,9 @@ function buildWizard(assemblyType) {
       ]
     });
   }
-
   if (assemblyType === 'fire_door') {
-    hardwareQuestions.push({
-      id: 'coordinator',
-      ref: 'NFPA 80 §5.3.7',
+    hwQ.push({
+      id: 'coordinator', ref: 'NFPA 80 §5.3.7',
       text: 'Is this a pair of doors? If so, is an astragal/coordinator installed to ensure correct leaf sequencing?',
       choices: [
         { label: 'Single door — not applicable', status: 'na', indicator: 'na' },
@@ -1091,9 +1524,8 @@ function buildWizard(assemblyType) {
         { label: 'Pair of doors — coordinator missing or non-functional', status: 'fail', indicator: 'fail', deficiency: 'Pair doors: coordinator/astragal missing or non-functional' }
       ]
     });
-    hardwareQuestions.push({
-      id: 'hardware_listing',
-      ref: 'NFPA 80 §5.1.5',
+    hwQ.push({
+      id: 'hardware_listing', ref: 'NFPA 80 §5.1.5',
       text: 'Is all hardware (hinges, lockset, closer, etc.) listed/labeled for use with this fire door assembly?',
       choices: [
         { label: 'Yes — all visible hardware appears listed and appropriate', status: 'pass', indicator: 'pass' },
@@ -1102,11 +1534,9 @@ function buildWizard(assemblyType) {
       ]
     });
   }
-
-  if (assemblyType === 'smoke_barrier' || assemblyType === 'smoke_partition' || assemblyType === 'suite_perimeter') {
-    hardwareQuestions.push({
-      id: 'self_latching',
-      ref: 'NFPA 101 §8.3.4',
+  if (['smoke_barrier','smoke_partition','suite_perimeter'].includes(assemblyType)) {
+    hwQ.push({
+      id: 'self_latching', ref: 'NFPA 101 §8.3.4',
       text: 'Does the door self-latch into the frame (or coordinate with the smoke barrier/partition system)?',
       choices: [
         { label: 'Yes — self-latches or is part of compliant coordinated system', status: 'pass', indicator: 'pass' },
@@ -1114,11 +1544,8 @@ function buildWizard(assemblyType) {
       ]
     });
   }
-
-  // Hinges — all types
-  hardwareQuestions.push({
-    id: 'hinges',
-    ref: 'NFPA 80 §5.2.2',
+  hwQ.push({
+    id: 'hinges', ref: 'NFPA 80 §5.2.2',
     text: 'Are all hinges present, secure, and free of missing or damaged components?',
     choices: [
       { label: 'Yes — all hinges intact and secure', status: 'pass', indicator: 'pass' },
@@ -1127,16 +1554,13 @@ function buildWizard(assemblyType) {
       { label: 'Non-listed or modified hinges', status: 'fail', indicator: 'fail', deficiency: 'Non-listed or modified hinges present', requiresNote: true }
     ]
   });
+  phases.push({ id: 'hardware', label: 'Hardware', questions: hwQ });
 
-  phases.push({ id: 'hardware', label: 'Hardware', questions: hardwareQuestions });
-
-  // ─── PHASE 3: GAPS & CLEARANCES ───
-  const gapQuestions = [];
-
+  // PHASE 3: GAPS & CLEARANCES
+  const gapQ = [];
   if (assemblyType === 'fire_door') {
-    gapQuestions.push({
-      id: 'undercut',
-      ref: 'NFPA 80 §5.3.4',
+    gapQ.push({
+      id: 'undercut', ref: 'NFPA 80 §5.3.4',
       text: 'Is the undercut (bottom clearance) at or below ¾ inch (19mm)?',
       choices: [
         { label: 'Yes — ¾" or less', status: 'pass', indicator: 'pass' },
@@ -1144,9 +1568,8 @@ function buildWizard(assemblyType) {
         { label: 'Cannot measure — obstruction or threshold present', status: 'warn', indicator: 'warn', deficiency: 'Undercut could not be verified' }
       ]
     });
-    gapQuestions.push({
-      id: 'vertical_gap',
-      ref: 'NFPA 80 §5.3.4',
+    gapQ.push({
+      id: 'vertical_gap', ref: 'NFPA 80 §5.3.4',
       text: 'Are vertical edge gaps (between door and frame) at or below ⅛ inch (3.2mm)?',
       choices: [
         { label: 'Yes — ⅛" or less on all vertical edges', status: 'pass', indicator: 'pass' },
@@ -1155,9 +1578,8 @@ function buildWizard(assemblyType) {
         { label: 'Exceeds ⅛" on both sides', status: 'fail', indicator: 'fail', deficiency: 'Both vertical edge gaps exceed ⅛"', requiresNote: true }
       ]
     });
-    gapQuestions.push({
-      id: 'meeting_edge',
-      ref: 'NFPA 80 §5.3.4',
+    gapQ.push({
+      id: 'meeting_edge', ref: 'NFPA 80 §5.3.4',
       text: 'For pairs: is the meeting edge gap ⅛" or less? For singles: does the door meet the stop consistently along the full height?',
       choices: [
         { label: 'Single door — meets stop fully along height', status: 'pass', indicator: 'pass' },
@@ -1167,11 +1589,9 @@ function buildWizard(assemblyType) {
       ]
     });
   }
-
-  if (assemblyType === 'smoke_barrier' || assemblyType === 'smoke_partition' || assemblyType === 'suite_perimeter') {
-    gapQuestions.push({
-      id: 'smoke_gap',
-      ref: 'NFPA 101 §8.3.4',
+  if (['smoke_barrier','smoke_partition','suite_perimeter'].includes(assemblyType)) {
+    gapQ.push({
+      id: 'smoke_gap', ref: 'NFPA 101 §8.3.4',
       text: 'Are gaps around the door assembly consistent with the listed assembly or otherwise minimal to limit smoke passage?',
       choices: [
         { label: 'Yes — gaps are minimal and consistent with listing', status: 'pass', indicator: 'pass' },
@@ -1180,10 +1600,8 @@ function buildWizard(assemblyType) {
       ]
     });
   }
-
-  gapQuestions.push({
-    id: 'threshold',
-    ref: 'NFPA 80 §5.3.4 / ADA',
+  gapQ.push({
+    id: 'threshold', ref: 'NFPA 80 §5.3.4 / ADA',
     text: 'Is the threshold condition acceptable — no tripping hazard and compliant with assembly requirements?',
     choices: [
       { label: 'Yes — threshold is compliant and in good condition', status: 'pass', indicator: 'pass' },
@@ -1191,17 +1609,14 @@ function buildWizard(assemblyType) {
       { label: 'Threshold creates non-compliant gap or tripping hazard', status: 'fail', indicator: 'fail', deficiency: 'Threshold non-compliant or hazardous', requiresNote: true }
     ]
   });
+  phases.push({ id: 'gaps', label: 'Gaps', questions: gapQ });
 
-  phases.push({ id: 'gaps', label: 'Gaps & Clearances', questions: gapQuestions });
-
-  // ─── PHASE 4: SEALS & GASKETING ───
-  const sealQuestions = [];
-
+  // PHASE 4: SEALS
+  const sealQ = [];
   if (assemblyType === 'fire_door') {
-    sealQuestions.push({
-      id: 'intumescent',
-      ref: 'NFPA 80 §5.3.6',
-      text: 'Are intumescent seals present on all required edges and are they in good condition (not compressed, missing, or damaged)?',
+    sealQ.push({
+      id: 'intumescent', ref: 'NFPA 80 §5.3.6',
+      text: 'Are intumescent seals present on all required edges and in good condition (not compressed, missing, or damaged)?',
       choices: [
         { label: 'Yes — seals present and in good condition', status: 'pass', indicator: 'pass' },
         { label: 'Seals present but compressed, worn, or partially missing', status: 'fail', indicator: 'fail', deficiency: 'Intumescent seals compressed/worn/partially missing', requiresNote: true },
@@ -1210,11 +1625,9 @@ function buildWizard(assemblyType) {
       ]
     });
   }
-
-  if (assemblyType === 'smoke_barrier' || assemblyType === 'smoke_partition' || assemblyType === 'suite_perimeter') {
-    sealQuestions.push({
-      id: 'smoke_seal',
-      ref: 'NFPA 101 §8.3.4',
+  if (['smoke_barrier','smoke_partition','suite_perimeter'].includes(assemblyType)) {
+    sealQ.push({
+      id: 'smoke_seal', ref: 'NFPA 101 §8.3.4',
       text: 'Are smoke seals/gasketing present and in acceptable condition on all required edges?',
       choices: [
         { label: 'Yes — smoke seals present and in good condition', status: 'pass', indicator: 'pass' },
@@ -1223,10 +1636,8 @@ function buildWizard(assemblyType) {
       ]
     });
   }
-
-  sealQuestions.push({
-    id: 'door_bottom_seal',
-    ref: 'NFPA 101 §8.3.4',
+  sealQ.push({
+    id: 'door_bottom_seal', ref: 'NFPA 101 §8.3.4',
     text: 'Is the door bottom seal or automatic drop seal (if required/installed) present and functional?',
     choices: [
       { label: 'Present and functional', status: 'pass', indicator: 'pass' },
@@ -1235,14 +1646,12 @@ function buildWizard(assemblyType) {
       { label: 'Not required / not installed — acceptable', status: 'na', indicator: 'na' }
     ]
   });
+  phases.push({ id: 'seals', label: 'Seals', questions: sealQ });
 
-  phases.push({ id: 'seals', label: 'Seals', questions: sealQuestions });
-
-  // ─── PHASE 5: GLAZING & OPENINGS ───
-  const glazingQuestions = [
+  // PHASE 5: GLAZING
+  phases.push({ id: 'glazing', label: 'Glazing', questions: [
     {
-      id: 'glazing_present',
-      ref: 'NFPA 80 §5.4',
+      id: 'glazing_present', ref: 'NFPA 80 §5.4',
       text: 'Does the door contain glazing, view panels, or borrowed lights?',
       choices: [
         { label: 'No glazing — solid door', status: 'na', indicator: 'na', skip_to_phase: true },
@@ -1250,8 +1659,7 @@ function buildWizard(assemblyType) {
       ]
     },
     {
-      id: 'glazing_label',
-      ref: 'NFPA 80 §5.4.1',
+      id: 'glazing_label', ref: 'NFPA 80 §5.4.1',
       text: 'Is the glazing labeled/listed for use in this fire door or smoke assembly?',
       choices: [
         { label: 'Yes — glazing is listed and labeled', status: 'pass', indicator: 'pass' },
@@ -1260,8 +1668,7 @@ function buildWizard(assemblyType) {
       ]
     },
     {
-      id: 'glazing_size',
-      ref: 'NFPA 80 §5.4.2',
+      id: 'glazing_size', ref: 'NFPA 80 §5.4.2',
       text: 'Is the glazing size within the limits allowed by the listing for this door rating?',
       choices: [
         { label: 'Yes — size consistent with listing', status: 'pass', indicator: 'pass' },
@@ -1270,24 +1677,20 @@ function buildWizard(assemblyType) {
       ]
     },
     {
-      id: 'glazing_condition',
-      ref: 'NFPA 80 §5.4',
+      id: 'glazing_condition', ref: 'NFPA 80 §5.4',
       text: 'Is the glazing free of cracks, chips, or damage that could compromise the assembly?',
       choices: [
         { label: 'Yes — glazing is intact and undamaged', status: 'pass', indicator: 'pass' },
         { label: 'Cracked or chipped glazing', status: 'fail', indicator: 'fail', deficiency: 'Glazing cracked or chipped — replace', requiresNote: true }
       ]
     }
-  ];
+  ]});
 
-  phases.push({ id: 'glazing', label: 'Glazing', questions: glazingQuestions });
-
-  // ─── PHASE 6: OPERATIONAL TEST (Fire / Smoke Barrier) ───
-  if (assemblyType === 'fire_door' || assemblyType === 'smoke_barrier') {
-    const opQuestions = [
+  // PHASE 6: OPERATION
+  if (['fire_door','smoke_barrier'].includes(assemblyType)) {
+    phases.push({ id: 'operation', label: 'Operation', questions: [
       {
-        id: 'release_device',
-        ref: 'NFPA 80 §5.2.7 / NFPA 101 §8.3.4',
+        id: 'release_device', ref: 'NFPA 80 §5.2.7 / NFPA 101 §8.3.4',
         text: 'If the door is held open by a magnetic hold-open device, does it release and self-close upon activation of the fire alarm?',
         choices: [
           { label: 'No hold-open device — N/A', status: 'na', indicator: 'na' },
@@ -1297,24 +1700,21 @@ function buildWizard(assemblyType) {
         ]
       },
       {
-        id: 'operation_force',
-        ref: 'ADA / NFPA 101 §7.2.1',
-        text: 'Can the door be opened with 30 lbs or less of force (5 lbs for interior non-fire-rated)?',
+        id: 'operation_force', ref: 'ADA / NFPA 101 §7.2.1',
+        text: 'Can the door be opened with 30 lbs or less of force?',
         choices: [
           { label: 'Yes — opens within force requirements', status: 'pass', indicator: 'pass' },
           { label: 'Excessive force required to operate', status: 'fail', indicator: 'fail', deficiency: 'Door requires excessive force to operate', requiresNote: true }
         ]
       }
-    ];
-    phases.push({ id: 'operation', label: 'Operation', questions: opQuestions });
+    ]});
   }
 
-  // ─── PHASE 7: TJC / LIFE SAFETY ───
-  if (assemblyType === 'suite_perimeter' || assemblyType === 'smoke_barrier') {
-    const tjcQuestions = [
+  // PHASE 7: TJC / EGRESS
+  if (['suite_perimeter','smoke_barrier'].includes(assemblyType)) {
+    phases.push({ id: 'tjc', label: 'TJC / Egress', questions: [
       {
-        id: 'tjc_egress',
-        ref: 'TJC EC.02.06.01 / NFPA 101 §7.2',
+        id: 'tjc_egress', ref: 'TJC EC.02.06.01 / NFPA 101 §7.2',
         text: 'Does the door assembly comply with means of egress requirements — no obstructions, proper swing direction, compliant hardware?',
         choices: [
           { label: 'Yes — egress path is clear and compliant', status: 'pass', indicator: 'pass' },
@@ -1323,8 +1723,7 @@ function buildWizard(assemblyType) {
         ]
       },
       {
-        id: 'tjc_signage',
-        ref: 'TJC / NFPA 101 §7.10',
+        id: 'tjc_signage', ref: 'TJC / NFPA 101 §7.10',
         text: 'Is any required signage (exit sign, fire door instruction placard) present and in good condition?',
         choices: [
           { label: 'All required signage present and legible', status: 'pass', indicator: 'pass' },
@@ -1332,22 +1731,19 @@ function buildWizard(assemblyType) {
           { label: 'No signage required for this door type', status: 'na', indicator: 'na' }
         ]
       }
-    ];
-    phases.push({ id: 'tjc', label: 'TJC / Egress', questions: tjcQuestions });
+    ]});
   }
 
-  // ─── PHASE 8: FINAL ───
-  const finalQuestions = [
+  // PHASE 8: FINAL
+  phases.push({ id: 'final', label: 'Final', questions: [
     {
-      id: 'additional_comments',
-      ref: 'Inspector Notes',
+      id: 'additional_comments', ref: 'Inspector Notes',
       text: 'Additional comments or observations (optional)?',
       type: 'textarea',
       placeholder: 'Enter any additional notes, conditions, or observations...'
     },
     {
-      id: 'post_inspection_status',
-      ref: 'Post-Inspection Disposition',
+      id: 'post_inspection_status', ref: 'Post-Inspection Disposition',
       text: 'Post-inspection status determination:',
       choices: [
         { label: 'Compliant — no action required', status: 'pass', indicator: 'pass' },
@@ -1356,96 +1752,13 @@ function buildWizard(assemblyType) {
         { label: 'Non-compliant — immediate action required (life safety)', status: 'fail', indicator: 'fail' }
       ]
     }
-  ];
-
-  phases.push({ id: 'final', label: 'Final', questions: finalQuestions });
+  ]});
 
   return phases;
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  TAB NAVIGATION
-// ═══════════════════════════════════════════════════════════════════
-function showTab(name) {
-  ['setup', 'inspect', 'records', 'config'].forEach(t => {
-    document.getElementById('tab-' + t).classList.add('hidden');
-  });
-  document.querySelectorAll('.nav-tab').forEach((el, i) => {
-    el.classList.toggle('active', el.textContent.toLowerCase().startsWith(name));
-  });
-  document.getElementById('tab-' + name).classList.remove('hidden');
-  if (name === 'records') renderRecords();
-  if (name === 'config') loadConfig();
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  SETUP
-// ═══════════════════════════════════════════════════════════════════
-function updateInspectorTag() {
-  const n = document.getElementById('inspectorName').value;
-  document.getElementById('inspectorTag').textContent = n || '—';
-}
-
-const STANDARD_NOTES = {
-  fire_door: '⚡ Governed by NFPA 80 (Standard for Fire Doors and Other Opening Protectives). Annual inspection required.',
-  smoke_barrier: '⚡ Governed by NFPA 101 §8.3.4 — smoke barrier door. Self-closing and positive-latching required.',
-  smoke_partition: '⚡ Governed by NFPA 101 §8.4.4 — smoke partition door in non-rated hazardous area. Self-closing required.',
-  suite_perimeter: '⚡ Governed by TJC EC standards and NFPA 101 Chapter 7. Egress compliance critical.'
-};
-
-function onAssemblyTypeChange() {
-  const val = document.getElementById('assemblyType').value;
-  const note = document.getElementById('standardNote');
-  if (val && STANDARD_NOTES[val]) {
-    note.textContent = STANDARD_NOTES[val];
-    note.style.display = 'block';
-  } else {
-    note.style.display = 'none';
-  }
-}
-
-function startInspection() {
-  const required = ['inspectorName', 'iconNo', 'assemblyType'];
-  for (const id of required) {
-    if (!document.getElementById(id).value.trim()) {
-      showToast('Please fill in: ' + id.replace(/([A-Z])/g, ' $1'), 'error');
-      return;
-    }
-  }
-
-  currentDoor = {
-    inspectorName: document.getElementById('inspectorName').value.trim(),
-    projectName: document.getElementById('projectName').value.trim(),
-    iconNo: document.getElementById('iconNo').value.trim(),
-    assetId: document.getElementById('assetId').value.trim(),
-    floorNo: document.getElementById('floorNo').value.trim(),
-    gridBlock: document.getElementById('gridBlock').value.trim(),
-    locationDesc: document.getElementById('locationDesc').value.trim(),
-    assemblyType: document.getElementById('assemblyType').value,
-    doorRating: document.getElementById('doorRating').value,
-    startTime: new Date().toISOString()
-  };
-
-  answers = {};
-  deficiencies = [];
-  currentPhaseIdx = 0;
-  currentQIdx = 0;
-
-  wizardPhases = buildWizard(currentDoor.assemblyType);
-
-  // Update strip
-  document.getElementById('stripIcon').textContent = currentDoor.iconNo || '—';
-  document.getElementById('stripAsset').textContent = currentDoor.assetId || '—';
-  document.getElementById('stripFloor').textContent = currentDoor.floorNo || '—';
-  document.getElementById('stripGrid').textContent = currentDoor.gridBlock || '—';
-  document.getElementById('stripType').textContent = ASSEMBLY_TYPE_LABELS[currentDoor.assemblyType] || '—';
-
-  showTab('inspect');
-  renderWizard();
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  WIZARD
+//  WIZARD RENDER
 // ═══════════════════════════════════════════════════════════════════
 function renderWizard() {
   renderProgressBar();
@@ -1465,12 +1778,10 @@ function renderProgressBar() {
     const node = document.createElement('div');
     node.className = 'step-node';
     const circle = document.createElement('div');
-    const isDone = i < currentPhaseIdx;
-    const isActive = i === currentPhaseIdx;
-    circle.className = 'step-circle' + (isDone ? ' done' : isActive ? ' active' : '');
-    circle.textContent = isDone ? '✓' : (i + 1);
+    circle.className = 'step-circle' + (i < currentPhaseIdx ? ' done' : i === currentPhaseIdx ? ' active' : '');
+    circle.textContent = i < currentPhaseIdx ? '✓' : (i + 1);
     const lbl = document.createElement('div');
-    lbl.className = 'step-label' + (isDone ? ' done' : isActive ? ' active' : '');
+    lbl.className = 'step-label' + (i < currentPhaseIdx ? ' done' : i === currentPhaseIdx ? ' active' : '');
     lbl.textContent = phase.label;
     node.appendChild(circle);
     node.appendChild(lbl);
@@ -1511,22 +1822,18 @@ function renderQuestion() {
   } else {
     const choices = document.createElement('div');
     choices.className = 'choices';
-
     q.choices.forEach((choice, ci) => {
       const btn = document.createElement('button');
-      const existing = answers[q.id];
-      const isSelected = existing && existing.value === ci;
+      const isSelected = answers[q.id]?.value === ci;
       btn.className = 'choice-btn' + (isSelected ? getSelectedClass(choice.status) : '');
       btn.innerHTML = `<div class="choice-indicator ind-${choice.indicator}"></div>${choice.label}`;
       btn.onclick = () => selectChoice(q, ci, choice);
       choices.appendChild(btn);
     });
-
     block.appendChild(choices);
 
-    // Show deficiency note field if previously selected a requiresNote choice
     const prevAnswer = answers[q.id];
-    if (prevAnswer && prevAnswer.requiresNote) {
+    if (prevAnswer?.requiresNote) {
       block.appendChild(buildDeficiencyInput(q.id, prevAnswer.deficiencyNote || ''));
     }
   }
@@ -1550,8 +1857,6 @@ function selectChoice(q, ci, choice) {
     deficiencyNote: answers[q.id]?.deficiencyNote || '',
     skip_to_phase: choice.skip_to_phase || false
   };
-
-  // Re-render to show/hide deficiency input
   renderQuestion();
 }
 
@@ -1567,9 +1872,7 @@ function buildDeficiencyInput(qid, existingNote) {
   inp.placeholder = 'e.g., Latch-side gap measured at 3/16" — full height of door';
   inp.style.width = '100%';
   inp.value = existingNote;
-  inp.oninput = () => {
-    if (answers[qid]) answers[qid].deficiencyNote = inp.value;
-  };
+  inp.oninput = () => { if (answers[qid]) answers[qid].deficiencyNote = inp.value; };
   panel.appendChild(inp);
   return panel;
 }
@@ -1578,42 +1881,28 @@ function wizardNext() {
   const phase = wizardPhases[currentPhaseIdx];
   const q = phase.questions[currentQIdx];
 
-  // Validate
   if (q.type === 'textarea') {
-    const val = document.getElementById('answer_' + q.id)?.value || '';
-    answers[q.id] = { value: val, status: 'na' };
+    answers[q.id] = { value: document.getElementById('answer_' + q.id)?.value || '', status: 'na' };
   } else {
-    if (!answers[q.id]) {
-      showToast('Please select an answer to continue.', 'warn');
-      return;
-    }
+    if (!answers[q.id]) { showToast('Please select an answer to continue.', 'warn'); return; }
   }
 
-  // Handle skip_to_phase (e.g., no glazing → skip glazing questions)
   const ans = answers[q.id];
-  if (ans && ans.skip_to_phase) {
-    // Skip remaining questions in this phase
+  if (ans?.skip_to_phase) {
     currentPhaseIdx++;
     currentQIdx = 0;
-    if (currentPhaseIdx >= wizardPhases.length) {
-      completeInspection();
-      return;
-    }
-    renderWizard();
-    return;
+    if (currentPhaseIdx >= wizardPhases.length) { completeInspection(); return; }
+    renderWizard(); return;
   }
 
-  // Advance
   if (currentQIdx < phase.questions.length - 1) {
     currentQIdx++;
   } else if (currentPhaseIdx < wizardPhases.length - 1) {
     currentPhaseIdx++;
     currentQIdx = 0;
   } else {
-    completeInspection();
-    return;
+    completeInspection(); return;
   }
-
   renderWizard();
 }
 
@@ -1631,92 +1920,74 @@ function wizardBack() {
 //  COMPLETE INSPECTION
 // ═══════════════════════════════════════════════════════════════════
 function completeInspection() {
-  // Collect deficiencies
   deficiencies = [];
   for (const [qid, ans] of Object.entries(answers)) {
     if (ans.deficiency) {
-      deficiencies.push({
-        question: qid,
-        deficiency: ans.deficiency,
-        note: ans.deficiencyNote || ''
-      });
+      deficiencies.push({ question: qid, deficiency: ans.deficiency, note: ans.deficiencyNote || '' });
     }
   }
 
-  // Determine overall status
   const hasFailures = Object.values(answers).some(a => a.status === 'fail');
   const hasWarnings = Object.values(answers).some(a => a.status === 'warn');
-  const postStatus = answers['post_inspection_status']?.label || '';
-
   let overallStatus = 'pass';
   if (hasFailures) overallStatus = 'fail';
   else if (hasWarnings) overallStatus = 'conditional';
 
   const record = {
     ...currentDoor,
-    id: generateId(),
+    id: Date.now().toString(36) + Math.random().toString(36).substr(2,5),
     overallStatus,
     deficiencies,
     findings: answers,
     additionalComments: answers['additional_comments']?.value || '',
-    postInspectionStatus: postStatus,
+    postInspectionStatus: answers['post_inspection_status']?.label || '',
     completedTime: new Date().toISOString(),
     synced: false
   };
 
-  saveRecord(record);
-  showToast('Inspection saved! ' + (deficiencies.length > 0 ? deficiencies.length + ' deficiency(ies) recorded.' : 'No deficiencies.'),
-    deficiencies.length > 0 ? 'warn' : '');
-
-  // Reset to setup for next door
-  showTab('setup');
-  // Pre-fill inspector/project for convenience
-  // (icon/asset cleared for next door)
-  document.getElementById('iconNo').value = '';
-  document.getElementById('assetId').value = '';
-  document.getElementById('floorNo').value = currentDoor.floorNo;
-  document.getElementById('gridBlock').value = '';
-  document.getElementById('locationDesc').value = '';
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  LOCAL STORAGE
-// ═══════════════════════════════════════════════════════════════════
-function saveRecord(record) {
   const records = getRecords();
   records.push(record);
   localStorage.setItem('doorInspections', JSON.stringify(records));
+
+  showToast(
+    'Inspection saved! ' + (deficiencies.length > 0 ? deficiencies.length + ' deficiency(ies) recorded.' : 'No deficiencies.'),
+    deficiencies.length > 0 ? 'warn' : ''
+  );
+
+  // Reset for next door — keep project and floor
+  document.getElementById('tab-inspect').classList.add('hidden');
+  document.getElementById('tab-setup').classList.remove('hidden');
+  document.querySelectorAll('.nav-tab').forEach((el,i) => el.classList.toggle('active', i===0));
+
+  document.getElementById('assetId').value = '';
+  document.getElementById('iconNo').value = '';
+  document.getElementById('floorNo').value = currentDoor.floorNo || '';
+  document.getElementById('gridBlock').value = '';
+  document.getElementById('assemblyType').value = '';
+  document.getElementById('doorRating').value = '';
+  document.getElementById('standardNote').style.display = 'none';
+  clearAutoFill();
 }
 
+// ═══════════════════════════════════════════════════════════════════
+//  RECORDS
+// ═══════════════════════════════════════════════════════════════════
 function getRecords() {
-  try {
-    return JSON.parse(localStorage.getItem('doorInspections') || '[]');
-  } catch { return []; }
+  try { return JSON.parse(localStorage.getItem('doorInspections') || '[]'); } catch { return []; }
 }
 
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  RECORDS TABLE
-// ═══════════════════════════════════════════════════════════════════
 function renderRecords() {
   const records = getRecords();
   const tbody = document.getElementById('recordsBody');
   const empty = document.getElementById('emptyState');
 
-  // Stats
   document.getElementById('statTotal').textContent = records.length;
   document.getElementById('statPass').textContent = records.filter(r => r.overallStatus === 'pass').length;
   document.getElementById('statFail').textContent = records.filter(r => r.overallStatus === 'fail').length;
   document.getElementById('statPending').textContent = records.filter(r => !r.synced).length;
 
   tbody.innerHTML = '';
-  if (records.length === 0) {
-    empty.classList.remove('hidden');
-    return;
-  }
+  if (!records.length) { empty.classList.remove('hidden'); return; }
   empty.classList.add('hidden');
 
   records.slice().reverse().forEach(r => {
@@ -1725,73 +1996,64 @@ function renderRecords() {
     const dt = new Date(r.completedTime || r.startTime);
     const dtStr = dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
     tr.innerHTML = `
-      <td style="font-family:var(--mono);font-size:12px;">${r.iconNo || '—'}</td>
-      <td style="font-family:var(--mono);font-size:12px;">${r.assetId || '—'}</td>
-      <td>${r.floorNo || '—'}</td>
-      <td>${r.gridBlock || '—'}</td>
-      <td style="font-size:12px;">${ASSEMBLY_TYPE_LABELS[r.assemblyType] || r.assemblyType || '—'}</td>
-      <td style="font-size:12px;">${r.doorRating || '—'}</td>
-      <td><span class="status-pill ${r.overallStatus}">${r.overallStatus}</span></td>
-      <td style="font-size:12px;color:var(--text2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${defs}">${defs}</td>
-      <td style="font-size:12px;">${r.inspectorName || '—'}</td>
+      <td style="font-family:var(--mono);font-size:12px;">${r.iconNo||'—'}</td>
+      <td style="font-family:var(--mono);font-size:12px;">${r.assetId||'—'}</td>
+      <td>${r.floorNo||'—'}</td>
+      <td>${r.gridBlock||'—'}</td>
+      <td style="font-size:12px;">${r.projectName||'—'}</td>
+      <td style="font-size:12px;">${ASSEMBLY_TYPE_LABELS[r.assemblyType]||r.assemblyType||'—'}</td>
+      <td style="font-size:12px;">${r.doorRating||'—'}</td>
+      <td><span class="status-pill ${r.overallStatus||'pending'}">${r.overallStatus||'pending'}</span></td>
+      <td style="font-size:12px;color:var(--text2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${defs}">${defs}</td>
+      <td style="font-size:12px;">${r.inspectorName||'—'}</td>
       <td style="font-family:var(--mono);font-size:11px;color:var(--text2);">${dtStr}</td>
     `;
     tbody.appendChild(tr);
   });
 }
 
-function refreshRecords() { renderRecords(); }
-
 // ═══════════════════════════════════════════════════════════════════
-//  EXCEL EXPORT (CSV → downloadable, opens in Excel)
+//  EXCEL EXPORT
 // ═══════════════════════════════════════════════════════════════════
 function exportExcel() {
   const records = getRecords();
-  if (records.length === 0) { showToast('No records to export.', 'warn'); return; }
+  if (!records.length) { showToast('No records to export.', 'warn'); return; }
 
-  const headers = [
-    'Icon No.', 'Asset ID', 'Floor', 'Grid Block', 'Location',
-    'Assembly Type', 'Door Rating', 'Inspector', 'Project',
-    'Date/Time', 'Overall Status', 'Post-Inspection Status',
-    'Deficiency Count', 'Deficiency Descriptions', 'Deficiency Notes',
-    'Additional Comments', 'Synced'
-  ];
+  const headers = ['Icon No.','Asset ID','Floor','Grid Block','Project','Assembly Type','Door Rating',
+    'Inspector','Date/Time','Overall Status','Post-Inspection Status',
+    'Deficiency Count','Deficiency Descriptions','Deficiency Notes','Additional Comments','Synced'];
 
   const rows = records.map(r => {
     const defs = r.deficiencies || [];
     return [
-      r.iconNo, r.assetId, r.floorNo, r.gridBlock, r.locationDesc,
-      ASSEMBLY_TYPE_LABELS[r.assemblyType] || r.assemblyType, r.doorRating,
-      r.inspectorName, r.projectName,
-      new Date(r.completedTime || r.startTime).toLocaleString(),
+      r.iconNo, r.assetId, r.floorNo, r.gridBlock, r.projectName,
+      ASSEMBLY_TYPE_LABELS[r.assemblyType]||r.assemblyType, r.doorRating,
+      r.inspectorName, new Date(r.completedTime||r.startTime).toLocaleString(),
       r.overallStatus, r.postInspectionStatus,
       defs.length,
-      defs.map(d => d.deficiency).join(' | '),
-      defs.map(d => d.note).filter(Boolean).join(' | '),
-      r.additionalComments || '',
+      defs.map(d=>d.deficiency).join(' | '),
+      defs.map(d=>d.note).filter(Boolean).join(' | '),
+      r.additionalComments||'',
       r.synced ? 'Yes' : 'No'
-    ].map(v => '"' + String(v || '').replace(/"/g, '""') + '"');
+    ].map(v => '"' + String(v||'').replace(/"/g,'""') + '"');
   });
 
-  const csv = [headers.map(h => '"' + h + '"').join(','), ...rows.map(r => r.join(','))].join('\r\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const csv = [headers.map(h=>'"'+h+'"').join(','), ...rows.map(r=>r.join(','))].join('\r\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = 'door_inspections_' + new Date().toISOString().split('T')[0] + '.csv';
   a.click();
   URL.revokeObjectURL(url);
-  showToast('Exported ' + records.length + ' records to CSV (opens in Excel).');
+  showToast('Exported ' + records.length + ' records.');
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  SUPABASE SYNC
+//  SUPABASE
 // ═══════════════════════════════════════════════════════════════════
 function getConfig() {
-  return {
-    url: localStorage.getItem('supabaseUrl') || '',
-    key: localStorage.getItem('supabaseKey') || ''
-  };
+  return { url: localStorage.getItem('supabaseUrl')||'', key: localStorage.getItem('supabaseKey')||'' };
 }
 
 function loadConfig() {
@@ -1801,142 +2063,95 @@ function loadConfig() {
 }
 
 function saveConfig() {
-  const url = document.getElementById('supabaseUrl').value.trim();
-  const key = document.getElementById('supabaseKey').value.trim();
-  localStorage.setItem('supabaseUrl', url);
-  localStorage.setItem('supabaseKey', key);
+  localStorage.setItem('supabaseUrl', document.getElementById('supabaseUrl').value.trim());
+  localStorage.setItem('supabaseKey', document.getElementById('supabaseKey').value.trim());
   showToast('Configuration saved.');
   updateSyncStatus();
 }
 
 async function testConnection() {
   const cfg = getConfig();
-  if (!cfg.url || !cfg.key) { showToast('Enter Supabase URL and key first.', 'error'); return; }
+  if (!cfg.url || !cfg.key) { showToast('Enter credentials first.', 'error'); return; }
   try {
     const res = await fetch(cfg.url + '/rest/v1/door_inspections?limit=1', {
       headers: { 'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key }
     });
-    if (res.ok || res.status === 200) {
+    if (res.ok) {
       showToast('✓ Connected to Supabase successfully!');
       document.getElementById('syncBadge').className = 'sync-badge online';
       document.getElementById('syncBadge').textContent = 'ONLINE';
     } else {
-      showToast('Connection failed: ' + res.status + ' — check URL and key.', 'error');
+      showToast('Connection failed: ' + res.status, 'error');
     }
-  } catch (e) {
-    showToast('Connection error: ' + e.message, 'error');
-  }
+  } catch(e) { showToast('Connection error: ' + e.message, 'error'); }
 }
 
 async function syncToSupabase() {
   const cfg = getConfig();
-  if (!cfg.url || !cfg.key) {
-    showToast('Configure Supabase credentials in the Config tab first.', 'warn');
-    return;
-  }
+  if (!cfg.url || !cfg.key) { showToast('Configure Supabase in Config tab first.', 'warn'); return; }
 
   const records = getRecords();
   const unsynced = records.filter(r => !r.synced);
-
-  if (unsynced.length === 0) { showToast('All records already synced.'); return; }
+  if (!unsynced.length) { showToast('All records already synced.'); return; }
 
   showToast('Syncing ' + unsynced.length + ' records...');
-
-  let successCount = 0;
+  let ok = 0;
   for (const r of unsynced) {
-    const payload = {
-      icon_no: r.iconNo,
-      asset_id: r.assetId,
-      floor: r.floorNo,
-      grid_block: r.gridBlock,
-      location_desc: r.locationDesc,
-      assembly_type: ASSEMBLY_TYPE_LABELS[r.assemblyType] || r.assemblyType,
-      door_rating: r.doorRating,
-      inspector: r.inspectorName,
-      project: r.projectName,
-      inspection_date: r.completedTime || r.startTime,
-      overall_status: r.overallStatus,
-      deficiencies: r.deficiencies,
-      findings: r.findings,
-      additional_comments: r.additionalComments,
-      post_inspection_status: r.postInspectionStatus
-    };
     try {
       const res = await fetch(cfg.url + '/rest/v1/door_inspections', {
         method: 'POST',
-        headers: {
-          'apikey': cfg.key,
-          'Authorization': 'Bearer ' + cfg.key,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        body: JSON.stringify({
+          icon_no: r.iconNo, asset_id: r.assetId, floor: r.floorNo, grid_block: r.gridBlock,
+          assembly_type: ASSEMBLY_TYPE_LABELS[r.assemblyType]||r.assemblyType, door_rating: r.doorRating,
+          inspector: r.inspectorName, project: r.projectName,
+          inspection_date: r.completedTime||r.startTime,
+          overall_status: r.overallStatus, deficiencies: r.deficiencies, findings: r.findings,
+          additional_comments: r.additionalComments, post_inspection_status: r.postInspectionStatus
+        })
       });
-      if (res.ok || res.status === 201) {
-        r.synced = true;
-        successCount++;
-      }
-    } catch (e) {
-      console.error('Sync error for', r.iconNo, e);
-    }
+      if (res.ok || res.status === 201) { r.synced = true; ok++; }
+    } catch(e) { console.error(e); }
   }
-
-  // Save updated records
   localStorage.setItem('doorInspections', JSON.stringify(records));
-  showToast('Synced ' + successCount + ' of ' + unsynced.length + ' records.');
+  showToast('Synced ' + ok + ' of ' + unsynced.length + ' records.');
   renderRecords();
   updateSyncStatus();
 }
 
 function updateSyncStatus() {
   const cfg = getConfig();
-  const records = getRecords();
-  const pending = records.filter(r => !r.synced).length;
-  const dot = document.getElementById('syncDot');
-  const status = document.getElementById('syncStatus');
-
-  if (cfg.url && cfg.key) {
-    dot.className = 'dot green';
-    status.textContent = 'Supabase configured — ' + pending + ' record(s) pending sync';
-  } else {
-    dot.className = 'dot orange';
-    status.textContent = 'Local storage only — configure Supabase to enable sync';
-  }
+  const pending = getRecords().filter(r => !r.synced).length;
+  document.getElementById('syncDot').className = cfg.url ? 'dot green' : 'dot orange';
+  document.getElementById('syncStatus').textContent = cfg.url
+    ? 'Supabase configured — ' + pending + ' record(s) pending sync'
+    : 'Local storage only — configure Supabase to enable sync';
 }
 
 function clearLocalData() {
-  if (!confirm('Clear all local inspection records? This cannot be undone. Cloud data (if synced) is unaffected.')) return;
+  if (!confirm('Clear all local inspection records? Cloud data is unaffected.')) return;
   localStorage.removeItem('doorInspections');
   renderRecords();
   showToast('Local data cleared.');
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  CONNECTIVITY
+//  CONNECTIVITY + TOAST
 // ═══════════════════════════════════════════════════════════════════
 function updateConnectivity() {
   const badge = document.getElementById('syncBadge');
-  if (navigator.onLine) {
-    badge.className = 'sync-badge online';
-    badge.textContent = 'ONLINE';
-  } else {
-    badge.className = 'sync-badge offline';
-    badge.textContent = 'OFFLINE';
-  }
+  badge.className = 'sync-badge ' + (navigator.onLine ? 'online' : 'offline');
+  badge.textContent = navigator.onLine ? 'ONLINE' : 'OFFLINE';
 }
-
 window.addEventListener('online', updateConnectivity);
 window.addEventListener('offline', updateConnectivity);
 updateConnectivity();
 
-// ═══════════════════════════════════════════════════════════════════
-//  TOAST
-// ═══════════════════════════════════════════════════════════════════
 let toastTimer;
-function showToast(msg, type = '') {
+function showToast(msg, type='') {
   const t = document.getElementById('toast');
   t.textContent = msg;
-  t.className = 'toast' + (type ? ' ' + type : '');
+  t.className = 'toast' + (type ? ' '+type : '');
   t.classList.remove('hidden');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.add('hidden'), 4000);
@@ -1945,7 +2160,15 @@ function showToast(msg, type = '') {
 // ═══════════════════════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════════════════════
+initInspector();
 updateSyncStatus();
+
+// Restore active project label
+const savedProject = localStorage.getItem('activeProject');
+if (savedProject) document.getElementById('activeProjectName').textContent = savedProject;
+
+// Load door schedule from storage
+getDoorSchedule();
 </script>
 </body>
 </html>
