@@ -1195,19 +1195,22 @@ function processCSV(file) {
       if (rows.length < 2) { showToast('CSV appears empty or invalid.', 'error'); return; }
 
       // ── Auto-detect header row ──────────────────────────────────────
-      // Fieldwire exports have 1-4 metadata rows before real headers.
-      // Find the first row that contains a recognized column keyword.
-      const HEADER_KEYWORDS = [
-        'asset id','asset_id','assetid','asset',
-        'id','icon no','icon no.','icon_no','icon number','icon',
-        'floor','grid block','grid_block','assembly type','door rating','project'
-      ];
+      // Fieldwire exports have metadata rows before real headers.
+      // Find the first row containing ANY of these high-confidence keywords.
+      // We use partial matching so "asset id", "assetid", etc. all work.
+      const HIGH_CONFIDENCE = ['asset id','asset_id','assetid','icon no','grid block','door rating','assembly type'];
+      // Lower-confidence keywords that need at least 3 matches to qualify
+      const ANY_MATCH = ['id','floor','title','status','category','project','plan','rating','type','grid','asset'];
 
       let headerRowIdx = -1;
-      for (let i = 0; i < Math.min(rows.length, 10); i++) {
-        const rowLower = rows[i].map(c => c.trim().toLowerCase());
-        const matches = rowLower.filter(c => HEADER_KEYWORDS.includes(c)).length;
-        if (matches >= 2) { headerRowIdx = i; break; }
+      for (let i = 0; i < Math.min(rows.length, 15); i++) {
+        const rowLower = rows[i].map(c => (c || '').trim().toLowerCase());
+        // High confidence: any single exact match qualifies
+        const highMatch = rowLower.some(c => HIGH_CONFIDENCE.includes(c));
+        if (highMatch) { headerRowIdx = i; break; }
+        // Lower confidence: need 3+ matches from the broader list
+        const anyCount = rowLower.filter(c => ANY_MATCH.includes(c)).length;
+        if (anyCount >= 3) { headerRowIdx = i; break; }
       }
 
       if (headerRowIdx === -1) {
@@ -1215,15 +1218,23 @@ function processCSV(file) {
         return;
       }
 
-      const headers = rows[headerRowIdx].map(h => h.trim().toLowerCase());
+      const headers = rows[headerRowIdx].map(h => (h || '').trim().toLowerCase());
 
-      const find = (variants) => {
+      // findCol: checks exact match first, then checks if any header contains the variant
+      const findCol = (variants) => {
+        // exact match
         for (const v of variants) {
           const idx = headers.indexOf(v);
           if (idx !== -1) return idx;
         }
+        // partial/contains match
+        for (const v of variants) {
+          const idx = headers.findIndex(h => h.includes(v) || v.includes(h));
+          if (idx !== -1 && headers[idx].length > 0) return idx;
+        }
         return -1;
       };
+      const find = findCol;
 
       // Asset ID — required
       const idxAsset = find(['asset id','asset_id','assetid','asset']);
