@@ -1171,7 +1171,13 @@ async function openProjectModal(required = true) {
   // Always fetch fresh from Supabase — source of truth for project list
   let projects = [];
   const cfg = getConfig();
-  if (cfg.url && cfg.key && navigator.onLine) {
+  let statusMsg = '';
+
+  if (!cfg.url || !cfg.key) {
+    statusMsg = 'Supabase not configured — go to Config tab first';
+  } else if (!navigator.onLine) {
+    statusMsg = 'No internet connection';
+  } else {
     try {
       const res = await fetch(cfg.url + '/rest/v1/door_schedule?select=project', {
         headers: { 'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key }
@@ -1180,14 +1186,20 @@ async function openProjectModal(required = true) {
         const rows = await res.json();
         const set = new Set(rows.map(r => r.project).filter(Boolean));
         projects = [...set].sort();
+        if (!projects.length) statusMsg = 'door_schedule table is empty or has no project values';
+      } else {
+        const err = await res.text();
+        statusMsg = 'Supabase error ' + res.status + ': ' + err.slice(0, 120);
+        console.error('Supabase project fetch failed:', res.status, err);
       }
-    } catch(e) { console.error('Project fetch error:', e); }
+    } catch(e) {
+      statusMsg = 'Network error: ' + e.message;
+      console.error('Project fetch error:', e);
+    }
   }
 
   // Fall back to local schedule if Supabase unavailable
-  if (!projects.length) {
-    projects = getProjects();
-  }
+  if (!projects.length) projects = getProjects();
 
   // Rebuild dropdown
   const active = getActiveProject();
@@ -1201,8 +1213,18 @@ async function openProjectModal(required = true) {
       sel.appendChild(opt);
     });
   } else {
-    sel.innerHTML = '<option value="">No projects found — check Supabase config</option>';
+    sel.innerHTML = '<option value="">' + (statusMsg || 'No projects found') + '</option>';
   }
+
+  // Show status message under dropdown if there's a problem
+  let statusEl = document.getElementById('projectModalStatus');
+  if (!statusEl) {
+    statusEl = document.createElement('div');
+    statusEl.id = 'projectModalStatus';
+    statusEl.style.cssText = 'font-family:var(--mono);font-size:11px;color:var(--fail);margin-top:8px;line-height:1.5;';
+    sel.parentNode.appendChild(statusEl);
+  }
+  statusEl.textContent = projects.length ? '' : statusMsg;
 }
 
 function closeProjectModal() {
@@ -1304,6 +1326,20 @@ function processCSV(file) {
       const rows = parseCSV(text, delimiter);
       if (rows.length < 2) { showToast('CSV appears empty or invalid.', 'error'); return; }
 
+      // ── Extract project name from Fieldwire metadata (row 1) ────────
+      // Fieldwire exports: Row 0 = "Generated with www.fieldwire.com"
+      //                    Row 1 = Facility/Project name
+      //                    Row 2 = Export timestamp
+      //                    Row 3 = Column headers
+      let metadataProjectName = '';
+      for (let i = 0; i < Math.min(rows.length, 5); i++) {
+        const cell = (rows[i][0] || '').trim();
+        if (cell && !cell.toLowerCase().includes('generated with') && !cell.match(/^\d{4}-\d{2}-\d{2}/) && cell.length > 2) {
+          // This looks like a facility name (not the generator line, not a timestamp)
+          if (i < 3) { metadataProjectName = cell; break; }
+        }
+      }
+
       // ── Auto-detect header row ──────────────────────────────────────
       // Score each of the first 15 rows. The header row will have the
       // most cells containing recognized column name text (not numbers/dates).
@@ -1393,6 +1429,9 @@ function processCSV(file) {
         const rawType   = idxType   !== -1 ? (row[idxType]   || '').trim().toLowerCase() : '';
         const rawRating = idxRating !== -1 ? (row[idxRating] || '').trim().toLowerCase() : '';
 
+        // Use project column value, fall back to metadata project name
+        const resolvedProject = projectVal || metadataProjectName;
+
         const newEntry = {
           assetId:      rawAssetId || null,
           iconNo:       iconVal,
@@ -1400,7 +1439,7 @@ function processCSV(file) {
           gridBlock:    idxGrid  !== -1 ? (row[idxGrid]  || '').trim() : '',
           assemblyType: ASSEMBLY_TYPE_VALUES[rawType] || rawType || '',
           doorRating:   RATING_VALUES[rawRating] || rawRating || '',
-          project:      projectVal,
+          project:      resolvedProject,
           noAssetId:    !rawAssetId  // flag so lookup knows to match by icon no
         };
 
@@ -2291,10 +2330,7 @@ function saveConfig() {
   localStorage.setItem('supabaseKey', document.getElementById('supabaseKey').value.trim());
   showToast('Configuration saved.');
   updateSyncStatus();
-  // Fetch projects then show selector if none chosen yet
-  downloadScheduleFromSupabase().then(() => {
-    if (!getActiveProject()) openProjectModal(true);
-  });
+  downloadScheduleFromSupabase();
   autoSync();
 }
 
