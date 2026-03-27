@@ -1476,6 +1476,12 @@ function processCSV(file, onComplete) {
         // Use project column value, fall back to metadata project name
         const resolvedProject = projectVal || metadataProjectName;
 
+        // ── Validate Icon No. — must be a plain integer ──────────────
+        // Rows with measurement strings (e.g. '35 3/4"', '83 1/8""') are
+        // Fieldwire annotation rows, not doors — skip them entirely.
+        const iconIsValid = iconVal && /^\d+$/.test(iconVal.trim());
+        if (!iconIsValid) continue;
+
         let key;
         if (rawAssetId) {
           const simpleKey = rawAssetId;
