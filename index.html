@@ -1195,26 +1195,35 @@ function processCSV(file) {
       if (rows.length < 2) { showToast('CSV appears empty or invalid.', 'error'); return; }
 
       // ── Auto-detect header row ──────────────────────────────────────
-      // Fieldwire exports have metadata rows before real headers.
-      // Find the first row containing ANY of these high-confidence keywords.
-      // We use partial matching so "asset id", "assetid", etc. all work.
-      const HIGH_CONFIDENCE = ['asset id','asset_id','assetid','icon no','grid block','door rating','assembly type'];
-      // Lower-confidence keywords that need at least 3 matches to qualify
-      const ANY_MATCH = ['id','floor','title','status','category','project','plan','rating','type','grid','asset'];
+      // Score each of the first 15 rows. The header row will have the
+      // most cells containing recognized column name text (not numbers/dates).
+      // This handles Fieldwire's metadata rows at the top robustly.
+      const ALL_KNOWN = [
+        'asset id','asset_id','assetid','asset',
+        'id','icon no','icon no.','icon_no','icon','icon number',
+        'floor','floor no','level',
+        'grid block','grid_block','grid','zone',
+        'assembly type','assembly_type','door type','type','category',
+        'door rating','door_rating','rating','fire rating',
+        'project','project name','facility','building','plan',
+        'title','status','assignee','start date','end date',
+        'x pos','y pos','door width','door height'
+      ];
 
       let headerRowIdx = -1;
+      let bestScore = 0;
       for (let i = 0; i < Math.min(rows.length, 15); i++) {
         const rowLower = rows[i].map(c => (c || '').trim().toLowerCase());
-        // High confidence: any single exact match qualifies
-        const highMatch = rowLower.some(c => HIGH_CONFIDENCE.includes(c));
-        if (highMatch) { headerRowIdx = i; break; }
-        // Lower confidence: need 3+ matches from the broader list
-        const anyCount = rowLower.filter(c => ANY_MATCH.includes(c)).length;
-        if (anyCount >= 3) { headerRowIdx = i; break; }
+        let score = 0;
+        for (const cell of rowLower) {
+          if (ALL_KNOWN.includes(cell)) score += 2;          // exact match
+          else if (ALL_KNOWN.some(k => cell.includes(k) || k.includes(cell)) && cell.length > 1) score += 1; // partial
+        }
+        if (score > bestScore) { bestScore = score; headerRowIdx = i; }
       }
 
-      if (headerRowIdx === -1) {
-        showToast('Could not find column headers in CSV. Check that your export includes column names like "Asset ID" and "ID".', 'error');
+      if (headerRowIdx === -1 || bestScore < 2) {
+        showToast('Could not find column headers. Make sure your CSV has a header row with columns like "Asset ID".', 'error');
         return;
       }
 
