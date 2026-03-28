@@ -706,11 +706,211 @@
 
   .hidden { display: none !important; }
 
+  /* ── HARDWARE TOGGLE ── */
+  .hw-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .hw-toggle:hover { border-color: var(--accent2); }
+  .hw-toggle.on { border-color: var(--accent); background: rgba(232,160,32,0.06); }
+  .hw-toggle-label { font-size: 13px; color: var(--text2); }
+  .hw-toggle.on .hw-toggle-label { color: var(--text); }
+  .hw-toggle-switch {
+    width: 36px; height: 20px;
+    background: var(--border);
+    border-radius: 10px;
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .hw-toggle.on .hw-toggle-switch { background: var(--accent); }
+  .hw-toggle-switch::after {
+    content: '';
+    position: absolute;
+    width: 16px; height: 16px;
+    background: white;
+    border-radius: 50%;
+    top: 2px; left: 2px;
+    transition: transform 0.2s;
+  }
+  .hw-toggle.on .hw-toggle-switch::after { transform: translateX(16px); }
+
+  /* ── SECTION NAV ── */
+  .section-tab {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text3);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .section-tab:hover { border-color: var(--text3); color: var(--text2); }
+  .section-tab.active { border-color: var(--accent); color: var(--accent); background: rgba(232,160,32,0.08); }
+  .section-tab.has-deficiency { border-color: var(--fail); color: var(--fail); }
+  .section-tab.has-deficiency.active { background: rgba(234,84,85,0.08); }
+  .section-tab.complete { border-color: var(--pass); color: var(--pass); }
+  .section-tab.complete.active { background: rgba(40,199,111,0.08); }
+
+  /* ── DEFICIENCY ITEM ── */
+  .deficiency-item {
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    transition: border-color 0.2s;
+  }
+  .deficiency-item.flagged { border-color: var(--fail); }
+  .deficiency-item.advisory { border-color: var(--warn); }
+
+  .deficiency-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: var(--surface2);
+    cursor: pointer;
+    gap: 12px;
+  }
+  .deficiency-item.flagged .deficiency-header { background: rgba(234,84,85,0.06); }
+  .deficiency-item.advisory .deficiency-header { background: rgba(255,159,67,0.06); }
+
+  .deficiency-text {
+    font-size: 13px;
+    color: var(--text2);
+    flex: 1;
+    line-height: 1.4;
+  }
+  .deficiency-item.flagged .deficiency-text { color: var(--text); }
+
+  .deficiency-flag-btn {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 5px 12px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text3);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .deficiency-flag-btn:hover { border-color: var(--fail); color: var(--fail); }
+  .deficiency-item.flagged .deficiency-flag-btn {
+    background: var(--fail);
+    border-color: var(--fail);
+    color: white;
+  }
+
+  .deficiency-body {
+    padding: 12px 14px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    display: none;
+  }
+  .deficiency-item.flagged .deficiency-body,
+  .deficiency-item.advisory .deficiency-body { display: block; }
+
+  /* Branch question inside deficiency */
+  .branch-question {
+    font-family: var(--head);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 10px;
+    line-height: 1.3;
+  }
+  .branch-options { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+  .branch-opt {
+    padding: 10px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--text2);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+  }
+  .branch-opt:hover { border-color: var(--accent2); color: var(--text); }
+  .branch-opt.selected-yes { border-color: var(--fail); background: rgba(234,84,85,0.08); color: var(--fail); }
+  .branch-opt.selected-no { border-color: var(--pass); background: rgba(40,199,111,0.08); color: var(--pass); }
+  .branch-opt.selected-neutral { border-color: var(--accent2); background: rgba(61,127,255,0.08); color: var(--accent2); }
+
+  .branch-result {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    padding: 8px 12px;
+    border-radius: 3px;
+    margin-top: 6px;
+  }
+  .branch-result.deficient { background: rgba(234,84,85,0.1); color: var(--fail); border: 1px solid rgba(234,84,85,0.3); }
+  .branch-result.compliant { background: rgba(40,199,111,0.1); color: var(--pass); border: 1px solid rgba(40,199,111,0.3); }
+  .branch-result.advisory { background: rgba(255,159,67,0.1); color: var(--warn); border: 1px solid rgba(255,159,67,0.3); }
+
+  .deficiency-note-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--fail);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    margin-top: 10px;
+  }
+
+  /* Section header */
+  .section-header {
+    font-family: var(--head);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text);
+    margin-bottom: 4px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .section-count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 1px;
+    font-weight: 400;
+  }
+  .section-empty {
+    text-align: center;
+    padding: 30px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 1px;
+  }
+
   @media (max-width: 600px) {
     .form-grid { grid-template-columns: 1fr; }
     .form-grid.three { grid-template-columns: 1fr 1fr; }
     .stats-row { grid-template-columns: 1fr 1fr; }
     .step-node { min-width: 56px; }
+    #hardwareToggles { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -842,21 +1042,21 @@
         <button class="btn-change-inspector" onclick="changeInspector()">Change</button>
       </div>
 
+      <!-- Rating warning banner -->
+      <div id="ratingWarning" style="display:none;background:rgba(234,84,85,0.1);border:1px solid var(--fail);border-radius:5px;padding:12px 16px;margin-bottom:14px;font-size:13px;color:var(--fail);font-family:var(--mono);letter-spacing:0.5px;"></div>
+
       <div class="card">
         <div class="card-title">Door Identification</div>
-
-        <!-- Asset ID with lookup -->
         <div class="form-group" style="margin-bottom:14px;">
-          <label>Asset ID <span style="color:var(--text3)">— type to auto-fill from schedule</span></label>
-          <input type="text" id="assetId" placeholder="e.g. AST-10042"
+          <label>Asset ID <span style="color:var(--text3)">— type to auto-fill</span></label>
+          <input type="text" id="assetId" placeholder="e.g. 4360"
             oninput="onAssetIdInput()" autocomplete="off" autocorrect="off" spellcheck="false">
           <div class="lookup-status hidden" id="lookupStatus"></div>
         </div>
-
         <div class="form-grid three">
           <div class="form-group">
             <label>Icon No.</label>
-            <input type="text" id="iconNo" placeholder="e.g. FD-042">
+            <input type="text" id="iconNo" placeholder="e.g. 42">
           </div>
           <div class="form-group">
             <label>Floor</label>
@@ -871,32 +1071,51 @@
 
       <div class="card">
         <div class="card-title">Assembly Classification</div>
-        <div class="form-grid">
+        <div class="form-grid" style="margin-bottom:14px;">
           <div class="form-group">
             <label>Assembly Type</label>
             <select id="assemblyType" onchange="onAssemblyTypeChange()">
               <option value="">— Select —</option>
-              <option value="fire_door">Fire Door (NFPA 80)</option>
-              <option value="smoke_barrier">Smoke Barrier Door (NFPA 101)</option>
-              <option value="smoke_partition">Smoke Partition Door — Non-Rated Hazardous (NFPA 101)</option>
-              <option value="suite_perimeter">Suite Perimeter Door (TJC / NFPA 101)</option>
+              <option value="3hr_fire">3-Hour Fire Barrier</option>
+              <option value="2hr_fire">2-Hour Fire Barrier</option>
+              <option value="1hr_fire">1-Hour Fire Barrier</option>
+              <option value="1hr_partition">1-Hour Partition</option>
+              <option value="smoke_barrier">Smoke Barrier</option>
+              <option value="smoke_partition">Smoke Partition</option>
+              <option value="suite_perimeter">Suite Perimeter</option>
             </select>
           </div>
           <div class="form-group">
-            <label>Door Rating</label>
-            <select id="doorRating">
+            <label>Door Rating (minutes)</label>
+            <select id="doorRating" onchange="checkDoorRating()">
               <option value="">— Select —</option>
-              <option value="3hr">3 Hour</option>
-              <option value="90min">90 Minute</option>
-              <option value="60min">60 Minute</option>
-              <option value="45min">45 Minute</option>
-              <option value="20min">20 Minute</option>
-              <option value="nonrated">Non-Rated</option>
-              <option value="na">N/A</option>
+              <option value="180">180 min (3-Hour)</option>
+              <option value="90">90 min</option>
+              <option value="60">60 min</option>
+              <option value="45">45 min</option>
+              <option value="20">20 min</option>
+              <option value="0">Non-Rated</option>
             </select>
           </div>
         </div>
-        <div id="standardNote" style="margin-top:12px; font-family:var(--mono); font-size:11px; color:var(--accent2); letter-spacing:0.5px; display:none;"></div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Door Swing Type</label>
+            <select id="doorSwingType">
+              <option value="">— Select —</option>
+              <option value="single">Single</option>
+              <option value="dbl_pair">Dbl (Pair Swing)</option>
+              <option value="dbl_dual_egress">Dbl (Dual Egress)</option>
+              <option value="dbl_active_inactive">Dbl (Active/Inactive)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Door Hardware Variables</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:1px;margin-bottom:14px;text-transform:uppercase;">Toggle ON for hardware present on this door</div>
+        <div id="hardwareToggles" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
       </div>
 
       <div class="btn-row">
@@ -905,22 +1124,30 @@
     </div>
 
     <!-- ══════════════════════════════════
-         TAB: INSPECT (WIZARD)
+         TAB: INSPECT (NEW WIZARD)
     ══════════════════════════════════ -->
     <div id="tab-inspect" class="wizard hidden">
+      <!-- Door header strip -->
       <div class="door-header-strip" id="doorHeaderStrip">
         <div class="door-meta-item"><div class="door-meta-key">Icon No.</div><div class="door-meta-val" id="stripIcon">—</div></div>
         <div class="door-meta-item"><div class="door-meta-key">Asset ID</div><div class="door-meta-val" id="stripAsset">—</div></div>
         <div class="door-meta-item"><div class="door-meta-key">Floor</div><div class="door-meta-val" id="stripFloor">—</div></div>
         <div class="door-meta-item"><div class="door-meta-key">Grid</div><div class="door-meta-val" id="stripGrid">—</div></div>
         <div class="door-meta-item"><div class="door-meta-key">Type</div><div class="door-meta-val" id="stripType">—</div></div>
+        <div class="door-meta-item"><div class="door-meta-key">Rating</div><div class="door-meta-val" id="stripRating">—</div></div>
       </div>
-      <div class="progress-bar" id="progressBar"></div>
-      <div class="phase-title" id="phaseTitle"></div>
-      <div id="questionArea"></div>
+
+      <!-- Section navigation tabs -->
+      <div id="sectionNav" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;"></div>
+
+      <!-- Active section content -->
+      <div id="sectionContent"></div>
+
+      <!-- Nav buttons -->
       <div class="btn-row">
-        <button class="btn btn-secondary" id="btnBack" onclick="wizardBack()">← Back</button>
-        <button class="btn btn-primary" id="btnNext" onclick="wizardNext()">Next →</button>
+        <button class="btn btn-secondary" id="btnSectionBack" onclick="sectionBack()">← Back</button>
+        <button class="btn btn-primary" id="btnSectionNext" onclick="sectionNext()">Next Section →</button>
+        <button class="btn btn-primary hidden" id="btnComplete" onclick="completeInspection()">Complete Inspection ✓</button>
       </div>
     </div>
 
@@ -1055,6 +1282,37 @@ CREATE POLICY "Allow all" ON door_schedule FOR ALL USING (true);</pre>
       </div>
 
       <div class="card">
+        <div class="card-title">Project Inspection Variables</div>
+        <p style="font-size:13px; color:var(--text2); margin-bottom:16px;">Set once per inspection session. These apply to all doors in the active project.</p>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label>Construction Type</label>
+          <select id="pv_construction" onchange="saveProjectVars()">
+            <option value="existing">Existing</option>
+            <option value="new">New Construction</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label>Perimeter Gap Standard</label>
+          <select id="pv_gap_standard" onchange="saveProjectVars()">
+            <option value="codify">CODIFY (1/4")</option>
+            <option value="nfpa80">NFPA 80 (1/8" ± 1/16")</option>
+            <option value="preoccupancy">Pre-Occupancy (3/16")</option>
+            <option value="survey">Survey Readiness (3/8")</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom:4px;">
+          <label>Building Fully Sprinklered?</label>
+          <select id="pv_sprinklered" onchange="saveProjectVars()">
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-title">Data Management</div>
         <p style="font-size:13px; color:var(--text2); margin-bottom:14px;">Clear all locally stored inspection records. Does not affect cloud data or the door schedule.</p>
         <button class="btn btn-danger" onclick="clearLocalData()">Clear Local Inspection Data</button>
@@ -1081,35 +1339,28 @@ let assetLookupTimer = null;
 let editingRecordId = null;
 let isSyncing = false;
 
-const ASSEMBLY_TYPE_LABELS = {
-  fire_door: 'Fire Door',
-  smoke_barrier: 'Smoke Barrier Door',
-  smoke_partition: 'Smoke Partition Door',
-  suite_perimeter: 'Suite Perimeter Door'
-};
-
+// Assembly type labels defined in wizard section below
+// Legacy values kept for CSV import mapping
 const ASSEMBLY_TYPE_VALUES = {
   'fire door': 'fire_door',
   'fire_door': 'fire_door',
-  'smoke barrier': 'smoke_barrier',
-  'smoke barrier door': 'smoke_barrier',
-  'smoke_barrier': 'smoke_barrier',
-  'smoke partition': 'smoke_partition',
-  'smoke partition door': 'smoke_partition',
-  'smoke_partition': 'smoke_partition',
-  'suite perimeter': 'suite_perimeter',
-  'suite perimeter door': 'suite_perimeter',
-  'suite_perimeter': 'suite_perimeter'
+  '3-hour fire': '3hr_fire', '3hr_fire': '3hr_fire',
+  '2-hour fire': '2hr_fire', '2hr_fire': '2hr_fire',
+  '1-hour fire': '1hr_fire', '1hr_fire': '1hr_fire',
+  '1-hour partition': '1hr_partition', '1hr_partition': '1hr_partition',
+  'smoke barrier': 'smoke_barrier', 'smoke barrier door': 'smoke_barrier', 'smoke_barrier': 'smoke_barrier',
+  'smoke partition': 'smoke_partition', 'smoke partition door': 'smoke_partition', 'smoke_partition': 'smoke_partition',
+  'suite perimeter': 'suite_perimeter', 'suite perimeter door': 'suite_perimeter', 'suite_perimeter': 'suite_perimeter'
 };
 
 const RATING_VALUES = {
-  '3 hour': '3hr', '3hr': '3hr', '3-hour': '3hr',
-  '90 minute': '90min', '90min': '90min', '90-minute': '90min',
-  '60 minute': '60min', '60min': '60min', '60-minute': '60min',
-  '45 minute': '45min', '45min': '45min', '45-minute': '45min',
-  '20 minute': '20min', '20min': '20min', '20-minute': '20min',
-  'non-rated': 'nonrated', 'nonrated': 'nonrated', 'non rated': 'nonrated',
-  'n/a': 'na', 'na': 'na'
+  '3 hour': '180', '180': '180', '3-hour': '180', '3hr': '180',
+  '90 minute': '90', '90min': '90', '90-minute': '90',
+  '60 minute': '60', '60min': '60', '60-minute': '60',
+  '45 minute': '45', '45min': '45', '45-minute': '45',
+  '20 minute': '20', '20min': '20', '20-minute': '20',
+  'non-rated': '0', 'nonrated': '0', 'non rated': '0', '0': '0',
+  'n/a': '0', 'na': '0'
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1684,17 +1935,24 @@ function applyDoorToForm(door) {
     sel.classList.add('autofilled');
     onAssemblyTypeChange();
   }
-  if (door.doorRating) {
+  if (door.doorRating !== undefined && door.doorRating !== '') {
     const sel = document.getElementById('doorRating');
     sel.value = door.doorRating;
     sel.classList.add('autofilled');
   }
 
+  // Pre-populate hardware toggles from saved hwState (year 2+)
+  initHardwareToggles(door.hwState || null);
+
+  // Check for rating warning
+  checkDoorRating();
+
   const assetInput = document.getElementById('assetId');
   const statusEl = document.getElementById('lookupStatus');
   assetInput.classList.remove('lookup-loading', 'lookup-notfound');
   assetInput.classList.add('lookup-found');
-  statusEl.textContent = '✓ Door found — fields auto-filled';
+  const hasHw = door.hwState ? ' Hardware pre-filled.' : '';
+  statusEl.textContent = '✓ Door found — fields auto-filled.' + hasHw;
   statusEl.className = 'lookup-status found';
   statusEl.classList.remove('hidden');
 }
@@ -1745,627 +2003,1001 @@ function clearAutoFill() {
 // ═══════════════════════════════════════════════════════════════════
 //  ASSEMBLY TYPE NOTE
 // ═══════════════════════════════════════════════════════════════════
-const STANDARD_NOTES = {
-  fire_door: '⚡ NFPA 80 — Annual inspection required.',
-  smoke_barrier: '⚡ NFPA 101 §8.3.4 — Self-closing and positive-latching required.',
-  smoke_partition: '⚡ NFPA 101 §8.4.4 — Non-rated hazardous area. Self-closing required.',
-  suite_perimeter: '⚡ TJC EC standards + NFPA 101 Chapter 7 — Egress compliance critical.'
+// ═══════════════════════════════════════════════════════════════════
+//  ASSEMBLY TYPES & CONSTANTS
+// ═══════════════════════════════════════════════════════════════════
+const ASSEMBLY_TYPE_LABELS = {
+  '3hr_fire': '3-Hour Fire Barrier',
+  '2hr_fire': '2-Hour Fire Barrier',
+  '1hr_fire': '1-Hour Fire Barrier',
+  '1hr_partition': '1-Hour Partition',
+  'smoke_barrier': 'Smoke Barrier',
+  'smoke_partition': 'Smoke Partition',
+  'suite_perimeter': 'Suite Perimeter'
 };
 
-function onAssemblyTypeChange() {
-  const val = document.getElementById('assemblyType').value;
-  const note = document.getElementById('standardNote');
-  note.textContent = STANDARD_NOTES[val] || '';
-  note.style.display = val ? 'block' : 'none';
+// Assembly types that are fire-rated (have labels)
+const FIRE_RATED = ['3hr_fire','2hr_fire','1hr_fire','1hr_partition'];
+const SMOKE_TYPES = ['smoke_barrier','smoke_partition','suite_perimeter'];
+
+// Minimum door rating (minutes) per assembly type
+const MIN_RATINGS = {
+  '3hr_fire': 180,
+  '2hr_fire': 90,
+  '1hr_fire': 45,   // 60 if stair door
+  '1hr_partition': 45,
+  'smoke_barrier': 20,  // 0 if dual egress
+  'smoke_partition': null,
+  'suite_perimeter': null
+};
+
+const HARDWARE_VARS = [
+  { id: 'hw_automatic_operator', label: 'Automatic Operator', default: false },
+  { id: 'hw_closer', label: 'Closer', default: true },
+  { id: 'hw_deadbolt', label: 'Deadbolt', default: false },
+  { id: 'hw_delayed_egress', label: 'Delayed Egress Device', default: false },
+  { id: 'hw_electric_strike', label: 'Electric Strike', default: false },
+  { id: 'hw_lockset', label: 'Lockset', default: true },
+  { id: 'hw_magnetic_lock', label: 'Magnetic Lock', default: false },
+  { id: 'hw_motion_sensor', label: 'Motion Sensor', default: false },
+  { id: 'hw_overlapping_astragal', label: 'Overlapping Astragal', default: false },
+  { id: 'hw_panic_device', label: 'Panic Device', default: false },
+  { id: 'hw_push_to_exit', label: 'PUSH TO EXIT Button', default: false },
+  { id: 'hw_stair_door', label: 'Stair Door', default: false },
+  { id: 'hw_sweep', label: 'Sweep', default: false },
+  { id: 'hw_vision_panel', label: 'Vision Panel', default: false }
+];
+
+// ── Project-level variables (stored in localStorage) ──────────────
+function getProjectVars() {
+  try { return JSON.parse(localStorage.getItem('projectVars') || '{}'); } catch { return {}; }
+}
+function setProjectVars(vars) {
+  localStorage.setItem('projectVars', JSON.stringify(vars));
 }
 
-// ═══════════════════════════════════════════════════════════════════
-//  TAB NAVIGATION
-// ═══════════════════════════════════════════════════════════════════
-function showTab(name) {
-  ['setup', 'inspect', 'records', 'config'].forEach(t => {
-    document.getElementById('tab-' + t).classList.add('hidden');
+// ── Hardware toggle state per current door ─────────────────────────
+let hwState = {};
+
+function initHardwareToggles(preload) {
+  const container = document.getElementById('hardwareToggles');
+  if (!container) return;
+  container.innerHTML = '';
+  hwState = {};
+  HARDWARE_VARS.forEach(v => {
+    const val = preload && preload[v.id] !== undefined ? preload[v.id] : v.default;
+    hwState[v.id] = val;
+    const el = document.createElement('div');
+    el.className = 'hw-toggle' + (val ? ' on' : '');
+    el.id = 'toggle_' + v.id;
+    el.innerHTML = `<span class="hw-toggle-label">${v.label}</span><div class="hw-toggle-switch"></div>`;
+    el.onclick = () => {
+      hwState[v.id] = !hwState[v.id];
+      el.classList.toggle('on', hwState[v.id]);
+    };
+    container.appendChild(el);
   });
-  document.querySelectorAll('.nav-tab').forEach(el => {
-    const tabName = el.textContent.toLowerCase().trim();
-    el.classList.toggle('active',
-      (name === 'setup' && tabName === 'inspect') ||
-      (name === 'records' && tabName === 'records') ||
-      (name === 'config' && tabName === 'config')
-    );
-  });
-  document.getElementById('tab-' + name).classList.remove('hidden');
-  if (name === 'records') renderRecords();
-  if (name === 'config') loadConfig();
+}
+
+// ── Assembly type change ───────────────────────────────────────────
+function onAssemblyTypeChange() {
+  checkDoorRating();
+}
+
+function checkDoorRating() {
+  const atype = document.getElementById('assemblyType').value;
+  const ratingVal = document.getElementById('doorRating').value;
+  const warnEl = document.getElementById('ratingWarning');
+  if (!warnEl) return;
+
+  if (!atype || ratingVal === '') { warnEl.style.display = 'none'; return; }
+
+  const rating = parseInt(ratingVal);
+  const minRating = MIN_RATINGS[atype];
+  const isStair = hwState.hw_stair_door;
+  const isDualEgress = document.getElementById('doorSwingType')?.value === 'dbl_dual_egress';
+
+  let minRequired = minRating;
+  if (atype === '1hr_fire' && isStair) minRequired = 60;
+  if (atype === 'smoke_barrier' && isDualEgress) minRequired = 0;
+
+  if (minRequired === null) { warnEl.style.display = 'none'; return; }
+
+  if (rating < minRequired) {
+    warnEl.style.display = '';
+    warnEl.textContent = `⚠ Rating Warning: ${ASSEMBLY_TYPE_LABELS[atype]} requires minimum ${minRequired} min. Selected rating (${ratingVal === '0' ? 'Non-Rated' : ratingVal + ' min'}) is insufficient.`;
+  } else {
+    warnEl.style.display = 'none';
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════
 //  START INSPECTION
 // ═══════════════════════════════════════════════════════════════════
 function startInspection() {
+  if (!getActiveProject()) { openProjectModal(true); return; }
+
   const assetId = document.getElementById('assetId').value.trim();
   const assemblyType = document.getElementById('assemblyType').value;
+  const doorRating = document.getElementById('doorRating').value;
+  const doorSwingType = document.getElementById('doorSwingType').value;
 
-  if (!getActiveProject()) { openProjectModal(true); return; }
   if (!assetId) { showToast('Asset ID is required.', 'warn'); return; }
   if (!assemblyType) { showToast('Select an Assembly Type.', 'warn'); return; }
+  if (doorRating === '') { showToast('Select a Door Rating.', 'warn'); return; }
+  if (!doorSwingType) { showToast('Select a Door Swing Type.', 'warn'); return; }
 
   const inspectorName = localStorage.getItem('inspectorName') || '—';
   const activeProject = getActiveProject();
+  const projVars = getProjectVars();
 
-  // If editing, preserve original record's project and start time
+  // Build currentDoor
   let startTime = new Date().toISOString();
   let projectName = activeProject;
+
   if (editingRecordId) {
     const original = getRecords().find(r => r.id === editingRecordId);
-    if (original) {
-      startTime = original.startTime;
-      projectName = original.projectName || activeProject;
-    }
-    // answers already pre-loaded by editRecord()
+    if (original) { startTime = original.startTime; projectName = original.projectName || activeProject; }
   } else {
     answers = {};
+    inspectionDeficiencies = {};
   }
 
   currentDoor = {
-    inspectorName,
-    projectName,
+    inspectorName, projectName,
     iconNo: document.getElementById('iconNo').value.trim(),
-    assetId,
-    floorNo: document.getElementById('floorNo').value.trim(),
+    assetId, floorNo: document.getElementById('floorNo').value.trim(),
     gridBlock: document.getElementById('gridBlock').value.trim(),
-    assemblyType,
-    doorRating: document.getElementById('doorRating').value,
+    assemblyType, doorRating, doorSwingType,
+    hwState: { ...hwState },
+    projectVars: { ...projVars },
     startTime
   };
 
-  deficiencies = [];
-  currentPhaseIdx = 0;
-  currentQIdx = 0;
-  wizardPhases = buildWizard(assemblyType);
+  // Auto-check rating deficiency
+  const rating = parseInt(doorRating);
+  const minRating = MIN_RATINGS[assemblyType];
+  const isStair = hwState.hw_stair_door;
+  const isDualEgress = doorSwingType === 'dbl_dual_egress';
+  let minRequired = minRating;
+  if (assemblyType === '1hr_fire' && isStair) minRequired = 60;
+  if (assemblyType === 'smoke_barrier' && isDualEgress) minRequired = 0;
 
-  document.getElementById('stripIcon').textContent  = currentDoor.iconNo  || '—';
+  if (minRequired !== null && rating < minRequired) {
+    if (!inspectionDeficiencies['rating_underrated']) {
+      inspectionDeficiencies['rating_underrated'] = {
+        category: 'Rating',
+        text: 'Rating: Door is underrated for the door assembly type.',
+        autoFlagged: true,
+        note: `Assembly requires ≥${minRequired} min, door is ${doorRating === '0' ? 'Non-Rated' : doorRating + ' min'}.`,
+        status: 'deficient'
+      };
+    }
+  }
+
+  // Update strip
+  document.getElementById('stripIcon').textContent = currentDoor.iconNo || '—';
   document.getElementById('stripAsset').textContent = currentDoor.assetId || '—';
   document.getElementById('stripFloor').textContent = currentDoor.floorNo || '—';
-  document.getElementById('stripGrid').textContent  = currentDoor.gridBlock || '—';
-  document.getElementById('stripType').textContent  = ASSEMBLY_TYPE_LABELS[assemblyType] || '—';
+  document.getElementById('stripGrid').textContent = currentDoor.gridBlock || '—';
+  document.getElementById('stripType').textContent = ASSEMBLY_TYPE_LABELS[assemblyType] || '—';
+  document.getElementById('stripRating').textContent = doorRating === '0' ? 'Non-Rated' : (doorRating + ' min');
 
   document.getElementById('tab-setup').classList.add('hidden');
   document.getElementById('tab-inspect').classList.remove('hidden');
   document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
 
-  renderWizard();
+  currentSectionIdx = 0;
+  buildSectionNav();
+  renderSection(0);
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  INSPECTION WIZARD BUILDER
+//  INSPECTION STATE
 // ═══════════════════════════════════════════════════════════════════
-function buildWizard(assemblyType) {
-  const phases = [];
+let inspectionDeficiencies = {}; // key -> { category, text, status, note, branchAnswers }
+let currentSectionIdx = 0;
 
-  // PHASE 1: FRAME & LEAF
-  phases.push({ id: 'frame', label: 'Frame & Leaf', questions: [
-    {
-      id: 'frame_condition', ref: 'NFPA 80 §4.1 / NFPA 101 §8.3',
-      text: 'Is the door frame free of visible damage, warping, or unauthorized modifications?',
-      choices: [
-        { label: 'Yes — frame is intact and unmodified', status: 'pass', indicator: 'pass' },
-        { label: 'Minor surface damage only (cosmetic)', status: 'warn', indicator: 'warn', deficiency: 'Frame has minor cosmetic damage' },
-        { label: 'Structural damage, warping, or modification present', status: 'fail', indicator: 'fail', deficiency: 'Frame damage/modification — non-compliant', requiresNote: true }
-      ]
-    },
-    {
-      id: 'label_present',
-      ref: assemblyType === 'fire_door' ? 'NFPA 80 §5.1.3' : 'NFPA 101 §8.3.4',
-      text: assemblyType === 'fire_door'
-        ? 'Is the fire door label (UL or equivalent listing label) present, legible, and on both the door leaf and frame?'
-        : 'Is the door label or listing marking present and legible?',
-      choices: [
-        { label: 'Yes — label present and legible on door and frame', status: 'pass', indicator: 'pass' },
-        { label: 'Label present but damaged/partially illegible', status: 'fail', indicator: 'fail', deficiency: 'Label damaged or partially illegible', requiresNote: true },
-        { label: 'Label missing from door leaf', status: 'fail', indicator: 'fail', deficiency: 'Door label missing' },
-        { label: 'Label missing from frame/frame not labeled', status: 'fail', indicator: 'fail', deficiency: 'Frame label missing' },
-        ...(assemblyType === 'smoke_partition' || assemblyType === 'suite_perimeter'
-          ? [{ label: 'N/A — non-rated, label not required', status: 'na', indicator: 'na' }] : [])
-      ]
-    },
-    {
-      id: 'door_leaf_condition', ref: 'NFPA 80 §4.1.3',
-      text: 'Is the door leaf free of holes, breaks, or unauthorized modifications that could compromise the assembly?',
-      choices: [
-        { label: 'Yes — door leaf is intact', status: 'pass', indicator: 'pass' },
-        { label: 'Minor dents/dings only — no penetration', status: 'warn', indicator: 'warn', deficiency: 'Minor cosmetic damage to door leaf' },
-        { label: 'Holes, breaks, or penetrations present', status: 'fail', indicator: 'fail', deficiency: 'Door leaf has holes/breaks/penetrations', requiresNote: true },
-        { label: 'Unauthorized louver, view panel, or cutout', status: 'fail', indicator: 'fail', deficiency: 'Unauthorized modification to door leaf', requiresNote: true }
-      ]
-    }
-  ]});
+// ═══════════════════════════════════════════════════════════════════
+//  CHECKLIST BUILDER — returns applicable items for current door
+// ═══════════════════════════════════════════════════════════════════
+function getApplicableItems() {
+  const atype = currentDoor.assemblyType;
+  const hw = currentDoor.hwState;
+  const swing = currentDoor.doorSwingType;
+  const projVars = currentDoor.projectVars;
+  const sprinklered = projVars.sprinklered !== false; // default ON
+  const gapStd = projVars.gapStandard || 'codify';
 
-  // PHASE 2: HARDWARE
-  const hwQ = [];
-  if (assemblyType === 'fire_door' || assemblyType === 'smoke_barrier') {
-    hwQ.push({
-      id: 'closer_present', ref: 'NFPA 80 §5.2.1 / NFPA 101 §8.3.4',
-      text: 'Is a self-closing device (door closer) installed and functioning properly?',
-      choices: [
-        { label: 'Yes — closer installed and door self-closes fully', status: 'pass', indicator: 'pass' },
-        { label: 'Closer installed but door does not fully close/latch', status: 'fail', indicator: 'fail', deficiency: 'Closer present but door fails to self-close and latch', requiresNote: true },
-        { label: 'Closer missing', status: 'fail', indicator: 'fail', deficiency: 'Self-closing device missing' },
-        { label: 'Closer held open by unapproved device (wedge, tie-back, etc.)', status: 'fail', indicator: 'fail', deficiency: 'Door held open — self-closing device defeated' }
-      ]
-    });
-    hwQ.push({
-      id: 'latching', ref: 'NFPA 80 §5.2.4',
-      text: 'Does the door latch positively into the frame upon self-closing (without manual assistance)?',
-      choices: [
-        { label: 'Yes — latches positively and completely', status: 'pass', indicator: 'pass' },
-        { label: 'No — requires manual assistance to fully latch', status: 'fail', indicator: 'fail', deficiency: 'Door does not latch positively — manual assistance required', requiresNote: true },
-        { label: 'Door rebounds or fails to stay closed', status: 'fail', indicator: 'fail', deficiency: 'Door rebounds or fails to remain closed' }
-      ]
-    });
-  }
-  if (assemblyType === 'fire_door') {
-    hwQ.push({
-      id: 'coordinator', ref: 'NFPA 80 §5.3.7',
-      text: 'Is this a pair of doors? If so, is an astragal/coordinator installed to ensure correct leaf sequencing?',
-      choices: [
-        { label: 'Single door — not applicable', status: 'na', indicator: 'na' },
-        { label: 'Pair of doors — coordinator/astragal present and functioning', status: 'pass', indicator: 'pass' },
-        { label: 'Pair of doors — coordinator missing or non-functional', status: 'fail', indicator: 'fail', deficiency: 'Pair doors: coordinator/astragal missing or non-functional' }
-      ]
-    });
-    hwQ.push({
-      id: 'hardware_listing', ref: 'NFPA 80 §5.1.5',
-      text: 'Is all hardware (hinges, lockset, closer, etc.) listed/labeled for use with this fire door assembly?',
-      choices: [
-        { label: 'Yes — all visible hardware appears listed and appropriate', status: 'pass', indicator: 'pass' },
-        { label: 'Unlisted or non-compliant hardware identified', status: 'fail', indicator: 'fail', deficiency: 'Unlisted/non-compliant hardware present', requiresNote: true },
-        { label: 'Cannot verify — hardware markings missing or inaccessible', status: 'warn', indicator: 'warn', deficiency: 'Hardware listing status unverified' }
-      ]
-    });
-  }
-  if (['smoke_barrier','smoke_partition','suite_perimeter'].includes(assemblyType)) {
-    hwQ.push({
-      id: 'self_latching', ref: 'NFPA 101 §8.3.4',
-      text: 'Does the door self-latch into the frame (or coordinate with the smoke barrier/partition system)?',
-      choices: [
-        { label: 'Yes — self-latches or is part of compliant coordinated system', status: 'pass', indicator: 'pass' },
-        { label: 'Does not self-latch', status: 'fail', indicator: 'fail', deficiency: 'Smoke door does not self-latch — non-compliant', requiresNote: true }
-      ]
-    });
-  }
-  hwQ.push({
-    id: 'hinges', ref: 'NFPA 80 §5.2.2',
-    text: 'Are all hinges present, secure, and free of missing or damaged components?',
-    choices: [
-      { label: 'Yes — all hinges intact and secure', status: 'pass', indicator: 'pass' },
-      { label: 'Loose hinge(s) identified', status: 'fail', indicator: 'fail', deficiency: 'Loose hinge(s) — requires correction', requiresNote: true },
-      { label: 'Missing hinge(s) or hinge leaves', status: 'fail', indicator: 'fail', deficiency: 'Missing hinge(s) or hinge leaves' },
-      { label: 'Non-listed or modified hinges', status: 'fail', indicator: 'fail', deficiency: 'Non-listed or modified hinges present', requiresNote: true }
-    ]
+  const isFire = FIRE_RATED.includes(atype);
+  const isSmoke = atype === 'smoke_barrier';
+  const isSmokePart = atype === 'smoke_partition';
+  const isSuite = atype === 'suite_perimeter';
+  const isNotSmokePartOrSuite = !isSmokePart && !isSuite;
+  const hasDblSwing = swing !== 'single';
+  const isPairSwing = swing === 'dbl_pair' || swing === 'dbl_active_inactive';
+  const isDualEgress = swing === 'dbl_dual_egress';
+
+  const closerOrAuto = hw.hw_closer || hw.hw_automatic_operator;
+  const locksetOrPanic = hw.hw_lockset || hw.hw_panic_device;
+  const notSingleDoor = hasDblSwing;
+
+  // Gap standard reminder text
+  const gapStdText = {
+    codify: '1/4"', nfpa80: '1/8" ± 1/16"', preoccupancy: '3/16"', survey: '3/8"'
+  }[gapStd] || '1/8" ± 1/16"';
+
+  const items = [];
+
+  // ── SECTION 1: RATING ─────────────────────────────────────────────
+  // Auto-flagged above; also manual checks
+  items.push({ section:'Rating', id:'rating_door', text:'Rating: Door is underrated for the door assembly type.',
+    show: isNotSmokePartOrSuite, branch: null,
+    note:'Cross-checked automatically against assembly type.' });
+  items.push({ section:'Rating', id:'rating_frame', text:'Rating: Frame is underrated for the door assembly type.',
+    show: isNotSmokePartOrSuite, branch: null });
+  items.push({ section:'Rating', id:'rating_cont_hinge', text:'Rating: Continuous hinge is underrated for the door assembly type.',
+    show: isNotSmokePartOrSuite, branch: null });
+  items.push({ section:'Rating', id:'rating_panic', text:'Rating: Panic device is underrated for the door assembly type.',
+    show: isNotSmokePartOrSuite, branch: null });
+  items.push({ section:'Rating', id:'rating_plate', text:'Rating: Protective plate(s) underrated for the door assembly type.',
+    show: isNotSmokePartOrSuite, branch: null });
+  items.push({ section:'Rating', id:'rating_vision', text:'Rating: Vision panel is underrated for the assembly type.',
+    show: isNotSmokePartOrSuite, branch: null });
+
+  // ── SECTION 2: GAPS ───────────────────────────────────────────────
+  items.push({ section:'Gaps', id:'gap_astragal', text:'Gap: Astragal is not intended for gap mitigation.',
+    show: notSingleDoor });
+  items.push({ section:'Gaps', id:'gap_sweep', text:'Gap: Sweep is not intended for gap mitigation.',
+    show: hw.hw_sweep,
+    branch: 'x1', branchLabel: 'Evaluate sweep gap' });
+  items.push({ section:'Gaps', id:'gap_bottom_3_4', text:'Gap: Bottom clearance is in excess of 3/4".',
+    show: atype !== 'suite_perimeter', hint: 'Standard: 3/4" max' });
+  items.push({ section:'Gaps', id:'gap_bottom_1', text:'Gap: Bottom clearance is in excess of 1".',
+    show: isSuite, hint: 'Suite Perimeter standard: 1" max' });
+  items.push({ section:'Gaps', id:'gap_face', text:'Gap: Face gap is in excess of 1/2".',
+    show: true, branch: 'x2', branchLabel: 'Evaluate face gap' });
+  items.push({ section:'Gaps', id:'gap_fire_pin', text:'Gap: Face gap renders fire pin ineffective.',
+    show: notSingleDoor && locksetOrPanic && (isFire || isSmoke) });
+  items.push({ section:'Gaps', id:'gap_hinge', text:`Gap: Hinge edge gap is in excess of 1/8 ± 1/16".`,
+    show: true,
+    hint: isSuite ? `Suite Perimeter gap standard — ${gapStdText}` : `Applied gap standard — ${gapStdText}`,
+    branch: isSuite ? 'x3' : null });
+  items.push({ section:'Gaps', id:'gap_latch', text:`Gap: Latch edge gap is in excess of 1/8 ± 1/16".`,
+    show: true,
+    hint: isSuite ? `Suite Perimeter gap standard — ${gapStdText}` : `Applied gap standard — ${gapStdText}`,
+    branch: isSuite ? 'x3' : null });
+  items.push({ section:'Gaps', id:'gap_top', text:`Gap: Top edge gap is in excess of 1/8 ± 1/16".`,
+    show: true,
+    hint: isSuite ? `Suite Perimeter gap standard — ${gapStdText}` : `Applied gap standard — ${gapStdText}`,
+    branch: isSuite ? 'x3' : null });
+  items.push({ section:'Gaps', id:'gap_meeting', text:'Gap: Meeting edge gap is in excess of 1/8 ± 1/16".',
+    show: notSingleDoor,
+    hint: 'Reminder: 1/8" for wood doors, 3/16" for metal doors.' });
+
+  // ── SECTION 3: FRAME & LABELING ───────────────────────────────────
+  items.push({ section:'Frame & Labeling', id:'label_door', text:'Labeling: Door label is illegible.',
+    show: isNotSmokePartOrSuite,
+    branch: (isSmoke) ? 'x4' : null });
+  items.push({ section:'Frame & Labeling', id:'label_frame', text:'Labeling: Frame label is illegible.',
+    show: isNotSmokePartOrSuite,
+    branch: (isSmoke) ? 'x4' : null });
+  items.push({ section:'Frame & Labeling', id:'pi_hinge_filler', text:'Physical Integrity: Hinge filler plate(s) missing from the door and/or frame.',
+    show: isNotSmokePartOrSuite,
+    branch: (isSmoke) ? 'x4' : null });
+  items.push({ section:'Frame & Labeling', id:'pi_hinge_missing', text:'Physical Integrity: Hinge is missing or damaged.',
+    show: isNotSmokePartOrSuite,
+    branch: (isSmoke) ? 'x4' : null });
+  items.push({ section:'Frame & Labeling', id:'pi_screws', text:'Physical Integrity: Screw(s) missing or broken.',
+    show: isNotSmokePartOrSuite,
+    branch: (isSmoke) ? 'x4' : null });
+  items.push({ section:'Frame & Labeling', id:'pi_frame', text:'Physical Integrity: Frame is damaged or unsecured.',
+    show: true });
+
+  // ── SECTION 4: DOOR LEAF & PHYSICAL INTEGRITY ─────────────────────
+  items.push({ section:'Door Leaf & Physical Integrity', id:'pi_door_damaged', text:'Physical Integrity: Door is severely damaged.',
+    show: true });
+  items.push({ section:'Door Leaf & Physical Integrity', id:'pi_holes', text:'Physical Integrity: Fastener hole(s) present in door and/or frame.',
+    show: true, branch: 'x6' });
+  items.push({ section:'Door Leaf & Physical Integrity', id:'pi_prep', text:'Physical Integrity: Prep exposed in door and/or frame.',
+    show: true, branch: 'x6' });
+  items.push({ section:'Door Leaf & Physical Integrity', id:'pi_dissimilar', text:'Physical Integrity: Hole(s) in door filled with material dissimilar to that of the door and frame.',
+    show: isNotSmokePartOrSuite, branch: (isSmoke) ? 'x4' : null });
+  items.push({ section:'Door Leaf & Physical Integrity', id:'pi_laminate_hinge', text:'Physical Integrity: Laminate is missing or damaged at hinge edge.',
+    show: true, branch: 'x8' });
+  items.push({ section:'Door Leaf & Physical Integrity', id:'pi_laminate_latch', text:'Physical Integrity: Laminate is missing or damaged at latch edge.',
+    show: true, branch: 'x8' });
+  items.push({ section:'Door Leaf & Physical Integrity', id:'pi_laminate_face', text:'Physical Integrity: Laminate is missing or damaged on door face.',
+    show: true, branch: 'x8' });
+  items.push({ section:'Door Leaf & Physical Integrity', id:'pi_latching_hw', text:'Physical Integrity: Latching hardware is missing or damaged.',
+    show: true, branch: 'x8' });
+  items.push({ section:'Door Leaf & Physical Integrity', id:'pi_astragal', text:'Physical Integrity: Astragal is damaged.',
+    show: true,
+    branch: (isSmoke || isSmokePart || isSuite) ? 'x5' : null });
+  items.push({ section:'Door Leaf & Physical Integrity', id:'pi_sweep', text:'Physical Integrity: Sweep is damaged.',
+    show: true,
+    branch: (isSmoke || isSmokePart || isSuite) ? 'x9' : null });
+  items.push({ section:'Door Leaf & Physical Integrity', id:'pi_gasketing', text:'Physical Integrity: Gasketing is missing or damaged.',
+    show: true, branch: 'x7' });
+  items.push({ section:'Door Leaf & Physical Integrity', id:'pi_panic_endcap', text:'Physical Integrity: Panic device end cap is missing or damaged.',
+    show: isNotSmokePartOrSuite, branch: (isSmoke) ? 'x4' : null });
+
+  // ── SECTION 5: VISION PANEL ───────────────────────────────────────
+  items.push({ section:'Vision Panel', id:'vp_missing', text:'Vision Panel: Cross-corridor smoke barrier door not equipped with vision panel.',
+    show: !isDualEgress && !isSuite && !isSmokePart && !notSingleDoor === false });
+  // Simpler: show if assembly is fire or smoke barrier and not dual-egress single or option D
+  // Per checklist row 75: If Door Type <> Option A or Option D
+  items.push({ section:'Vision Panel', id:'vp_rating', text:'Rating: Vision panel is underrated for the assembly type.',
+    show: isNotSmokePartOrSuite && hw.hw_vision_panel });
+  items.push({ section:'Vision Panel', id:'sign_vision', text:'Signage: Signage adhered to vision panel.',
+    show: isNotSmokePartOrSuite && hw.hw_vision_panel });
+
+  // ── SECTION 6: HARDWARE ───────────────────────────────────────────
+  items.push({ section:'Hardware', id:'hw_latch_missing', text:'Positive Latching: Latching hardware is not provided.',
+    show: !locksetOrPanic,
+    branch: (isSmoke) ? 'x4' : null });
+  items.push({ section:'Hardware', id:'lock_panic_actuating', text:'Locking: Actuating portion of panic device is less than 1/2 of door width.',
+    show: hw.hw_panic_device });
+  items.push({ section:'Hardware', id:'lock_overlap_independent', text:'Locking: Overlapping astragal prevents independent operation of door leaves.',
+    show: hw.hw_overlapping_astragal });
+
+  // ── SECTION 7: SIGNAGE ────────────────────────────────────────────
+  items.push({ section:'Signage', id:'sign_delayed_egress', text:'Signage: Delayed egress signage is not provided.',
+    show: hw.hw_delayed_egress });
+  items.push({ section:'Signage', id:'sign_coat_rack', text:'Signage: Mechanically fastened coat rack.',
+    show: isNotSmokePartOrSuite, branch: (isSmoke) ? 'x4' : null });
+  items.push({ section:'Signage', id:'sign_mech_fastened', text:'Signage: Signage mechanically fastened to door.',
+    show: isNotSmokePartOrSuite, branch: (isSmoke) ? 'x4' : null });
+  items.push({ section:'Signage', id:'sign_5pct', text:'Signage: Signage on door exceeds 5% of door face.',
+    show: isNotSmokePartOrSuite, branch: (isSmoke) ? 'x4' : null });
+
+  // ── SECTION 8: SELF-CLOSING ───────────────────────────────────────
+  items.push({ section:'Self-Closing', id:'sc_closer_missing', text:'Self-Closing: Closer is not provided.',
+    show: !closerOrAuto });
+  items.push({ section:'Self-Closing', id:'sc_arm_disconnected', text:'Self-Closing: Closer arm has been disconnected or removed.',
+    show: closerOrAuto });
+  items.push({ section:'Self-Closing', id:'sc_slamming', text:'Self-Closing: Closer is failing and door is slamming shut.',
+    show: hw.hw_closer });
+  items.push({ section:'Self-Closing', id:'sc_maladjusted', text:'Self-Closing: Closer is maladjusted keeping door from closing and latching.',
+    show: closerOrAuto });
+  items.push({ section:'Self-Closing', id:'sc_coordinator_missing', text:'Self-Closing: Coordinator is not provided.',
+    show: notSingleDoor || hw.hw_overlapping_astragal });
+  items.push({ section:'Self-Closing', id:'sc_coordinator_failing', text:'Self-Closing: Coordinator is failing to coordinate doors properly.',
+    show: notSingleDoor || hw.hw_overlapping_astragal });
+  items.push({ section:'Self-Closing', id:'sc_rub_adjacent', text:'Self-Closing: Door is rubbing against the adjacent leaf.',
+    show: closerOrAuto && notSingleDoor });
+  items.push({ section:'Self-Closing', id:'sc_rub_floor', text:'Self-Closing: Door is rubbing against the floor.',
+    show: closerOrAuto });
+  items.push({ section:'Self-Closing', id:'sc_rub_frame', text:'Self-Closing: Door is rubbing against the frame.',
+    show: closerOrAuto });
+  items.push({ section:'Self-Closing', id:'sc_air_pressure', text:'Self-Closing: Excessive air pressure is preventing door from closing.',
+    show: closerOrAuto });
+  items.push({ section:'Self-Closing', id:'sc_hydraulic', text:'Self-Closing: Excessive hydraulic fluid present on door face.',
+    show: hw.hw_closer });
+  items.push({ section:'Self-Closing', id:'sc_hold_open', text:'Self-Closing: Hold-open device or arm is preventing door from closing.',
+    show: hw.hw_closer });
+  items.push({ section:'Self-Closing', id:'sc_kick_down', text:'Self-Closing: Kick down hold-open present on door.',
+    show: hw.hw_closer });
+  items.push({ section:'Self-Closing', id:'sc_sweep_dragging', text:'Self-Closing: Sweep is dragging the floor and keeping the door from closing.',
+    show: closerOrAuto && hw.hw_sweep });
+
+  // ── SECTION 9: POSITIVE LATCHING ─────────────────────────────────
+  items.push({ section:'Positive Latching', id:'pl_latch_sticks', text:'Positive Latching: Latch bolt sticks upon retraction.',
+    show: locksetOrPanic });
+  items.push({ section:'Positive Latching', id:'pl_latch_fails', text:'Positive Latching: Latch fails to engage strike.',
+    show: locksetOrPanic });
+  items.push({ section:'Positive Latching', id:'pl_defeated', text:'Positive Latching: Latching hardware has been defeated.',
+    show: locksetOrPanic });
+  items.push({ section:'Positive Latching', id:'pl_hw_damaged', text:'Positive Latching: Latching hardware is missing or damaged.',
+    show: locksetOrPanic });
+  items.push({ section:'Positive Latching', id:'pl_electric_strike', text:'Positive Latching: Electric strike fails to remain rigid to maintain latch.',
+    show: hw.hw_electric_strike });
+  items.push({ section:'Positive Latching', id:'pl_mechanical_hw', text:'Positive Latching: Mechanical hardware present where electrified is needed.',
+    show: locksetOrPanic && hw.hw_automatic_operator });
+  items.push({ section:'Positive Latching', id:'pl_bottom_fails', text:'Positive Latching: Bottom latching point fails to engage floor strike.',
+    show: notSingleDoor && locksetOrPanic, branch: 'x10' });
+  items.push({ section:'Positive Latching', id:'pl_floor_strike_missing', text:'Positive Latching: Floor strike is not provided for bottom latching point.',
+    show: notSingleDoor && locksetOrPanic, branch: 'x10' });
+  items.push({ section:'Positive Latching', id:'pl_fire_pin', text:'Positive Latching: Fire pin missing in absence of bottom latching point.',
+    show: notSingleDoor && locksetOrPanic && isNotSmokePartOrSuite,
+    branch: (isSmoke) ? 'x4' : null });
+
+  // ── SECTION 10: LOCKING ───────────────────────────────────────────
+  items.push({ section:'Locking', id:'lock_locked_egress', text:'Locking: Door locked in the means of egress.',
+    show: true });
+  items.push({ section:'Locking', id:'lock_dead_end', text:'Locking: Locked door creates a dead-end corridor.',
+    show: true });
+  items.push({ section:'Locking', id:'lock_deadbolt', text:'Locking: Deadbolt present where occupant load is greater than 3.',
+    show: hw.hw_deadbolt, branch: 'x11' });
+  items.push({ section:'Locking', id:'lock_delayed_failure', text:'Locking: Delayed egress device failure.',
+    show: hw.hw_delayed_egress });
+  items.push({ section:'Locking', id:'lock_delayed_sprinkler', text:'Locking: Delayed egress device present in other than fully sprinklered building.',
+    show: hw.hw_delayed_egress && !sprinklered });
+  items.push({ section:'Locking', id:'lock_motion_fails', text:'Locking: Motion sensor fails to release mag-lock.',
+    show: hw.hw_motion_sensor });
+  items.push({ section:'Locking', id:'lock_motion_missing', text:'Locking: Motion sensor not provided.',
+    show: hw.hw_magnetic_lock });
+  items.push({ section:'Locking', id:'lock_pte_fails', text:'Locking: PUSH TO EXIT button fails to release mag-lock for at least 30 seconds.',
+    show: hw.hw_push_to_exit });
+  items.push({ section:'Locking', id:'lock_pte_distance', text:'Locking: PUSH TO EXIT button not within 5\' of opening.',
+    show: hw.hw_push_to_exit });
+  items.push({ section:'Locking', id:'lock_pte_missing', text:'Locking: PUSH TO EXIT button/signage not provided.',
+    show: hw.hw_magnetic_lock || hw.hw_push_to_exit });
+
+  return items.filter(i => i.show !== false);
+}
+
+// ── Section list ──────────────────────────────────────────────────
+const SECTIONS = ['Rating','Gaps','Frame & Labeling','Door Leaf & Physical Integrity',
+  'Vision Panel','Hardware','Signage','Self-Closing','Positive Latching','Locking'];
+
+function buildSectionNav() {
+  const nav = document.getElementById('sectionNav');
+  nav.innerHTML = '';
+  const items = getApplicableItems();
+  SECTIONS.forEach((sec, i) => {
+    const secItems = items.filter(it => it.section === sec);
+    if (!secItems.length) return;
+    const btn = document.createElement('button');
+    btn.className = 'section-tab' + (i === currentSectionIdx ? ' active' : '');
+    btn.textContent = sec;
+    btn.dataset.secIdx = i;
+    btn.onclick = () => { currentSectionIdx = i; renderSection(i); };
+    nav.appendChild(btn);
   });
-  phases.push({ id: 'hardware', label: 'Hardware', questions: hwQ });
+}
 
-  // PHASE 3: GAPS & CLEARANCES
-  const gapQ = [];
-  if (assemblyType === 'fire_door') {
-    gapQ.push({
-      id: 'undercut', ref: 'NFPA 80 §5.3.4',
-      text: 'Is the undercut (bottom clearance) at or below ¾ inch (19mm)?',
-      choices: [
-        { label: 'Yes — ¾" or less', status: 'pass', indicator: 'pass' },
-        { label: 'Exceeds ¾" — measured excess present', status: 'fail', indicator: 'fail', deficiency: 'Undercut exceeds ¾" maximum — non-compliant', requiresNote: true },
-        { label: 'Cannot measure — obstruction or threshold present', status: 'warn', indicator: 'warn', deficiency: 'Undercut could not be verified' }
-      ]
+function updateSectionNav() {
+  const items = getApplicableItems();
+  document.querySelectorAll('.section-tab').forEach(btn => {
+    const i = parseInt(btn.dataset.secIdx);
+    const sec = SECTIONS[i];
+    const secItems = items.filter(it => it.section === sec);
+    const hasDef = secItems.some(it => {
+      const d = inspectionDeficiencies[it.id];
+      return d && d.status === 'deficient';
     });
-    gapQ.push({
-      id: 'vertical_gap', ref: 'NFPA 80 §5.3.4',
-      text: 'Are vertical edge gaps (between door and frame) at or below ⅛ inch (3.2mm)?',
-      choices: [
-        { label: 'Yes — ⅛" or less on all vertical edges', status: 'pass', indicator: 'pass' },
-        { label: 'Exceeds ⅛" on latch side', status: 'fail', indicator: 'fail', deficiency: 'Latch-side vertical gap exceeds ⅛"', requiresNote: true },
-        { label: 'Exceeds ⅛" on hinge side', status: 'fail', indicator: 'fail', deficiency: 'Hinge-side vertical gap exceeds ⅛"', requiresNote: true },
-        { label: 'Exceeds ⅛" on both sides', status: 'fail', indicator: 'fail', deficiency: 'Both vertical edge gaps exceed ⅛"', requiresNote: true }
-      ]
+    const allDone = secItems.every(it => {
+      const d = inspectionDeficiencies[it.id];
+      return d !== undefined;
     });
-    gapQ.push({
-      id: 'meeting_edge', ref: 'NFPA 80 §5.3.4',
-      text: 'For pairs: is the meeting edge gap ⅛" or less? For singles: does the door meet the stop consistently along the full height?',
-      choices: [
-        { label: 'Single door — meets stop fully along height', status: 'pass', indicator: 'pass' },
-        { label: 'Pair — meeting edge gap ⅛" or less', status: 'pass', indicator: 'pass' },
-        { label: 'Pair — meeting edge gap exceeds ⅛"', status: 'fail', indicator: 'fail', deficiency: 'Pair meeting edge gap exceeds ⅛"' },
-        { label: 'Single — does not contact stop along full height', status: 'fail', indicator: 'fail', deficiency: 'Single door fails to contact stop fully', requiresNote: true }
-      ]
-    });
-  }
-  if (['smoke_barrier','smoke_partition','suite_perimeter'].includes(assemblyType)) {
-    gapQ.push({
-      id: 'smoke_gap', ref: 'NFPA 101 §8.3.4',
-      text: 'Are gaps around the door assembly consistent with the listed assembly or otherwise minimal to limit smoke passage?',
-      choices: [
-        { label: 'Yes — gaps are minimal and consistent with listing', status: 'pass', indicator: 'pass' },
-        { label: 'Gaps present that could allow significant smoke passage', status: 'fail', indicator: 'fail', deficiency: 'Gaps allow potential smoke passage — non-compliant', requiresNote: true },
-        { label: 'Unable to fully assess — document condition', status: 'warn', indicator: 'warn', deficiency: 'Gap compliance could not be fully assessed' }
-      ]
-    });
-  }
-  gapQ.push({
-    id: 'threshold', ref: 'NFPA 80 §5.3.4 / ADA',
-    text: 'Is the threshold condition acceptable — no tripping hazard and compliant with assembly requirements?',
-    choices: [
-      { label: 'Yes — threshold is compliant and in good condition', status: 'pass', indicator: 'pass' },
-      { label: 'Threshold worn or damaged but not creating excessive gap', status: 'warn', indicator: 'warn', deficiency: 'Threshold worn or damaged — monitor' },
-      { label: 'Threshold creates non-compliant gap or tripping hazard', status: 'fail', indicator: 'fail', deficiency: 'Threshold non-compliant or hazardous', requiresNote: true }
-    ]
+    btn.classList.toggle('active', i === currentSectionIdx);
+    btn.classList.toggle('has-deficiency', hasDef && i !== currentSectionIdx);
+    btn.classList.toggle('complete', allDone && !hasDef && i !== currentSectionIdx);
   });
-  phases.push({ id: 'gaps', label: 'Gaps', questions: gapQ });
 
-  // PHASE 4: SEALS
-  const sealQ = [];
-  if (assemblyType === 'fire_door') {
-    sealQ.push({
-      id: 'intumescent', ref: 'NFPA 80 §5.3.6',
-      text: 'Are intumescent seals present on all required edges and in good condition (not compressed, missing, or damaged)?',
-      choices: [
-        { label: 'Yes — seals present and in good condition', status: 'pass', indicator: 'pass' },
-        { label: 'Seals present but compressed, worn, or partially missing', status: 'fail', indicator: 'fail', deficiency: 'Intumescent seals compressed/worn/partially missing', requiresNote: true },
-        { label: 'Seals missing from one or more required edges', status: 'fail', indicator: 'fail', deficiency: 'Intumescent seals missing from required edge(s)', requiresNote: true },
-        { label: 'Not required per listing — confirmed', status: 'na', indicator: 'na' }
-      ]
-    });
-  }
-  if (['smoke_barrier','smoke_partition','suite_perimeter'].includes(assemblyType)) {
-    sealQ.push({
-      id: 'smoke_seal', ref: 'NFPA 101 §8.3.4',
-      text: 'Are smoke seals/gasketing present and in acceptable condition on all required edges?',
-      choices: [
-        { label: 'Yes — smoke seals present and in good condition', status: 'pass', indicator: 'pass' },
-        { label: 'Seals present but damaged or compressed', status: 'fail', indicator: 'fail', deficiency: 'Smoke seals damaged or compressed', requiresNote: true },
-        { label: 'Smoke seals missing', status: 'fail', indicator: 'fail', deficiency: 'Smoke seals missing — non-compliant' }
-      ]
-    });
-  }
-  sealQ.push({
-    id: 'door_bottom_seal', ref: 'NFPA 101 §8.3.4',
-    text: 'Is the door bottom seal or automatic drop seal (if required/installed) present and functional?',
-    choices: [
-      { label: 'Present and functional', status: 'pass', indicator: 'pass' },
-      { label: 'Damaged or not deploying correctly', status: 'fail', indicator: 'fail', deficiency: 'Door bottom/drop seal damaged or non-functional', requiresNote: true },
-      { label: 'Missing — was previously installed', status: 'fail', indicator: 'fail', deficiency: 'Door bottom seal missing' },
-      { label: 'Not required / not installed — acceptable', status: 'na', indicator: 'na' }
-    ]
-  });
-  phases.push({ id: 'seals', label: 'Seals', questions: sealQ });
+  // Show/hide complete button
+  const nextBtn = document.getElementById('btnSectionNext');
+  const completeBtn = document.getElementById('btnComplete');
+  const visibleSections = getVisibleSections();
+  const isLast = currentSectionIdx >= visibleSections[visibleSections.length - 1];
+  nextBtn.classList.toggle('hidden', isLast);
+  completeBtn.classList.toggle('hidden', !isLast);
+}
 
-  // PHASE 5: GLAZING
-  phases.push({ id: 'glazing', label: 'Glazing', questions: [
-    {
-      id: 'glazing_present', ref: 'NFPA 80 §5.4',
-      text: 'Does the door contain glazing, view panels, or borrowed lights?',
-      choices: [
-        { label: 'No glazing — solid door', status: 'na', indicator: 'na', skip_to_phase: true },
-        { label: 'Yes — glazing is present', status: 'neutral', indicator: 'warn' }
-      ]
-    },
-    {
-      id: 'glazing_label', ref: 'NFPA 80 §5.4.1',
-      text: 'Is the glazing labeled/listed for use in this fire door or smoke assembly?',
-      choices: [
-        { label: 'Yes — glazing is listed and labeled', status: 'pass', indicator: 'pass' },
-        { label: 'Glazing label missing or unverifiable', status: 'fail', indicator: 'fail', deficiency: 'Glazing label missing or unverifiable', requiresNote: true },
-        { label: 'Glazing is clearly not listed (e.g., standard glass)', status: 'fail', indicator: 'fail', deficiency: 'Non-listed glazing in fire/smoke door assembly', requiresNote: true }
-      ]
-    },
-    {
-      id: 'glazing_size', ref: 'NFPA 80 §5.4.2',
-      text: 'Is the glazing size within the limits allowed by the listing for this door rating?',
-      choices: [
-        { label: 'Yes — size consistent with listing', status: 'pass', indicator: 'pass' },
-        { label: 'Glazing appears oversized for the rating', status: 'fail', indicator: 'fail', deficiency: 'Glazing may exceed listed size limits for door rating', requiresNote: true },
-        { label: 'Cannot verify — listing documentation unavailable', status: 'warn', indicator: 'warn', deficiency: 'Glazing size compliance unverified' }
-      ]
-    },
-    {
-      id: 'glazing_condition', ref: 'NFPA 80 §5.4',
-      text: 'Is the glazing free of cracks, chips, or damage that could compromise the assembly?',
-      choices: [
-        { label: 'Yes — glazing is intact and undamaged', status: 'pass', indicator: 'pass' },
-        { label: 'Cracked or chipped glazing', status: 'fail', indicator: 'fail', deficiency: 'Glazing cracked or chipped — replace', requiresNote: true }
-      ]
-    }
-  ]});
-
-  // PHASE 6: OPERATION
-  if (['fire_door','smoke_barrier'].includes(assemblyType)) {
-    phases.push({ id: 'operation', label: 'Operation', questions: [
-      {
-        id: 'release_device', ref: 'NFPA 80 §5.2.7 / NFPA 101 §8.3.4',
-        text: 'If the door is held open by a magnetic hold-open device, does it release and self-close upon activation of the fire alarm?',
-        choices: [
-          { label: 'No hold-open device — N/A', status: 'na', indicator: 'na' },
-          { label: 'Yes — releases and closes properly on alarm', status: 'pass', indicator: 'pass' },
-          { label: 'Hold-open device present but release not confirmed/tested', status: 'warn', indicator: 'warn', deficiency: 'Hold-open release not tested — verify with facility' },
-          { label: 'Hold-open device fails to release on alarm', status: 'fail', indicator: 'fail', deficiency: 'Hold-open device does not release on alarm signal', requiresNote: true }
-        ]
-      },
-      {
-        id: 'operation_force', ref: 'ADA / NFPA 101 §7.2.1',
-        text: 'Can the door be opened with 30 lbs or less of force?',
-        choices: [
-          { label: 'Yes — opens within force requirements', status: 'pass', indicator: 'pass' },
-          { label: 'Excessive force required to operate', status: 'fail', indicator: 'fail', deficiency: 'Door requires excessive force to operate', requiresNote: true }
-        ]
-      }
-    ]});
-  }
-
-  // PHASE 7: TJC / EGRESS
-  if (['suite_perimeter','smoke_barrier'].includes(assemblyType)) {
-    phases.push({ id: 'tjc', label: 'TJC / Egress', questions: [
-      {
-        id: 'tjc_egress', ref: 'TJC EC.02.06.01 / NFPA 101 §7.2',
-        text: 'Does the door assembly comply with means of egress requirements — no obstructions, proper swing direction, compliant hardware?',
-        choices: [
-          { label: 'Yes — egress path is clear and compliant', status: 'pass', indicator: 'pass' },
-          { label: 'Minor obstruction — not blocking egress width', status: 'warn', indicator: 'warn', deficiency: 'Minor obstruction near egress door — monitor' },
-          { label: 'Egress path obstructed or hardware non-compliant', status: 'fail', indicator: 'fail', deficiency: 'Egress obstruction or non-compliant hardware', requiresNote: true }
-        ]
-      },
-      {
-        id: 'tjc_signage', ref: 'TJC / NFPA 101 §7.10',
-        text: 'Is any required signage (exit sign, fire door instruction placard) present and in good condition?',
-        choices: [
-          { label: 'All required signage present and legible', status: 'pass', indicator: 'pass' },
-          { label: 'Signage missing or illegible', status: 'fail', indicator: 'fail', deficiency: 'Required signage missing or illegible', requiresNote: true },
-          { label: 'No signage required for this door type', status: 'na', indicator: 'na' }
-        ]
-      }
-    ]});
-  }
-
-  // PHASE 8: FINAL
-  phases.push({ id: 'final', label: 'Final', questions: [
-    {
-      id: 'additional_comments', ref: 'Inspector Notes',
-      text: 'Additional comments or observations (optional)?',
-      type: 'textarea',
-      placeholder: 'Enter any additional notes, conditions, or observations...'
-    },
-    {
-      id: 'post_inspection_status', ref: 'Post-Inspection Disposition',
-      text: 'Post-inspection status determination:',
-      choices: [
-        { label: 'Compliant — no action required', status: 'pass', indicator: 'pass' },
-        { label: 'Conditional — minor deficiency noted, monitor or schedule repair', status: 'warn', indicator: 'warn' },
-        { label: 'Non-compliant — repair required before next inspection cycle', status: 'fail', indicator: 'fail' },
-        { label: 'Non-compliant — immediate action required (life safety)', status: 'fail', indicator: 'fail' }
-      ]
-    }
-  ]});
-
-  return phases;
+function getVisibleSections() {
+  const items = getApplicableItems();
+  return SECTIONS.map((s,i) => ({s,i}))
+    .filter(({s}) => items.some(it => it.section === s))
+    .map(({i}) => i);
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  WIZARD RENDER
+//  RENDER SECTION
 // ═══════════════════════════════════════════════════════════════════
-function renderWizard() {
-  renderProgressBar();
-  renderQuestion();
-  document.getElementById('btnBack').style.display = (currentPhaseIdx === 0 && currentQIdx === 0) ? 'none' : '';
-}
+function renderSection(sectionIdx) {
+  currentSectionIdx = sectionIdx;
+  const sectionName = SECTIONS[sectionIdx];
+  const items = getApplicableItems().filter(it => it.section === sectionName);
+  const content = document.getElementById('sectionContent');
+  content.innerHTML = '';
 
-function renderProgressBar() {
-  const bar = document.getElementById('progressBar');
-  bar.innerHTML = '';
-  wizardPhases.forEach((phase, i) => {
-    if (i > 0) {
-      const line = document.createElement('div');
-      line.className = 'step-line' + (i <= currentPhaseIdx ? ' done' : '');
-      bar.appendChild(line);
-    }
-    const node = document.createElement('div');
-    node.className = 'step-node';
-    const circle = document.createElement('div');
-    circle.className = 'step-circle' + (i < currentPhaseIdx ? ' done' : i === currentPhaseIdx ? ' active' : '');
-    circle.textContent = i < currentPhaseIdx ? '✓' : (i + 1);
-    const lbl = document.createElement('div');
-    lbl.className = 'step-label' + (i < currentPhaseIdx ? ' done' : i === currentPhaseIdx ? ' active' : '');
-    lbl.textContent = phase.label;
-    node.appendChild(circle);
-    node.appendChild(lbl);
-    bar.appendChild(node);
-  });
-}
+  const header = document.createElement('div');
+  header.className = 'section-header';
+  header.innerHTML = `<span>${sectionName.toUpperCase()}</span><span class="section-count">${items.length} item${items.length !== 1 ? 's' : ''}</span>`;
+  content.appendChild(header);
 
-function renderQuestion() {
-  const phase = wizardPhases[currentPhaseIdx];
-  const q = phase.questions[currentQIdx];
-
-  document.getElementById('phaseTitle').innerHTML =
-    phase.label.toUpperCase() + ' <span class="phase-badge">' + (currentQIdx + 1) + ' / ' + phase.questions.length + '</span>';
-
-  const area = document.getElementById('questionArea');
-  area.innerHTML = '';
-
-  const block = document.createElement('div');
-  block.className = 'question-block';
-
-  const ref = document.createElement('div');
-  ref.className = 'question-ref';
-  ref.textContent = q.ref;
-  block.appendChild(ref);
-
-  const qtext = document.createElement('div');
-  qtext.className = 'question-text';
-  qtext.textContent = q.text;
-  block.appendChild(qtext);
-
-  if (q.type === 'textarea') {
-    const ta = document.createElement('textarea');
-    ta.id = 'answer_' + q.id;
-    ta.placeholder = q.placeholder || '';
-    ta.value = answers[q.id]?.value || '';
-    ta.style.width = '100%';
-    block.appendChild(ta);
-  } else {
-    const choices = document.createElement('div');
-    choices.className = 'choices';
-    q.choices.forEach((choice, ci) => {
-      const btn = document.createElement('button');
-      const isSelected = answers[q.id]?.value === ci;
-      btn.className = 'choice-btn' + (isSelected ? getSelectedClass(choice.status) : '');
-      btn.innerHTML = `<div class="choice-indicator ind-${choice.indicator}"></div>${choice.label}`;
-      btn.onclick = () => selectChoice(q, ci, choice);
-      choices.appendChild(btn);
-    });
-    block.appendChild(choices);
-
-    const prevAnswer = answers[q.id];
-    if (prevAnswer?.requiresNote) {
-      block.appendChild(buildDeficiencyInput(q.id, prevAnswer.deficiencyNote || ''));
-    }
+  if (!items.length) {
+    const empty = document.createElement('div');
+    empty.className = 'section-empty';
+    empty.textContent = 'No applicable items for this door configuration.';
+    content.appendChild(empty);
+    updateSectionNav();
+    return;
   }
 
-  area.appendChild(block);
+  // Rating section: auto-flagged item appears first
+  if (sectionName === 'Rating' && inspectionDeficiencies['rating_underrated']) {
+    const autoFlag = document.createElement('div');
+    autoFlag.style.cssText = 'background:rgba(234,84,85,0.1);border:1px solid var(--fail);border-radius:5px;padding:12px 14px;margin-bottom:12px;font-family:var(--mono);font-size:11px;color:var(--fail);letter-spacing:0.5px;';
+    autoFlag.innerHTML = '⚡ AUTO-FLAGGED: ' + inspectionDeficiencies['rating_underrated'].note;
+    content.appendChild(autoFlag);
+  }
+
+  items.forEach(item => {
+    if (item.id === 'rating_door' && inspectionDeficiencies['rating_underrated']) return; // skip duplicate
+    content.appendChild(buildDeficiencyItem(item));
+  });
+
+  updateSectionNav();
+
+  // Scroll to top
+  document.getElementById('tab-inspect').scrollTo ? document.getElementById('tab-inspect').scrollTo(0,0) : window.scrollTo(0, document.getElementById('tab-inspect').offsetTop - 60);
+  window.scrollTo(0, 0);
+
+  // Back button
+  const visibleSections = getVisibleSections();
+  document.getElementById('btnSectionBack').style.display = visibleSections.indexOf(sectionIdx) === 0 ? 'none' : '';
 }
 
-function getSelectedClass(status) {
-  if (status === 'pass' || status === 'na') return ' selected-pass';
-  if (status === 'fail') return ' selected-fail';
-  return ' selected-neutral';
-}
+function buildDeficiencyItem(item) {
+  const existing = inspectionDeficiencies[item.id];
+  const isFlagged = existing && existing.status === 'deficient';
+  const isAdvisory = existing && existing.status === 'advisory';
 
-function selectChoice(q, ci, choice) {
-  answers[q.id] = {
-    value: ci,
-    label: choice.label,
-    status: choice.status,
-    deficiency: choice.deficiency || null,
-    requiresNote: choice.requiresNote || false,
-    deficiencyNote: answers[q.id]?.deficiencyNote || '',
-    skip_to_phase: choice.skip_to_phase || false
+  const wrapper = document.createElement('div');
+  wrapper.className = 'deficiency-item' + (isFlagged ? ' flagged' : isAdvisory ? ' advisory' : '');
+  wrapper.id = 'item_' + item.id;
+
+  const hdr = document.createElement('div');
+  hdr.className = 'deficiency-header';
+
+  const txt = document.createElement('div');
+  txt.className = 'deficiency-text';
+  txt.textContent = item.text;
+  if (item.hint) {
+    const hint = document.createElement('div');
+    hint.style.cssText = 'font-family:var(--mono);font-size:10px;color:var(--accent2);letter-spacing:0.5px;margin-top:3px;';
+    hint.textContent = item.hint;
+    txt.appendChild(hint);
+  }
+
+  const flagBtn = document.createElement('button');
+  flagBtn.className = 'deficiency-flag-btn';
+  flagBtn.textContent = isFlagged ? '✓ Deficient' : 'Flag';
+  flagBtn.onclick = (e) => { e.stopPropagation(); toggleDeficiency(item); };
+
+  hdr.appendChild(txt);
+  hdr.appendChild(flagBtn);
+  wrapper.appendChild(hdr);
+
+  // Body (note + branch questions)
+  const body = document.createElement('div');
+  body.className = 'deficiency-body';
+  body.id = 'body_' + item.id;
+
+  if (item.branch) {
+    body.appendChild(buildBranchUI(item, existing));
+  }
+
+  // Note field
+  const noteLabel = document.createElement('div');
+  noteLabel.className = 'deficiency-note-label';
+  noteLabel.textContent = 'Note (optional)';
+  const noteInput = document.createElement('textarea');
+  noteInput.style.cssText = 'width:100%;min-height:60px;font-size:13px;';
+  noteInput.placeholder = 'Add detail about location, extent, or condition...';
+  noteInput.value = existing?.note || '';
+  noteInput.oninput = () => {
+    if (!inspectionDeficiencies[item.id]) inspectionDeficiencies[item.id] = { status: 'deficient' };
+    inspectionDeficiencies[item.id].note = noteInput.value;
+    inspectionDeficiencies[item.id].text = item.text;
+    inspectionDeficiencies[item.id].category = item.section;
   };
-  renderQuestion();
+  body.appendChild(noteLabel);
+  body.appendChild(noteInput);
+
+  wrapper.appendChild(body);
+  return wrapper;
 }
 
-function buildDeficiencyInput(qid, existingNote) {
-  const panel = document.createElement('div');
-  panel.className = 'deficiency-panel';
-  const lbl = document.createElement('div');
-  lbl.className = 'deficiency-label';
-  lbl.textContent = '⚠ Deficiency Note (describe location/extent)';
-  panel.appendChild(lbl);
-  const inp = document.createElement('textarea');
-  inp.id = 'defNote_' + qid;
-  inp.placeholder = 'e.g., Latch-side gap measured at 3/16" — full height of door';
-  inp.style.width = '100%';
-  inp.value = existingNote;
-  inp.oninput = () => { if (answers[qid]) answers[qid].deficiencyNote = inp.value; };
-  panel.appendChild(inp);
-  return panel;
-}
+function toggleDeficiency(item) {
+  const existing = inspectionDeficiencies[item.id];
+  const wrapper = document.getElementById('item_' + item.id);
+  const btn = wrapper?.querySelector('.deficiency-flag-btn');
 
-function wizardNext() {
-  const phase = wizardPhases[currentPhaseIdx];
-  const q = phase.questions[currentQIdx];
-
-  if (q.type === 'textarea') {
-    answers[q.id] = { value: document.getElementById('answer_' + q.id)?.value || '', status: 'na' };
+  if (existing && existing.status === 'deficient') {
+    // Un-flag
+    delete inspectionDeficiencies[item.id];
+    wrapper.classList.remove('flagged', 'advisory');
+    if (btn) btn.textContent = 'Flag';
   } else {
-    if (!answers[q.id]) { showToast('Please select an answer to continue.', 'warn'); return; }
-  }
+    // Flag — if has branch, open body first to let inspector answer
+    inspectionDeficiencies[item.id] = {
+      status: item.branch ? 'advisory' : 'deficient',
+      text: item.text,
+      category: item.section,
+      note: '',
+      branchAnswers: {}
+    };
+    wrapper.classList.remove('advisory');
+    wrapper.classList.add(item.branch ? 'advisory' : 'flagged');
+    if (btn) btn.textContent = item.branch ? 'Evaluating...' : '✓ Deficient';
 
-  const ans = answers[q.id];
-  if (ans?.skip_to_phase) {
-    currentPhaseIdx++;
-    currentQIdx = 0;
-    if (currentPhaseIdx >= wizardPhases.length) { completeInspection(); return; }
-    renderWizard(); return;
+    // Rebuild branch UI
+    const body = document.getElementById('body_' + item.id);
+    if (body && item.branch) {
+      body.innerHTML = '';
+      body.appendChild(buildBranchUI(item, inspectionDeficiencies[item.id]));
+      const noteLabel = document.createElement('div');
+      noteLabel.className = 'deficiency-note-label';
+      noteLabel.textContent = 'Note (optional)';
+      const noteInput = document.createElement('textarea');
+      noteInput.style.cssText = 'width:100%;min-height:60px;font-size:13px;';
+      noteInput.placeholder = 'Add detail about location, extent, or condition...';
+      noteInput.oninput = () => {
+        if (inspectionDeficiencies[item.id]) inspectionDeficiencies[item.id].note = noteInput.value;
+      };
+      body.appendChild(noteLabel);
+      body.appendChild(noteInput);
+    }
   }
-
-  if (currentQIdx < phase.questions.length - 1) {
-    currentQIdx++;
-  } else if (currentPhaseIdx < wizardPhases.length - 1) {
-    currentPhaseIdx++;
-    currentQIdx = 0;
-  } else {
-    completeInspection(); return;
-  }
-  renderWizard();
+  updateSectionNav();
 }
 
-function wizardBack() {
-  if (currentQIdx > 0) {
-    currentQIdx--;
-  } else if (currentPhaseIdx > 0) {
-    currentPhaseIdx--;
-    currentQIdx = wizardPhases[currentPhaseIdx].questions.length - 1;
+// ── Branch question UIs ────────────────────────────────────────────
+function buildBranchUI(item, existing) {
+  const frag = document.createDocumentFragment();
+  const branch = item.branch;
+  const hw = currentDoor.hwState;
+  const atype = currentDoor.assemblyType;
+  const swing = currentDoor.doorSwingType;
+  const projVars = currentDoor.projectVars;
+  const sprinklered = projVars.sprinklered !== false;
+  const gapStd = projVars.gapStandard || 'codify';
+  const saved = existing?.branchAnswers || {};
+
+  function makeQ(qid, question, options) {
+    const div = document.createElement('div');
+    div.style.marginBottom = '10px';
+    const qlabel = document.createElement('div');
+    qlabel.className = 'branch-question';
+    qlabel.textContent = question;
+    div.appendChild(qlabel);
+    const opts = document.createElement('div');
+    opts.className = 'branch-options';
+    options.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.className = 'branch-opt';
+      btn.textContent = opt.label;
+      if (saved[qid] === opt.value) btn.classList.add('selected-' + (opt.value === 'yes' ? 'yes' : opt.value === 'no' ? 'no' : 'neutral'));
+      btn.onclick = () => {
+        opts.querySelectorAll('.branch-opt').forEach(b => b.classList.remove('selected-yes','selected-no','selected-neutral'));
+        btn.classList.add('selected-' + (opt.value === 'yes' ? 'yes' : opt.value === 'no' ? 'no' : 'neutral'));
+        if (!inspectionDeficiencies[item.id]) inspectionDeficiencies[item.id] = { status:'advisory', text:item.text, category:item.section, note:'', branchAnswers:{} };
+        inspectionDeficiencies[item.id].branchAnswers[qid] = opt.value;
+        // Resolve status
+        resolveBranchStatus(item, branch, inspectionDeficiencies[item.id].branchAnswers);
+        // Re-render result
+        const resultEl = div.parentNode.querySelector('.branch-result-' + qid);
+        if (resultEl) resultEl.remove();
+        const result = getBranchResult(branch, qid, opt.value, inspectionDeficiencies[item.id].branchAnswers, atype, swing, sprinklered, gapStd);
+        if (result) {
+          const rd = document.createElement('div');
+          rd.className = 'branch-result ' + result.type + ' branch-result-' + qid;
+          rd.textContent = result.text;
+          div.appendChild(rd);
+        }
+        // Update flag button
+        const wrapper = document.getElementById('item_' + item.id);
+        const flagBtn = wrapper?.querySelector('.deficiency-flag-btn');
+        const d = inspectionDeficiencies[item.id];
+        if (d) {
+          wrapper.classList.remove('flagged','advisory');
+          wrapper.classList.add(d.status === 'deficient' ? 'flagged' : 'advisory');
+          if (flagBtn) flagBtn.textContent = d.status === 'deficient' ? '✓ Deficient' : 'Evaluating...';
+        }
+        updateSectionNav();
+      };
+      opts.appendChild(btn);
+    });
+    div.appendChild(opts);
+
+    // Show saved result
+    if (saved[qid] !== undefined) {
+      const result = getBranchResult(branch, qid, saved[qid], saved, atype, swing, sprinklered, gapStd);
+      if (result) {
+        const rd = document.createElement('div');
+        rd.className = 'branch-result ' + result.type + ' branch-result-' + qid;
+        rd.textContent = result.text;
+        div.appendChild(rd);
+      }
+    }
+    return div;
   }
-  renderWizard();
+
+  // Build branch-specific questions
+  switch(branch) {
+    case 'x1': // Sweep gap
+      frag.appendChild(makeQ('opposing', 'Does the bottom clearance measure excessive on the opposing side of the door?',
+        [{label:'Yes', value:'yes'}, {label:'No', value:'no'}]));
+      if (saved.opposing === 'no') {
+        frag.appendChild(makeQ('pressure', 'Does the door serve a room you would expect to have a positive/negative pressure, excessive sound, or outside air consideration?',
+          [{label:'Yes', value:'yes'}, {label:'No', value:'no'}]));
+      }
+      break;
+
+    case 'x2': // Face gap
+      if (['3hr_fire','2hr_fire','1hr_fire','1hr_partition','smoke_partition'].includes(atype)) {
+        frag.appendChild(makeQ('sprinklered', 'Is the smoke compartment fully sprinklered?',
+          [{label:'Yes', value:'yes'}, {label:'No', value:'no'}]));
+        const threshold = saved.sprinklered === 'yes' ? '1/2"' : '1/4"';
+        if (saved.sprinklered) {
+          frag.appendChild(makeQ('gap_size', `Confirm that the door face gap is being judged to ≥${threshold}.`,
+            [{label:'Yes', value:'yes'}, {label:'No', value:'no'}]));
+        }
+      } else if (atype === 'smoke_barrier') {
+        frag.appendChild(makeQ('dual_egress', 'Is the door part of a dual egress assembly?',
+          [{label:'Yes', value:'yes'}, {label:'No', value:'no'}]));
+        if (saved.dual_egress === 'no') {
+          frag.appendChild(makeQ('sprinklered', 'Is the smoke compartment fully sprinklered?',
+            [{label:'Yes', value:'yes'}, {label:'No', value:'no'}]));
+          if (saved.sprinklered) {
+            const threshold = saved.sprinklered === 'yes' ? '1/2"' : '1/4"';
+            frag.appendChild(makeQ('gap_size', `Confirm that the door face gap is being judged to ≥${threshold}.`,
+              [{label:'Yes', value:'yes'}, {label:'No', value:'no'}]));
+          }
+        }
+      } else if (atype === 'suite_perimeter') {
+        frag.appendChild(makeQ('corridor', 'Is the door on the corridor?',
+          [{label:'Yes', value:'yes'}, {label:'No', value:'no'}]));
+        if (saved.corridor === 'yes') {
+          frag.appendChild(makeQ('sprinklered', 'Is the smoke compartment fully sprinklered?',
+            [{label:'Yes', value:'yes'}, {label:'No', value:'no'}]));
+          if (saved.sprinklered) {
+            const threshold = saved.sprinklered === 'yes' ? '1/2"' : '1/4"';
+            frag.appendChild(makeQ('gap_size', `Confirm that the door face gap is being judged to ≥${threshold}.`,
+              [{label:'Yes', value:'yes'}, {label:'No', value:'no'}]));
+          }
+        }
+      }
+      break;
+
+    case 'x3': // Suite perimeter hinge/latch/top
+      frag.appendChild(makeQ('daylight', 'Is the gap >5/8"? Can you see daylight from the other side?',
+        [{label:'Yes', value:'yes'}, {label:'No', value:'no'}]));
+      break;
+
+    case 'x4': // Smoke barrier items by swing type
+      frag.appendChild(makeQ('swing_applicable', 'Identify Door Swing Type result:',
+        [{label:'Single → Deficiency', value:'single_def'},
+         {label:'Dbl (Dual Egress) in Health Care Occupancy → Compliant', value:'dual_hco'},
+         {label:'Dbl (Dual Egress) NOT in Health Care Occupancy → Deficiency', value:'dual_no_hco'},
+         {label:'Dbl (Pair Swing) → Deficiency', value:'pair_def'},
+         {label:'Dbl (Active/Inactive) → Deficiency', value:'inactive_def'}]));
+      break;
+
+    case 'x5': // Astragal damaged
+      if (atype === 'smoke_barrier') {
+        frag.appendChild(makeQ('dual_egress', 'Is the door part of a dual egress assembly?',
+          [{label:'Yes', value:'yes'}, {label:'No', value:'no'}]));
+      } else {
+        frag.appendChild(makeQ('gap_exposed', 'Does the damaged astragal reveal an excessive gap at the meeting edge?',
+          [{label:'Yes', value:'yes'}, {label:'No', value:'no'}]));
+      }
+      break;
+
+    case 'x6': // Holes/fastener/prep
+      frag.appendChild(makeQ('through_hole', 'Are the present hole(s) through-holes that might affect the door\'s ability to resist the passage of smoke?',
+        [{label:'Yes', value:'yes'}, {label:'No', value:'no'}]));
+      break;
+
+    case 'x7': // Gasketing
+      frag.appendChild(makeQ('special_area', 'Does the door meet one of the following descriptions?',
+        [{label:'1. Serves area of refuge', value:'refuge'},
+         {label:'2. Vestibule to smokeproof enclosure', value:'vestibule'},
+         {label:'3. Resides in a horizontal exit', value:'horiz_exit'},
+         {label:'4. Elevator lobby (occupant evacuation)', value:'elev_lobby'},
+         {label:'None of the above', value:'no'}]));
+      if (saved.special_area === 'no' && (atype === 'smoke_partition' || atype === 'suite_perimeter')) {
+        frag.appendChild(makeQ('gap_exposed', 'Does the edge where the gasketing is damaged have a gap in excess of the applied standard?',
+          [{label:'Yes', value:'yes'}, {label:'No', value:'no'}]));
+      }
+      break;
+
+    case 'x8': // Laminate
+      frag.appendChild(makeQ('infection_control', 'Does the door reside in a patient-care area where there is a concern for infection control?',
+        [{label:'Yes', value:'yes'}, {label:'No', value:'no'}]));
+      break;
+
+    case 'x9': // Sweep damaged
+      if (atype === 'smoke_barrier') {
+        frag.appendChild(makeQ('dual_egress', 'Is the door part of a dual egress assembly?',
+          [{label:'Yes', value:'yes'}, {label:'No', value:'no'}]));
+      } else {
+        frag.appendChild(makeQ('bottom_clearance', 'Does the damaged sweep reveal an excessive bottom clearance?',
+          [{label:'Yes', value:'yes'}, {label:'No', value:'no'}]));
+        if (saved.bottom_clearance === 'no') {
+          frag.appendChild(makeQ('opposing', 'Does the bottom clearance measure excessive on the opposing side of the door?',
+            [{label:'Yes', value:'yes'}, {label:'No', value:'no'}]));
+          if (saved.opposing === 'no') {
+            frag.appendChild(makeQ('pressure', 'Does the door serve a room you would expect to have positive/negative pressure, excessive sound, or outside air consideration?',
+              [{label:'Yes', value:'yes'}, {label:'No', value:'no'}]));
+          }
+        }
+      }
+      break;
+
+    case 'x10': // Bottom latching
+      frag.appendChild(makeQ('rod_present', 'Is there a bottom vertical rod or flush bolt present?',
+        [{label:'Yes', value:'yes'}, {label:'No', value:'no'}]));
+      break;
+
+    case 'x11': // Deadbolt
+      frag.appendChild(makeQ('space_type', 'What is the use of the space this door serves?',
+        [{label:'Ambulatory', value:'ambulatory'},
+         {label:'Business', value:'business'},
+         {label:'Health Care — Inpatient', value:'hc_inpatient'},
+         {label:'Health Care — Sleeping Department', value:'hc_sleeping'}]));
+      if (['ambulatory','business'].includes(saved.space_type)) {
+        frag.appendChild(makeQ('sqft_div100', 'Is the square footage of this room divided by 100 equal to or less than 3?',
+          [{label:'Yes (≤3) → Compliant', value:'yes'}, {label:'No (>3) → Deficiency', value:'no'}]));
+      } else if (saved.space_type === 'hc_inpatient') {
+        frag.appendChild(makeQ('sqft_div240', 'Is the square footage of this room divided by 240 less than 3?',
+          [{label:'Yes (<3) → Compliant', value:'yes'}, {label:'No (≥3) → Deficiency', value:'no'}]));
+      } else if (saved.space_type === 'hc_sleeping') {
+        frag.appendChild(makeQ('sqft_div120', 'Is the square footage of this room divided by 120 less than 3?',
+          [{label:'Yes (<3) → Compliant', value:'yes'}, {label:'No (≥3) → Deficiency', value:'no'}]));
+      }
+      break;
+  }
+
+  return frag;
+}
+
+function getBranchResult(branch, qid, value, saved, atype, swing, sprinklered, gapStd) {
+  switch(branch) {
+    case 'x1':
+      if (qid === 'opposing' && value === 'yes') return { type:'deficient', text:'Legitimate deficiency.' };
+      if (qid === 'pressure' && value === 'yes') return { type:'compliant', text:'Compliant. Move to next question.' };
+      if (qid === 'pressure' && value === 'no') return { type:'deficient', text:'Legitimate deficiency.' };
+      break;
+    case 'x2':
+      if (qid === 'dual_egress' && value === 'yes') return { type:'compliant', text:'Compliant. Move to next question.' };
+      if (qid === 'corridor' && value === 'no') return { type:'compliant', text:'Compliant. Move to next question.' };
+      if (qid === 'gap_size' && value === 'yes') return { type:'deficient', text:'Legitimate deficiency.' };
+      if (qid === 'gap_size' && value === 'no') return { type:'compliant', text:'Compliant. Move to next question.' };
+      break;
+    case 'x3':
+      if (qid === 'daylight' && value === 'yes') return { type:'deficient', text:'Legitimate deficiency.' };
+      if (qid === 'daylight' && value === 'no') return { type:'advisory', text:'Compliant, however recommend shimming hinge(s) to reduce excessive gaps at perimeter of door.' };
+      break;
+    case 'x4':
+      if (['single_def','dual_no_hco','pair_def','inactive_def'].includes(value)) return { type:'deficient', text:'Legitimate deficiency.' };
+      if (value === 'dual_hco') return { type:'compliant', text:'Compliant. Move to next question.' };
+      break;
+    case 'x5':
+      if (qid === 'dual_egress' && value === 'yes') return { type:'compliant', text:'Move to step 3b — evaluate meeting edge gap.' };
+      if (qid === 'dual_egress' && value === 'no') return { type:'deficient', text:'Legitimate deficiency.' };
+      if (qid === 'gap_exposed' && value === 'yes') return { type:'deficient', text:'Legitimate deficiency.' };
+      if (qid === 'gap_exposed' && value === 'no') return { type:'compliant', text:'Compliant. Move to next question.' };
+      break;
+    case 'x6':
+      if (qid === 'through_hole' && value === 'yes') return { type:'deficient', text:'Legitimate deficiency.' };
+      if (qid === 'through_hole' && value === 'no') return { type:'advisory', text:'Compliant, however recommend filling present hole(s) with appropriately rated material.' };
+      break;
+    case 'x7':
+      if (['refuge','vestibule','horiz_exit','elev_lobby'].includes(value)) return { type:'deficient', text:'Legitimate deficiency.' };
+      if (qid === 'gap_exposed' && value === 'yes') return { type:'deficient', text:'Legitimate deficiency.' };
+      if (qid === 'gap_exposed' && value === 'no') return { type:'advisory', text:'Compliant, however recommend replacing damaged portion of gasketing or removing gasketing entirely from perimeter of the door.' };
+      break;
+    case 'x8':
+      if (qid === 'infection_control' && value === 'yes') return { type:'deficient', text:'Legitimate deficiency.' };
+      if (qid === 'infection_control' && value === 'no') return { type:'advisory', text:'Compliant, however recommend covering laminate damage with a protective plate(s).' };
+      break;
+    case 'x9':
+      if (qid === 'dual_egress' && value === 'yes') return { type:'compliant', text:'Move to step 3b — evaluate bottom clearance.' };
+      if (qid === 'dual_egress' && value === 'no') return { type:'deficient', text:'Legitimate deficiency.' };
+      if (qid === 'bottom_clearance' && value === 'yes') return { type:'deficient', text:'Legitimate deficiency.' };
+      if (qid === 'opposing' && value === 'yes') return { type:'deficient', text:'Legitimate deficiency.' };
+      if (qid === 'pressure' && value === 'yes') return { type:'compliant', text:'Compliant. Move to next question.' };
+      if (qid === 'pressure' && value === 'no') return { type:'deficient', text:'Legitimate deficiency.' };
+      break;
+    case 'x10':
+      if (qid === 'rod_present' && value === 'yes') return { type:'deficient', text:'Legitimate deficiency.' };
+      if (qid === 'rod_present' && value === 'no') return { type:'compliant', text:'Compliant. Move to next question.' };
+      break;
+    case 'x11':
+      if (['sqft_div100','sqft_div240','sqft_div120'].includes(qid) && value === 'yes') return { type:'compliant', text:'Compliant. Move to next question.' };
+      if (['sqft_div100','sqft_div240','sqft_div120'].includes(qid) && value === 'no') return { type:'deficient', text:'Legitimate deficiency.' };
+      break;
+  }
+  return null;
+}
+
+function resolveBranchStatus(item, branch, answers) {
+  const d = inspectionDeficiencies[item.id];
+  if (!d) return;
+  // Determine if the branch result is deficient or advisory/compliant
+  let finalStatus = 'deficient'; // default if flagged
+  // Check the last answered question for a result
+  const keys = Object.keys(answers);
+  for (let i = keys.length - 1; i >= 0; i--) {
+    const result = getBranchResult(branch, keys[i], answers[keys[i]], answers,
+      currentDoor.assemblyType, currentDoor.doorSwingType,
+      currentDoor.projectVars?.sprinklered !== false,
+      currentDoor.projectVars?.gapStandard || 'codify');
+    if (result) {
+      finalStatus = result.type === 'deficient' ? 'deficient' : 'advisory';
+      break;
+    }
+  }
+  d.status = finalStatus;
+  d.branchAnswers = answers;
+}
+
+// ── Section navigation ─────────────────────────────────────────────
+function sectionBack() {
+  const vis = getVisibleSections();
+  const idx = vis.indexOf(currentSectionIdx);
+  if (idx > 0) renderSection(vis[idx - 1]);
+}
+
+function sectionNext() {
+  const vis = getVisibleSections();
+  const idx = vis.indexOf(currentSectionIdx);
+  if (idx < vis.length - 1) renderSection(vis[idx + 1]);
 }
 
 // ═══════════════════════════════════════════════════════════════════
 //  COMPLETE INSPECTION
 // ═══════════════════════════════════════════════════════════════════
 function completeInspection() {
-  deficiencies = [];
-  for (const [qid, ans] of Object.entries(answers)) {
-    if (ans.deficiency) {
-      deficiencies.push({ question: qid, deficiency: ans.deficiency, note: ans.deficiencyNote || '' });
-    }
-  }
+  const defList = Object.entries(inspectionDeficiencies)
+    .filter(([k, v]) => v.status === 'deficient' || v.status === 'advisory')
+    .map(([k, v]) => ({
+      id: k,
+      category: v.category || '',
+      deficiency: v.text || '',
+      note: v.note || '',
+      status: v.status,
+      branchAnswers: v.branchAnswers || {},
+      autoFlagged: v.autoFlagged || false
+    }));
 
-  const hasFailures = Object.values(answers).some(a => a.status === 'fail');
-  const hasWarnings = Object.values(answers).some(a => a.status === 'warn');
+  const hasDeficiencies = defList.some(d => d.status === 'deficient');
+  const hasAdvisory = defList.some(d => d.status === 'advisory');
   let overallStatus = 'pass';
-  if (hasFailures) overallStatus = 'fail';
-  else if (hasWarnings) overallStatus = 'conditional';
+  if (hasDeficiencies) overallStatus = 'fail';
+  else if (hasAdvisory) overallStatus = 'conditional';
 
   const records = getRecords();
 
   if (editingRecordId) {
-    // UPDATE existing record
     const idx = records.findIndex(r => r.id === editingRecordId);
     if (idx !== -1) {
       records[idx] = {
-        ...records[idx],
-        ...currentDoor,
-        overallStatus,
-        deficiencies,
-        findings: answers,
-        additionalComments: answers['additional_comments']?.value || '',
-        postInspectionStatus: answers['post_inspection_status']?.label || '',
+        ...records[idx], ...currentDoor,
+        overallStatus, deficiencies: defList,
+        findings: inspectionDeficiencies,
         completedTime: new Date().toISOString(),
-        synced: false  // mark for re-sync
+        synced: false
       };
-      showToast('Inspection updated!' + (deficiencies.length > 0 ? ' ' + deficiencies.length + ' deficiency(ies).' : ' No deficiencies.'), deficiencies.length > 0 ? 'warn' : '');
+      showToast('Inspection updated! ' + defList.filter(d=>d.status==='deficient').length + ' deficiency(ies).', hasDeficiencies ? 'warn' : '');
     }
     editingRecordId = null;
   } else {
-    // NEW record
     const record = {
       ...currentDoor,
       id: Date.now().toString(36) + Math.random().toString(36).substr(2,5),
-      overallStatus,
-      deficiencies,
-      findings: answers,
-      additionalComments: answers['additional_comments']?.value || '',
-      postInspectionStatus: answers['post_inspection_status']?.label || '',
+      overallStatus, deficiencies: defList,
+      findings: inspectionDeficiencies,
+      additionalComments: '',
+      postInspectionStatus: '',
       completedTime: new Date().toISOString(),
       synced: false
     };
     records.push(record);
-    showToast('Inspection saved!' + (deficiencies.length > 0 ? ' ' + deficiencies.length + ' deficiency(ies).' : ' No deficiencies.'), deficiencies.length > 0 ? 'warn' : '');
+    showToast('Inspection saved! ' + defList.filter(d=>d.status==='deficient').length + ' deficiency(ies).', hasDeficiencies ? 'warn' : '');
   }
 
-  localStorage.setItem('doorInspections', JSON.stringify(records));
+  // Save hardware state back to door schedule for year 2+ pre-population
+  saveDoorHardwareState(currentDoor.assetId, currentDoor.hwState);
 
-  // Auto-sync immediately if online
+  localStorage.setItem('doorInspections', JSON.stringify(records));
   setTimeout(() => autoSync(), 500);
 
-  // Reset for next door
+  // Reset UI
   document.getElementById('tab-inspect').classList.add('hidden');
   document.getElementById('tab-setup').classList.remove('hidden');
   document.querySelectorAll('.nav-tab').forEach((el,i) => el.classList.toggle('active', i===0));
@@ -2376,9 +3008,42 @@ function completeInspection() {
   document.getElementById('gridBlock').value = '';
   document.getElementById('assemblyType').value = '';
   document.getElementById('doorRating').value = '';
-  document.getElementById('standardNote').style.display = 'none';
+  document.getElementById('doorSwingType').value = '';
+  document.getElementById('ratingWarning').style.display = 'none';
   clearAutoFill();
+  initHardwareToggles(null);
+  inspectionDeficiencies = {};
 }
+
+function saveDoorHardwareState(assetId, hwStateData) {
+  if (!assetId) return;
+  const schedule = getDoorSchedule();
+  const key = Object.keys(schedule).find(k => {
+    const d = schedule[k];
+    return d.assetId && d.assetId.toLowerCase() === assetId.toLowerCase();
+  }) || assetId;
+  if (schedule[key]) {
+    schedule[key].hwState = hwStateData;
+    localStorage.setItem('doorSchedule', JSON.stringify(schedule));
+    doorSchedule = schedule;
+    // Also push to Supabase asynchronously
+    syncHardwareStateToSupabase(assetId, hwStateData);
+  }
+}
+
+async function syncHardwareStateToSupabase(assetId, hwStateData) {
+  const cfg = getConfig();
+  if (!cfg.url || !cfg.key || !navigator.onLine) return;
+  try {
+    await fetch(cfg.url + '/rest/v1/door_schedule?asset_id=eq.' + encodeURIComponent(assetId), {
+      method: 'PATCH',
+      headers: { 'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hw_state: JSON.stringify(hwStateData) })
+    });
+  } catch(e) { console.error('hw sync error:', e); }
+}
+
+
 
 // ═══════════════════════════════════════════════════════════════════
 //  RECORDS
@@ -2387,25 +3052,53 @@ function getRecords() {
   try { return JSON.parse(localStorage.getItem('doorInspections') || '[]'); } catch { return []; }
 }
 
-function renderRecords() {
-  const records = getRecords();
+async function renderRecords() {
   const tbody = document.getElementById('recordsBody');
   const empty = document.getElementById('emptyState');
 
-  document.getElementById('statTotal').textContent = records.length;
-  document.getElementById('statPass').textContent = records.filter(r => r.overallStatus === 'pass').length;
-  document.getElementById('statFail').textContent = records.filter(r => r.overallStatus === 'fail').length;
-  document.getElementById('statPending').textContent = records.filter(r => !r.synced).length;
-
-  tbody.innerHTML = '';
-  if (!records.length) { empty.classList.remove('hidden'); return; }
+  // Show loading state
+  tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:20px;font-family:var(--mono);font-size:11px;color:var(--text3);">Loading records...</td></tr>';
   empty.classList.add('hidden');
 
-  records.slice().reverse().forEach(r => {
+  // Get local unsynced records
+  const localRecords = getRecords();
+  const unsyncedLocal = localRecords.filter(r => !r.synced);
+
+  // Fetch all synced records from Supabase
+  const cloudRecords = await fetchAllRecordsFromSupabase();
+
+  // Merge: start with cloud records, overlay any unsynced local ones
+  let records;
+  if (cloudRecords) {
+    // Replace any cloud record that has a pending local edit
+    const unsyncedIds = new Set(unsyncedLocal.map(r => r.id));
+    const merged = cloudRecords.filter(r => !unsyncedIds.has(r.id));
+    records = [...merged, ...unsyncedLocal];
+    // Sort by completedTime desc
+    records.sort((a, b) => new Date(b.completedTime || b.startTime) - new Date(a.completedTime || a.startTime));
+  } else {
+    // Offline — fall back to local only
+    records = localRecords.slice().reverse();
+  }
+
+  const activeProject = getActiveProject();
+  const filtered = activeProject ? records.filter(r => !r.projectName || r.projectName === activeProject) : records;
+
+  document.getElementById('statTotal').textContent = filtered.length;
+  document.getElementById('statPass').textContent = filtered.filter(r => r.overallStatus === 'pass').length;
+  document.getElementById('statFail').textContent = filtered.filter(r => r.overallStatus === 'fail').length;
+  document.getElementById('statPending').textContent = unsyncedLocal.length;
+
+  tbody.innerHTML = '';
+  if (!filtered.length) { empty.classList.remove('hidden'); return; }
+
+  filtered.forEach(r => {
     const tr = document.createElement('tr');
     const defs = r.deficiencies?.map(d => d.deficiency).join('; ') || '—';
     const dt = new Date(r.completedTime || r.startTime);
     const dtStr = dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const isMyRecord = r.inspectorName === localStorage.getItem('inspectorName');
+    const pendingDot = !r.synced ? '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--warn);margin-left:6px;vertical-align:middle;" title="Pending sync"></span>' : '';
     tr.innerHTML = `
       <td style="font-family:var(--mono);font-size:12px;">${r.iconNo||'—'}</td>
       <td style="font-family:var(--mono);font-size:12px;">${r.assetId||'—'}</td>
@@ -2416,9 +3109,9 @@ function renderRecords() {
       <td style="font-size:12px;">${r.doorRating||'—'}</td>
       <td><span class="status-pill ${r.overallStatus||'pending'}">${r.overallStatus||'pending'}</span></td>
       <td style="font-size:12px;color:var(--text2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${defs}">${defs}</td>
-      <td style="font-size:12px;">${r.inspectorName||'—'}</td>
+      <td style="font-size:12px;${isMyRecord ? 'color:var(--accent);' : ''}">${r.inspectorName||'—'}${pendingDot}</td>
       <td style="font-family:var(--mono);font-size:11px;color:var(--text2);">${dtStr}</td>
-      <td><button onclick="editRecord('${r.id}')" style="font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--text2);cursor:pointer;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">Edit</button></td>
+      <td>${isMyRecord ? `<button onclick="editRecord('${r.id}')" style="font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--text2);cursor:pointer;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">Edit</button>` : ''}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -2472,6 +3165,7 @@ function loadConfig() {
   const cfg = getConfig();
   document.getElementById('supabaseUrl').value = cfg.url;
   document.getElementById('supabaseKey').value = cfg.key;
+  loadProjectVars();
 }
 
 function saveConfig() {
@@ -2481,6 +3175,25 @@ function saveConfig() {
   updateSyncStatus();
   downloadScheduleFromSupabase();
   autoSync();
+}
+
+function saveProjectVars() {
+  const vars = {
+    construction: document.getElementById('pv_construction')?.value || 'existing',
+    gapStandard: document.getElementById('pv_gap_standard')?.value || 'codify',
+    sprinklered: document.getElementById('pv_sprinklered')?.value !== 'no'
+  };
+  setProjectVars(vars);
+}
+
+function loadProjectVars() {
+  const vars = getProjectVars();
+  const conEl = document.getElementById('pv_construction');
+  const gapEl = document.getElementById('pv_gap_standard');
+  const sprEl = document.getElementById('pv_sprinklered');
+  if (conEl) conEl.value = vars.construction || 'existing';
+  if (gapEl) gapEl.value = vars.gapStandard || 'codify';
+  if (sprEl) sprEl.value = (vars.sprinklered === false) ? 'no' : 'yes';
 }
 
 async function testConnection() {
@@ -2740,6 +3453,51 @@ async function downloadScheduleFromSupabase() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+//  FETCH ALL RECORDS FROM SUPABASE (active project)
+// ═══════════════════════════════════════════════════════════════════
+async function fetchAllRecordsFromSupabase() {
+  const cfg = getConfig();
+  const activeProject = getActiveProject();
+  if (!cfg.url || !cfg.key || !navigator.onLine) return null;
+
+  try {
+    const projectFilter = activeProject
+      ? '&project=eq.' + encodeURIComponent(activeProject)
+      : '';
+    const res = await fetch(
+      cfg.url + '/rest/v1/door_inspections?select=*&order=inspection_date.desc' + projectFilter,
+      { headers: { 'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key,
+          'Range': '0-999', 'Range-Unit': 'items' } }
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+
+    // Convert Supabase snake_case to local camelCase format
+    return rows.map(r => ({
+      id: r.id,
+      iconNo: r.icon_no,
+      assetId: r.asset_id,
+      floorNo: r.floor,
+      gridBlock: r.grid_block,
+      assemblyType: Object.entries(ASSEMBLY_TYPE_LABELS).find(([k,v]) => v === r.assembly_type)?.[0] || r.assembly_type,
+      doorRating: r.door_rating,
+      inspectorName: r.inspector,
+      projectName: r.project,
+      completedTime: r.inspection_date,
+      overallStatus: r.overall_status,
+      deficiencies: r.deficiencies || [],
+      findings: r.findings || {},
+      additionalComments: r.additional_comments,
+      postInspectionStatus: r.post_inspection_status,
+      synced: true
+    }));
+  } catch(e) {
+    console.error('Fetch records error:', e);
+    return null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
 //  RECORD EDITING
 // ═══════════════════════════════════════════════════════════════════
 
@@ -2799,6 +3557,9 @@ if (savedProject) document.getElementById('activeProjectName').textContent = sav
 
 // Load schedule locally first
 getDoorSchedule();
+
+// Initialize hardware toggles with defaults
+initHardwareToggles(null);
 
 // Supabase background tasks — only if configured
 const _cfg = getConfig();
