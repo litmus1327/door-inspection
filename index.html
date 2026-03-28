@@ -706,6 +706,32 @@
 
   .hidden { display: none !important; }
 
+  /* ── DOOR SWING DIAGRAMS ── */
+  .swing-diagram {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 8px;
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--text3);
+  }
+  .swing-diagram:hover { border-color: var(--accent2); color: var(--text2); }
+  .swing-diagram.selected { border-color: var(--accent); color: var(--accent); background: rgba(232,160,32,0.06); }
+  .swing-diagram svg { width: 100%; max-width: 60px; height: auto; }
+  .swing-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-align: center;
+    line-height: 1.4;
+  }
+
   /* ── HARDWARE TOGGLE ── */
   .hw-toggle {
     display: flex;
@@ -1098,17 +1124,90 @@
             </select>
           </div>
         </div>
-        <div class="form-grid">
-          <div class="form-group">
-            <label>Door Swing Type</label>
-            <select id="doorSwingType">
-              <option value="">— Select —</option>
-              <option value="single">Single</option>
-              <option value="dbl_pair">Dbl (Pair Swing)</option>
-              <option value="dbl_dual_egress">Dbl (Dual Egress)</option>
-              <option value="dbl_active_inactive">Dbl (Active/Inactive)</option>
-            </select>
+        <div class="form-group" style="margin-top:4px;">
+          <label>Door Swing Type</label>
+          <select id="doorSwingType" onchange="updateSwingDiagram()">
+            <option value="">— Select —</option>
+            <option value="single">Option A — Single</option>
+            <option value="dbl_pair">Option B — Dbl (Pair Swing)</option>
+            <option value="dbl_dual_egress">Option C — Dbl (Dual Egress)</option>
+            <option value="dbl_active_inactive">Option D — Dbl (Inactive/Active)</option>
+          </select>
+        </div>
+
+        <!-- Door swing type visual selector -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px;" id="swingDiagramGrid">
+
+          <!-- Option A: Single — one jamb left, leaf swings right as quarter circle -->
+          <div class="swing-diagram" data-value="single" onclick="selectSwingType('single')">
+            <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+              <!-- Left jamb -->
+              <line x1="14" y1="8" x2="14" y2="72" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
+              <!-- Door leaf (horizontal, closed position) -->
+              <line x1="14" y1="8" x2="60" y2="8" stroke="currentColor" stroke-width="2"/>
+              <!-- Quarter-circle swing arc -->
+              <path d="M60,8 A46,46 0 0,1 14,54" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4,3"/>
+            </svg>
+            <div class="swing-label">A — Single</div>
           </div>
+
+          <!-- Option B: Pair Swing — two jambs, both leaves swing inward meeting in center -->
+          <div class="swing-diagram" data-value="dbl_pair" onclick="selectSwingType('dbl_pair')">
+            <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+              <!-- Left jamb -->
+              <line x1="8" y1="8" x2="8" y2="72" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
+              <!-- Right jamb -->
+              <line x1="72" y1="8" x2="72" y2="72" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
+              <!-- Left leaf (closed, horizontal) -->
+              <line x1="8" y1="8" x2="40" y2="8" stroke="currentColor" stroke-width="2"/>
+              <!-- Right leaf (closed, horizontal) -->
+              <line x1="40" y1="8" x2="72" y2="8" stroke="currentColor" stroke-width="2"/>
+              <!-- Left leaf swing arc (quarter circle inward) -->
+              <path d="M40,8 A32,32 0 0,1 8,40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4,3"/>
+              <!-- Right leaf swing arc (quarter circle inward) -->
+              <path d="M40,8 A32,32 0 0,0 72,40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4,3"/>
+            </svg>
+            <div class="swing-label">B — Pair Swing</div>
+          </div>
+
+          <!-- Option C: Dual Egress — two jambs, leaves swing in OPPOSITE directions (S-curve) -->
+          <div class="swing-diagram" data-value="dbl_dual_egress" onclick="selectSwingType('dbl_dual_egress')">
+            <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+              <!-- Left jamb -->
+              <line x1="8" y1="8" x2="8" y2="72" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
+              <!-- Right jamb -->
+              <line x1="72" y1="8" x2="72" y2="72" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
+              <!-- Left leaf (closed, horizontal) -->
+              <line x1="8" y1="40" x2="40" y2="40" stroke="currentColor" stroke-width="2"/>
+              <!-- Right leaf (closed, horizontal) -->
+              <line x1="40" y1="40" x2="72" y2="40" stroke="currentColor" stroke-width="2"/>
+              <!-- Left leaf swings upward (toward top) -->
+              <path d="M40,40 A32,32 0 0,0 8,8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4,3"/>
+              <!-- Right leaf swings downward (toward bottom) -->
+              <path d="M40,40 A32,32 0 0,0 72,72" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4,3"/>
+            </svg>
+            <div class="swing-label">C — Dual Egress</div>
+          </div>
+
+          <!-- Option D: Inactive/Active — active leaf LEFT swings wide, inactive leaf RIGHT is short -->
+          <div class="swing-diagram" data-value="dbl_active_inactive" onclick="selectSwingType('dbl_active_inactive')">
+            <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+              <!-- Left jamb -->
+              <line x1="8" y1="8" x2="8" y2="72" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
+              <!-- Right jamb -->
+              <line x1="72" y1="8" x2="72" y2="72" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
+              <!-- Active leaf (left, wider, swings fully inward) -->
+              <line x1="8" y1="8" x2="50" y2="8" stroke="currentColor" stroke-width="2"/>
+              <!-- Active leaf quarter-circle arc swinging down -->
+              <path d="M50,8 A42,42 0 0,1 8,50" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4,3"/>
+              <!-- Inactive leaf (right, narrow, barely moves) -->
+              <line x1="50" y1="8" x2="72" y2="8" stroke="currentColor" stroke-width="2"/>
+              <!-- Inactive leaf tiny arc -->
+              <path d="M72,8 A22,22 0 0,0 50,30" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.5"/>
+            </svg>
+            <div class="swing-label">D — Inactive/Active</div>
+          </div>
+
         </div>
       </div>
 
@@ -1937,7 +2036,10 @@ function applyDoorToForm(door) {
   }
   if (door.doorRating !== undefined && door.doorRating !== '') {
     const sel = document.getElementById('doorRating');
-    sel.value = door.doorRating;
+    // Map legacy rating values to numeric minutes
+    const ratingMap = {'3hr':'180','90min':'90','60min':'60','45min':'45','20min':'20','nonrated':'0','na':'0','non-rated':'0'};
+    const mappedRating = ratingMap[door.doorRating] || door.doorRating;
+    sel.value = mappedRating;
     sel.classList.add('autofilled');
   }
 
@@ -2082,6 +2184,19 @@ function initHardwareToggles(preload) {
 // ── Assembly type change ───────────────────────────────────────────
 function onAssemblyTypeChange() {
   checkDoorRating();
+}
+
+function selectSwingType(value) {
+  document.getElementById('doorSwingType').value = value;
+  updateSwingDiagram();
+  checkDoorRating();
+}
+
+function updateSwingDiagram() {
+  const val = document.getElementById('doorSwingType').value;
+  document.querySelectorAll('.swing-diagram').forEach(el => {
+    el.classList.toggle('selected', el.dataset.value === val);
+  });
 }
 
 function checkDoorRating() {
@@ -3429,7 +3544,21 @@ async function downloadScheduleFromSupabase() {
       if (!key || key === 'NOID|NOPROJECT|') continue;
       const ratingLabel = (row.door_rating||'').toLowerCase();
       const typeLabel = (row.assembly_type||'').toLowerCase();
-      const assemblyTypeKey = Object.entries(ASSEMBLY_TYPE_LABELS).find(([k,v]) => v.toLowerCase() === typeLabel)?.[0] || typeLabel;
+      // Map Supabase assembly_type string back to internal key
+      // Handles both old format ("Fire Door") and new format ("1-Hour Fire Barrier")
+      const assemblyTypeLookup = {
+        'fire door': 'fire_door', // legacy
+        '3-hour fire barrier': '3hr_fire', '3-hour fire': '3hr_fire',
+        '2-hour fire barrier': '2hr_fire', '2-hour fire': '2hr_fire',
+        '1-hour fire barrier': '1hr_fire', '1-hour fire': '1hr_fire',
+        '1-hour partition': '1hr_partition',
+        'smoke barrier door': 'smoke_barrier', 'smoke barrier': 'smoke_barrier',
+        'smoke partition door': 'smoke_partition', 'smoke partition': 'smoke_partition',
+        'suite perimeter door': 'suite_perimeter', 'suite perimeter': 'suite_perimeter',
+        '2-hour fire ': '2hr_fire', '1-hour fire ': '1hr_fire',
+      };
+      const assemblyTypeKey = assemblyTypeLookup[typeLabel] ||
+        Object.entries(ASSEMBLY_TYPE_LABELS).find(([k,v]) => v.toLowerCase() === typeLabel)?.[0] || typeLabel;
       schedule[key] = {
         assetId: row.asset_id || null,
         iconNo: row.icon_no || '',
