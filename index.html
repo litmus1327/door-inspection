@@ -1542,7 +1542,7 @@ async function openProjectModal(required = true) {
   } else {
     try {
       const res = await fetch(cfg.url + '/rest/v1/door_schedule?select=project', {
-        headers: { 'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key }
+        headers: getSupabaseHeaders(cfg.key)
       });
       if (res.ok) {
         const rows = await res.json();
@@ -3179,7 +3179,7 @@ async function syncHardwareStateToSupabase(assetId, hwStateData) {
   try {
     await fetch(cfg.url + '/rest/v1/door_schedule?asset_id=eq.' + encodeURIComponent(assetId), {
       method: 'PATCH',
-      headers: { 'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key, 'Content-Type': 'application/json' },
+      headers: getSupabaseHeaders(cfg.key, {'Content-Type': 'application/json'}),
       body: JSON.stringify({ hw_state: JSON.stringify(hwStateData) })
     });
   } catch(e) { console.error('hw sync error:', e); }
@@ -3303,6 +3303,17 @@ function getConfig() {
   return { url: localStorage.getItem('supabaseUrl')||'', key: localStorage.getItem('supabaseKey')||'' };
 }
 
+// Build correct headers for both old (eyJ...) and new (sb_publishable_...) Supabase key formats
+// New keys: only send apikey header — Authorization: Bearer is NOT allowed for sb_ keys
+// Old keys: send both apikey and Authorization: Bearer (legacy JWT format)
+function getSupabaseHeaders(key, extra) {
+  const isNewFormat = key.startsWith('sb_publishable_') || key.startsWith('sb_secret_');
+  const base = isNewFormat
+    ? { 'apikey': key }
+    : { 'apikey': key, 'Authorization': 'Bearer ' + key };
+  return Object.assign(base, extra || {});
+}
+
 function loadConfig() {
   const cfg = getConfig();
   document.getElementById('supabaseUrl').value = cfg.url;
@@ -3343,7 +3354,7 @@ async function testConnection() {
   if (!cfg.url || !cfg.key) { showToast('Enter credentials first.', 'error'); return; }
   try {
     const res = await fetch(cfg.url + '/rest/v1/door_inspections?limit=1', {
-      headers: { 'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key }
+      headers: getSupabaseHeaders(cfg.key)
     });
     if (res.ok) {
       showToast('✓ Connected to Supabase successfully!');
@@ -3370,7 +3381,7 @@ async function autoSync() {
       const res = await fetch(cfg.url + '/rest/v1/door_inspections', {
         method: 'POST',
         headers: {
-          'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key,
+          ...getSupabaseHeaders(cfg.key),
           'Content-Type': 'application/json',
           'Prefer': 'resolution=merge-duplicates,return=minimal'
         },
@@ -3462,7 +3473,7 @@ async function uploadScheduleToSupabase() {
     try {
       await fetch(cfg.url + '/rest/v1/door_schedule?project=eq.' + encodeURIComponent(proj), {
         method: 'DELETE',
-        headers: { 'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key }
+        headers: getSupabaseHeaders(cfg.key)
       });
     } catch(e) { console.error('Delete error:', e); }
   }
@@ -3470,7 +3481,7 @@ async function uploadScheduleToSupabase() {
   try {
     await fetch(cfg.url + '/rest/v1/door_schedule?project=is.null', {
       method: 'DELETE',
-      headers: { 'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key }
+      headers: getSupabaseHeaders(cfg.key)
     });
   } catch(e) {}
 
@@ -3499,7 +3510,7 @@ async function uploadScheduleToSupabase() {
         const r1 = await fetch(cfg.url + '/rest/v1/door_schedule', {
           method: 'POST',
           headers: {
-            'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key,
+            ...getSupabaseHeaders(cfg.key),
             'Content-Type': 'application/json',
             'Prefer': 'resolution=merge-duplicates,return=minimal'
           },
@@ -3518,7 +3529,7 @@ async function uploadScheduleToSupabase() {
         const r2 = await fetch(cfg.url + '/rest/v1/door_schedule', {
           method: 'POST',
           headers: {
-            'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key,
+            ...getSupabaseHeaders(cfg.key),
             'Content-Type': 'application/json',
             'Prefer': 'return=minimal'
           },
@@ -3552,7 +3563,7 @@ async function downloadScheduleFromSupabase() {
     while (true) {
       const res = await fetch(cfg.url + '/rest/v1/door_schedule?select=*&order=asset_id' + projectFilter, {
         headers: {
-          'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key,
+          ...getSupabaseHeaders(cfg.key),
           'Range': from + '-' + (from + 999), 'Range-Unit': 'items'
         }
       });
@@ -3622,7 +3633,7 @@ async function fetchAllRecordsFromSupabase() {
       : '';
     const res = await fetch(
       cfg.url + '/rest/v1/door_inspections?select=*&order=inspection_date.desc' + projectFilter,
-      { headers: { 'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key,
+      { headers: { ...getSupabaseHeaders(cfg.key),
           'Range': '0-999', 'Range-Unit': 'items' } }
     );
     if (!res.ok) return null;
