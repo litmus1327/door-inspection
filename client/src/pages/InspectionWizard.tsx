@@ -1618,11 +1618,72 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
                 <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Swing Type *</span>
                 <div className="grid grid-cols-5 gap-2 mt-1">
                   {[
-                    { value: 'single', label: 'Single' },
-                    { value: 'dbl_pair', label: 'Pair Swing' },
-                    { value: 'dbl_dual_egress', label: 'Dual Egress' },
-                    { value: 'dbl_active', label: 'Active' },
-                    { value: 'dbl_inactive', label: 'Inactive' },
+                    {
+                      value: 'single',
+                      label: 'Single',
+                      icon: (
+                        <svg viewBox="0 0 24 24" className="w-6 h-6" aria-hidden="true">
+                          <circle cx="4" cy="20" r="1.2" fill="currentColor" />
+                          <line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" strokeWidth="1.5" />
+                          <path d="M 4 20 A 16 16 0 0 1 20 4" fill="none" stroke="currentColor" strokeWidth="0.8" strokeDasharray="1.5,1.5" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      value: 'dbl_pair',
+                      label: 'Pair Swing',
+                      icon: (
+                        <svg viewBox="0 0 24 24" className="w-6 h-6" aria-hidden="true">
+                          <circle cx="4" cy="20" r="1.2" fill="currentColor" />
+                          <circle cx="20" cy="20" r="1.2" fill="currentColor" />
+                          <line x1="4" y1="20" x2="10" y2="9" stroke="currentColor" strokeWidth="1.5" />
+                          <line x1="20" y1="20" x2="14" y2="9" stroke="currentColor" strokeWidth="1.5" />
+                          <path d="M 4 20 A 12 12 0 0 1 10 9" fill="none" stroke="currentColor" strokeWidth="0.8" strokeDasharray="1.5,1.5" />
+                          <path d="M 20 20 A 12 12 0 0 0 14 9" fill="none" stroke="currentColor" strokeWidth="0.8" strokeDasharray="1.5,1.5" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      value: 'dbl_dual_egress',
+                      label: 'Dual Egress',
+                      icon: (
+                        <svg viewBox="0 0 24 24" className="w-6 h-6" aria-hidden="true">
+                          <line x1="0" y1="12" x2="24" y2="12" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1,1" />
+                          <circle cx="4" cy="12" r="1.2" fill="currentColor" />
+                          <circle cx="20" cy="12" r="1.2" fill="currentColor" />
+                          <line x1="4" y1="12" x2="12" y2="4" stroke="currentColor" strokeWidth="1.5" />
+                          <line x1="20" y1="12" x2="12" y2="20" stroke="currentColor" strokeWidth="1.5" />
+                          <path d="M 4 12 A 8 8 0 0 1 12 4" fill="none" stroke="currentColor" strokeWidth="0.8" strokeDasharray="1.5,1.5" />
+                          <path d="M 20 12 A 8 8 0 0 1 12 20" fill="none" stroke="currentColor" strokeWidth="0.8" strokeDasharray="1.5,1.5" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      value: 'dbl_active',
+                      label: 'Active',
+                      icon: (
+                        <svg viewBox="0 0 24 24" className="w-6 h-6" aria-hidden="true">
+                          <circle cx="4" cy="20" r="1.2" fill="currentColor" />
+                          <line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" strokeWidth="1.5" />
+                          <path d="M 4 20 A 16 16 0 0 1 20 4" fill="none" stroke="currentColor" strokeWidth="0.8" strokeDasharray="1.5,1.5" />
+                          <line x1="17" y1="2" x2="22" y2="7" stroke="currentColor" strokeWidth="1.2" />
+                          <line x1="22" y1="2" x2="17" y2="7" stroke="currentColor" strokeWidth="1.2" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      value: 'dbl_inactive',
+                      label: 'Inactive',
+                      icon: (
+                        <svg viewBox="0 0 24 24" className="w-6 h-6" aria-hidden="true">
+                          <circle cx="20" cy="20" r="1.2" fill="currentColor" />
+                          <line x1="20" y1="20" x2="4" y2="4" stroke="currentColor" strokeWidth="1.5" />
+                          <path d="M 20 20 A 16 16 0 0 0 4 4" fill="none" stroke="currentColor" strokeWidth="0.8" strokeDasharray="1.5,1.5" />
+                          <line x1="2" y1="2" x2="7" y2="7" stroke="currentColor" strokeWidth="1.2" />
+                          <line x1="7" y1="2" x2="2" y2="7" stroke="currentColor" strokeWidth="1.2" />
+                        </svg>
+                      ),
+                    },
                   ].map(opt => (
                     <button
                       key={opt.value}
@@ -1640,12 +1701,15 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
                         }
                         setDoorSwingType(newSwingType);
                       }}
-                      className={`py-2 px-1 text-xs font-mono rounded-sm border transition-all text-center ${
+                      className={`py-2 px-1 text-xs font-mono rounded-sm border transition-all text-center flex flex-col items-center gap-1 ${
                         doorSwingType === opt.value
                           ? 'border-primary text-primary bg-primary/10'
                           : 'border-border text-muted-foreground hover:border-primary/50'
                       }`}
                     >
+                      <span className={doorSwingType === opt.value ? 'opacity-100' : 'opacity-70'}>
+                        {opt.icon}
+                      </span>
                       {opt.label}
                     </button>
                   ))}
@@ -1656,68 +1720,6 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
                       ? "This door's latch is contingent on the adjacent inactive leaf closing first."
                       : 'This door must close first for the active leaf to latch.'}
                   </p>
-                )}
-                {doorSwingType && (
-                  <div className="mt-3 flex justify-center">
-                    {doorSwingType === 'single' && (
-                      <svg viewBox="0 0 64 64" className="w-16 h-16">
-                        <rect x="8" y="8" width="48" height="48" fill="none" stroke="#888" strokeWidth="2" />
-                        <circle cx="12" cy="32" r="2" fill="#888" />
-                        <line x1="12" y1="32" x2="32" y2="12" stroke="#888" strokeWidth="3" />
-                        <path d="M 12 32 Q 22 22 32 12" fill="none" stroke="#3b82f6" strokeWidth="1" strokeDasharray="2,2" />
-                      </svg>
-                    )}
-                    {doorSwingType === 'dbl_pair' && (
-                      <svg viewBox="0 0 64 64" className="w-16 h-16">
-                        <rect x="8" y="8" width="48" height="48" fill="none" stroke="#888" strokeWidth="2" />
-                        <line x1="32" y1="8" x2="32" y2="56" stroke="#888" strokeWidth="1" strokeDasharray="2,2" />
-                        <circle cx="12" cy="32" r="2" fill="#888" />
-                        <circle cx="52" cy="32" r="2" fill="#888" />
-                        <line x1="12" y1="32" x2="8" y2="16" stroke="#888" strokeWidth="3" />
-                        <line x1="52" y1="32" x2="56" y2="16" stroke="#888" strokeWidth="3" />
-                        <path d="M 12 32 Q 10 24 8 16" fill="none" stroke="#3b82f6" strokeWidth="1" strokeDasharray="2,2" />
-                        <path d="M 52 32 Q 54 24 56 16" fill="none" stroke="#3b82f6" strokeWidth="1" strokeDasharray="2,2" />
-                      </svg>
-                    )}
-                    {doorSwingType === 'dbl_dual_egress' && (
-                      <svg viewBox="0 0 64 64" className="w-16 h-16">
-                        <rect x="8" y="8" width="48" height="48" fill="none" stroke="#888" strokeWidth="2" />
-                        <line x1="32" y1="8" x2="32" y2="56" stroke="#888" strokeWidth="1" strokeDasharray="2,2" />
-                        <circle cx="12" cy="32" r="2" fill="#888" />
-                        <circle cx="52" cy="32" r="2" fill="#888" />
-                        <line x1="12" y1="32" x2="8" y2="20" stroke="#888" strokeWidth="3" />
-                        <line x1="52" y1="32" x2="56" y2="20" stroke="#888" strokeWidth="3" />
-                        <path d="M 12 32 Q 10 26 8 20" fill="none" stroke="#3b82f6" strokeWidth="1" strokeDasharray="2,2" />
-                        <path d="M 52 32 Q 54 26 56 20" fill="none" stroke="#3b82f6" strokeWidth="1" strokeDasharray="2,2" />
-                      </svg>
-                    )}
-                    {doorSwingType === 'dbl_active' && (
-                      <svg viewBox="0 0 64 64" className="w-16 h-16">
-                        <rect x="8" y="8" width="48" height="48" fill="none" stroke="#888" strokeWidth="2" />
-                        <line x1="32" y1="8" x2="32" y2="56" stroke="#888" strokeWidth="1" strokeDasharray="2,2" />
-                        <circle cx="12" cy="32" r="2" fill="#888" />
-                        <circle cx="52" cy="32" r="2" fill="#888" />
-                        <line x1="12" y1="32" x2="28" y2="32" stroke="#888" strokeWidth="3" />
-                        <line x1="24" y1="28" x2="32" y2="36" stroke="#3b82f6" strokeWidth="2" />
-                        <line x1="32" y1="28" x2="24" y2="36" stroke="#3b82f6" strokeWidth="2" />
-                        <line x1="52" y1="32" x2="32" y2="12" stroke="#888" strokeWidth="3" />
-                        <path d="M 52 32 Q 42 22 32 12" fill="none" stroke="#3b82f6" strokeWidth="1" strokeDasharray="2,2" />
-                      </svg>
-                    )}
-                    {doorSwingType === 'dbl_inactive' && (
-                      <svg viewBox="0 0 64 64" className="w-16 h-16">
-                        <rect x="8" y="8" width="48" height="48" fill="none" stroke="#888" strokeWidth="2" />
-                        <line x1="32" y1="8" x2="32" y2="56" stroke="#888" strokeWidth="1" strokeDasharray="2,2" />
-                        <circle cx="12" cy="32" r="2" fill="#888" />
-                        <circle cx="52" cy="32" r="2" fill="#888" />
-                        <line x1="12" y1="32" x2="32" y2="12" stroke="#888" strokeWidth="3" />
-                        <path d="M 12 32 Q 22 22 32 12" fill="none" stroke="#3b82f6" strokeWidth="1" strokeDasharray="2,2" />
-                        <line x1="52" y1="32" x2="36" y2="32" stroke="#888" strokeWidth="3" />
-                        <line x1="40" y1="28" x2="32" y2="36" stroke="#3b82f6" strokeWidth="2" />
-                        <line x1="32" y1="28" x2="40" y2="36" stroke="#3b82f6" strokeWidth="2" />
-                      </svg>
-                    )}
-                  </div>
                 )}
               </div>
             </div>
