@@ -13,9 +13,7 @@ export type Zone =
   | 'closer'
   | 'latch_hw'
   | 'panic_hw'
-  | 'vision_panel'
-  | 'gasketing'
-  | 'signage';
+  | 'vision_panel';
 
 export interface DoorScheduleEntry {
   assetId: string | null;

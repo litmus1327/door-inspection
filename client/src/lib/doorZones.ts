@@ -11,15 +11,16 @@ import { Zone } from '@/types';
  * See INTERACTIVE_DOOR_DIAGRAM_SPEC.md, Section 3.
  */
 export const ZONE_TO_ITEM_IDS: Record<Zone, string[]> = {
-  head_gap: ['gap_top'],
+  head_gap: ['gap_top', 'pi_gasketing'],
   hinge_stile: [
     'gap_hinge',
     'pi_laminate_hinge',
     'pi_hinge_filler',
     'pi_hinge_missing',
     'pi_screws',
+    'pi_gasketing',
   ],
-  latch_stile: ['gap_latch', 'pi_laminate_latch'],
+  latch_stile: ['gap_latch', 'pi_laminate_latch', 'pi_gasketing'],
   sill_gap: [
     'gap_bottom_3_4',
     'gap_bottom_1',
@@ -48,6 +49,10 @@ export const ZONE_TO_ITEM_IDS: Record<Zone, string[]> = {
     'pi_hydraulic',
     'label_door',
     'rating_door',
+    'sign_delayed_egress',
+    'sign_coat_rack',
+    'sign_mech_fastened',
+    'sign_5pct',
   ],
   frame: ['pi_frame', 'label_frame', 'rating_frame'],
   closer: [
@@ -86,13 +91,6 @@ export const ZONE_TO_ITEM_IDS: Record<Zone, string[]> = {
     'lock_pte_missing',
   ],
   vision_panel: ['rating_vision', 'vp_missing', 'sign_vision'],
-  gasketing: ['pi_gasketing'],
-  signage: [
-    'sign_delayed_egress',
-    'sign_coat_rack',
-    'sign_mech_fastened',
-    'sign_5pct',
-  ],
 };
 
 /** Human-readable label for each zone, shown on hover and in panels. */
@@ -108,11 +106,13 @@ export const ZONE_LABELS: Record<Zone, string> = {
   latch_hw: 'Latch / lockset',
   panic_hw: 'Panic / exit device',
   vision_panel: 'Vision panel',
-  gasketing: 'Gasketing / seals',
-  signage: 'Signage',
 };
 
-/** Zones drawn for a single-leaf door (excludes the pairs-only meeting edge). */
+/**
+ * Zones drawn for a single-leaf door (excludes the pairs-only meeting edge).
+ * panic_hw is listed but only rendered when the panic-device toggle is on;
+ * latch_hw (lever lockset) is shown when the toggle is off.
+ */
 export const SINGLE_LEAF_ZONES: Zone[] = [
   'frame',
   'head_gap',
@@ -124,8 +124,6 @@ export const SINGLE_LEAF_ZONES: Zone[] = [
   'latch_hw',
   'panic_hw',
   'vision_panel',
-  'gasketing',
-  'signage',
 ];
 
 /**
