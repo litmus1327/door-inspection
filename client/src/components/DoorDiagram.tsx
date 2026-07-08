@@ -143,9 +143,9 @@ export default function DoorDiagram({
           <rect
             {...handlers('frame')}
             x={40}
-            y={20}
+            y={34}
             width={340}
-            height={520}
+            height={506}
             rx={3}
             fill={fillFor('frame', C.frame)}
             stroke={strokeFor('frame')}
@@ -195,7 +195,7 @@ export default function DoorDiagram({
           />
         )}
 
-        {/* Hinge stile (left edge) with three barrel hinges */}
+        {/* Hinge stile (left edge) plus three hinges centered on the frame jamb */}
         {enabled('hinge_stile') && (
           <g {...handlers('hinge_stile')}>
             <rect
@@ -207,16 +207,17 @@ export default function DoorDiagram({
               stroke={strokeFor('hinge_stile')}
               strokeWidth={1}
             />
-            {[110, 272, 434].map((y) => (
+            {[120, 272, 424].map((y) => (
               <rect
                 key={y}
-                x={80}
+                x={54}
                 y={y}
                 width={16}
                 height={40}
                 rx={3}
                 fill={C.metal}
-                pointerEvents="none"
+                stroke={strokeFor('hinge_stile')}
+                strokeWidth={0.75}
               />
             ))}
           </g>
@@ -277,7 +278,7 @@ export default function DoorDiagram({
               strokeWidth={1}
             />
             <polyline
-              points="166,76 196,66 196,52"
+              points="112,72 140,54 176,58"
               fill="none"
               stroke={C.metal}
               strokeWidth={3}
@@ -292,7 +293,7 @@ export default function DoorDiagram({
         {enabled('latch_hw') && (
           <g {...handlers('latch_hw')}>
             <rect
-              x={314}
+              x={312}
               y={270}
               width={16}
               height={44}
@@ -302,7 +303,7 @@ export default function DoorDiagram({
               strokeWidth={1}
             />
             <rect
-              x={286}
+              x={290}
               y={288}
               width={30}
               height={8}
