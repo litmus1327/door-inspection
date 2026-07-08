@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Zone } from '@/types';
+import { Zone, ZoneState } from '@/types';
 import {
   ZONE_LABELS,
   ZONE_TO_ITEM_IDS,
@@ -20,8 +20,12 @@ import {
 export interface DoorDiagramProps {
   /** Which zones to render. Defaults to the single-leaf set. */
   zones?: Zone[];
-  /** Phase 2 hook: return a fill color for a zone based on its state. */
-  getZoneColor?: (zone: Zone) => string | undefined;
+  /** Result state per zone; drives fill/stroke color. Missing = untouched. */
+  zoneStates?: Partial<Record<Zone, ZoneState>>;
+  /** Show the color legend under the diagram. Default true. */
+  showLegend?: boolean;
+  /** If provided, controls panic-device presence and hides the local toggle. */
+  panicPresent?: boolean;
   onZoneClick?: (zone: Zone) => void;
   onZoneHover?: (zone: Zone | null) => void;
 }
@@ -40,25 +44,48 @@ const C = {
   textMuted: '#8892aa',
 };
 
+// Fill + stroke per result state. untouched falls back to the neutral base.
+const STATE_COLORS: Record<ZoneState, { fill: string; stroke: string }> = {
+  untouched: { fill: C.base, stroke: C.stroke },
+  pass: { fill: '#16382a', stroke: '#28c76f' },
+  advisory: { fill: '#3a2f14', stroke: '#e8a020' },
+  deficient: { fill: '#3d1a1c', stroke: '#ea5455' },
+};
+
+const LEGEND: [ZoneState, string][] = [
+  ['untouched', 'Not inspected'],
+  ['pass', 'Pass'],
+  ['advisory', 'Advisory'],
+  ['deficient', 'Deficient'],
+];
+
 export default function DoorDiagram({
   zones = SINGLE_LEAF_ZONES,
-  getZoneColor,
+  zoneStates,
+  showLegend = true,
+  panicPresent,
   onZoneClick,
   onZoneHover,
 }: DoorDiagramProps) {
   const [hover, setHover] = useState<Zone | null>(null);
-  const [panicOn, setPanicOn] = useState(false);
+  const [internalPanic, setInternalPanic] = useState(false);
+  const panicOn = panicPresent ?? internalPanic;
 
   const enabled = (z: Zone) =>
     zones.includes(z) &&
     (z === 'panic_hw' ? panicOn : z === 'latch_hw' ? !panicOn : true);
 
   function fillFor(z: Zone, fallback: string) {
-    const stateColor = getZoneColor?.(z);
-    if (stateColor) return stateColor;
+    const state = zoneStates?.[z];
+    if (state && state !== 'untouched') return STATE_COLORS[state].fill;
     return hover === z ? C.hover : fallback;
   }
-  const strokeFor = (z: Zone) => (hover === z ? C.amber : C.stroke);
+  function strokeFor(z: Zone) {
+    if (hover === z) return C.amber;
+    const state = zoneStates?.[z];
+    if (state && state !== 'untouched') return STATE_COLORS[state].stroke;
+    return C.stroke;
+  }
 
   function handlers(z: Zone) {
     return {
@@ -107,28 +134,30 @@ export default function DoorDiagram({
         >
           {caption}
         </div>
-        <label
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            color: C.textMuted,
-            fontFamily: 'monospace',
-            fontSize: 12,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={panicOn}
-            onChange={(e) => {
-              setPanicOn(e.target.checked);
-              if (hover === 'panic_hw' || hover === 'latch_hw') setHover(null);
+        {panicPresent === undefined && (
+          <label
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              color: C.textMuted,
+              fontFamily: 'monospace',
+              fontSize: 12,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
             }}
-          />
-          Panic device
-        </label>
+          >
+            <input
+              type="checkbox"
+              checked={panicOn}
+              onChange={(e) => {
+                setInternalPanic(e.target.checked);
+                if (hover === 'panic_hw' || hover === 'latch_hw') setHover(null);
+              }}
+            />
+            Panic device
+          </label>
+        )}
       </div>
 
       <svg
@@ -138,14 +167,14 @@ export default function DoorDiagram({
         role="img"
         aria-label="Single-leaf door diagram"
       >
-        {/* Frame band */}
+        {/* Frame: head edges align with the jamb outer edges (x40 and x380) */}
         {enabled('frame') && (
           <rect
             {...handlers('frame')}
             x={40}
-            y={34}
+            y={26}
             width={340}
-            height={506}
+            height={514}
             rx={3}
             fill={fillFor('frame', C.frame)}
             stroke={strokeFor('frame')}
@@ -171,9 +200,9 @@ export default function DoorDiagram({
         {enabled('head_gap') && (
           <rect
             {...handlers('head_gap')}
-            x={64}
+            x={84}
             y={44}
-            width={292}
+            width={252}
             height={12}
             fill={fillFor('head_gap', C.base)}
             stroke={strokeFor('head_gap')}
@@ -185,9 +214,9 @@ export default function DoorDiagram({
         {enabled('sill_gap') && (
           <rect
             {...handlers('sill_gap')}
-            x={64}
+            x={84}
             y={504}
-            width={292}
+            width={252}
             height={12}
             fill={fillFor('sill_gap', C.base)}
             stroke={strokeFor('sill_gap')}
@@ -207,14 +236,14 @@ export default function DoorDiagram({
               stroke={strokeFor('hinge_stile')}
               strokeWidth={1}
             />
-            {[120, 272, 424].map((y) => (
+            {[102, 256, 410].map((y) => (
               <rect
                 key={y}
-                x={54}
+                x={94}
                 y={y}
-                width={16}
-                height={40}
-                rx={3}
+                width={8}
+                height={46}
+                rx={2}
                 fill={C.metal}
                 stroke={strokeFor('hinge_stile')}
                 strokeWidth={0.75}
@@ -278,7 +307,7 @@ export default function DoorDiagram({
               strokeWidth={1}
             />
             <polyline
-              points="112,72 140,54 176,58"
+              points="140,68 109,63 152,56"
               fill="none"
               stroke={C.metal}
               strokeWidth={3}
@@ -293,8 +322,8 @@ export default function DoorDiagram({
         {enabled('latch_hw') && (
           <g {...handlers('latch_hw')}>
             <rect
-              x={312}
-              y={270}
+              x={291}
+              y={269}
               width={16}
               height={44}
               rx={8}
@@ -303,8 +332,8 @@ export default function DoorDiagram({
               strokeWidth={1}
             />
             <rect
-              x={290}
-              y={288}
+              x={269}
+              y={287}
               width={30}
               height={8}
               rx={4}
@@ -341,6 +370,43 @@ export default function DoorDiagram({
           </g>
         )}
       </svg>
+
+      {showLegend && (
+        <div
+          style={{
+            display: 'flex',
+            gap: 16,
+            marginTop: 12,
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+          }}
+        >
+          {LEGEND.map(([st, label]) => (
+            <span
+              key={st}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: C.textMuted,
+              }}
+            >
+              <span
+                style={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: 2,
+                  background: STATE_COLORS[st].fill,
+                  border: `1.5px solid ${STATE_COLORS[st].stroke}`,
+                }}
+              />
+              {label}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

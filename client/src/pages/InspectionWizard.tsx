@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import DoorDiagram from '@/components/DoorDiagram';
+import type { Zone, ZoneState } from '@/types';
+import { ZONE_TO_ITEM_IDS, ZONE_LABELS } from '@/lib/doorZones';
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -867,6 +870,8 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
   const [currentSectionIdx, setCurrentSectionIdx] = useState(0);
   const [deficiencies, setDeficiencies] = useState<Record<string, DeficiencyState>>({});
   const [currentDoor, setCurrentDoor] = useState<CurrentDoor | null>(null);
+  const [inspectView, setInspectView] = useState<'checklist' | 'diagram'>('diagram');
+  const [diagramZone, setDiagramZone] = useState<Zone | null>(null);
 
   // Sync selectedDoor prop into form
   useEffect(() => {
@@ -1193,6 +1198,28 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
   const currentSection = visibleSections[currentSectionIdx] || '';
   const sectionItems = applicableItems.filter(item => item.section === currentSection);
   const isLastSection = currentSectionIdx >= visibleSections.length - 1;
+
+  // Diagram: per-zone color state derived from current deficiencies.
+  const zoneStates: Partial<Record<Zone, ZoneState>> = {};
+  for (const z of Object.keys(ZONE_TO_ITEM_IDS) as Zone[]) {
+    let s: ZoneState | undefined;
+    for (const id of ZONE_TO_ITEM_IDS[z]) {
+      const st = deficiencies[id]?.status;
+      if (st === 'deficient') { s = 'deficient'; break; }
+      if (st === 'advisory') s = 'advisory';
+    }
+    if (s) zoneStates[z] = s;
+  }
+  const panicPresent = currentDoor?.hwState?.hw_panic_device === true;
+  // Draw only the parts this door actually has.
+  const dhw = currentDoor?.hwState || {};
+  const diagramZones: Zone[] = ['frame', 'head_gap', 'hinge_stile', 'latch_stile', 'sill_gap', 'leaf_face', 'panic_hw'];
+  if (dhw.hw_vision_panel) diagramZones.push('vision_panel');
+  if (dhw.hw_closer || dhw.hw_automatic_operator) diagramZones.push('closer');
+  if (dhw.hw_lockset_cylindrical || dhw.hw_lockset_mortise) diagramZones.push('latch_hw');
+  const diagramItems = diagramZone
+    ? applicableItems.filter(item => ZONE_TO_ITEM_IDS[diagramZone].includes(item.id))
+    : applicableItems;
 
   // Deficiency counts per section for nav
   const sectionDefCounts = (sec: string) => {
@@ -1840,7 +1867,21 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
         <span className="text-muted-foreground">RATING <span className="text-foreground font-semibold">{currentDoor?.doorRating === '0' ? 'Non-Rated' : (currentDoor?.doorRating + ' min')}</span></span>
       </div>
 
+      {/* Inspect view toggle */}
+      <div className="bg-card border-b border-border px-4 py-2 flex gap-1.5">
+        {(['checklist', 'diagram'] as const).map(v => (
+          <button
+            key={v}
+            onClick={() => setInspectView(v)}
+            className={`px-3 py-1 rounded-sm text-xs font-mono uppercase tracking-wide border ${inspectView === v ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:border-primary/50'}`}
+          >
+            {v}
+          </button>
+        ))}
+      </div>
+
       {/* Section nav */}
+      {inspectView === 'checklist' && (
       <div className="bg-card border-b border-border px-4 py-2 flex gap-1.5 flex-wrap">
         {visibleSections.map((sec, idx) => {
           const defCount = sectionDefCounts(sec);
@@ -1864,9 +1905,61 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
           );
         })}
       </div>
+      )}
 
       {/* Section content */}
       <div className="flex-1 overflow-auto p-4 max-w-2xl mx-auto w-full">
+        {inspectView === 'diagram' && (
+          <div className="space-y-4">
+            <DoorDiagram
+              zones={diagramZones}
+              panicPresent={panicPresent}
+              zoneStates={zoneStates}
+              onZoneClick={(z) => setDiagramZone(z)}
+            />
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold uppercase tracking-wider font-mono">
+                {diagramZone ? ZONE_LABELS[diagramZone] : 'All items'}
+              </h2>
+              {diagramZone && (
+                <button
+                  onClick={() => setDiagramZone(null)}
+                  className="text-xs font-mono uppercase tracking-wide text-muted-foreground border border-border rounded-sm px-2.5 py-1 hover:border-primary/50"
+                >
+                  Show all items
+                </button>
+              )}
+            </div>
+            <div className="space-y-2">
+              {diagramItems.map(item => (
+                <DeficiencyItem
+                  key={item.id}
+                  item={item}
+                  defState={deficiencies[item.id]}
+                  atype={currentDoor?.assemblyType || ''}
+                  swing={currentDoor?.doorSwingType || ''}
+                  sprinklered={currentDoor?.projectVars.sprinklered !== false}
+                  gapStd={currentDoor?.projectVars.gapStandard || 'codify'}
+                  onToggle={toggleDeficiency}
+                  onNoteChange={updateNote}
+                  onBranchAnswer={updateBranchAnswer}
+                />
+              ))}
+              {diagramZone && diagramItems.length === 0 && (
+                <p className="text-xs font-mono text-muted-foreground py-4 text-center">
+                  No applicable checks for this part on this door.
+                </p>
+              )}
+            </div>
+            <button
+              onClick={completeInspection}
+              className="w-full py-2 bg-green-600 text-white rounded-sm font-semibold uppercase tracking-wide text-sm"
+            >
+              Complete Inspection ✓
+            </button>
+          </div>
+        )}
+        {inspectView === 'checklist' && (<>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold uppercase tracking-wider font-mono">{currentSection}</h2>
           <span className="text-xs font-mono text-muted-foreground">{sectionItems.length} item{sectionItems.length !== 1 ? 's' : ''}</span>
@@ -2121,6 +2214,7 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
             </>
           )}
         </div>
+        </>)}
       </div>
     </div>
   );
