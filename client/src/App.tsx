@@ -18,6 +18,7 @@ import RecordsTab from './pages/RecordsTab';
 import ConfigTab from './pages/ConfigTab';
 import Plans from './pages/Plans';
 import { useLocalStorage } from './hooks/useLocalStorage';
+import { getSupabaseConfig, upsertPin, deletePin, fetchPins, uploadPlanPDF, downloadPlanPDF } from './lib/supabase';
 import { DoorPin } from './types';
 
 type TabType = 'plans' | 'inspect' | 'records' | 'config';
@@ -90,9 +91,20 @@ function App() {
     }
   };
 
-  // Restore PDFs on mount
+  // Restore the plan on mount: local IndexedDB first, else pull from the cloud.
   useEffect(() => {
-    loadPDFFromIDB().then((file) => {
+    (async () => {
+      let file = await loadPDFFromIDB();
+      if (!file) {
+        const cfg = getSupabaseConfig();
+        if (cfg.url && cfg.key) {
+          const blob = await downloadPlanPDF(cfg);
+          if (blob && blob.size > 0) {
+            file = new File([blob], 'floor-plan.pdf', { type: 'application/pdf' });
+            savePDFToIDB(file);
+          }
+        }
+      }
       if (file) {
         const entry: PdfEntry = {
           id: crypto.randomUUID(),
@@ -102,7 +114,36 @@ function App() {
         };
         setPdfEntries([entry]);
       }
-    });
+    })();
+  }, []);
+
+  // Sync pins with the cloud on mount: push local pins up, then pull the
+  // cloud set and use it as the source of truth so all devices match.
+  useEffect(() => {
+    (async () => {
+      const cfg = getSupabaseConfig();
+      if (!cfg.url || !cfg.key) return;
+      try {
+        const local: Record<number, DoorPin[]> = JSON.parse(
+          localStorage.getItem('floorPlanPins') || '{}'
+        );
+        for (const p of Object.values(local).flat()) {
+          await upsertPin(cfg, p);
+        }
+        const cloud = await fetchPins(cfg);
+        if (cloud) {
+          const grouped: Record<number, DoorPin[]> = {};
+          for (const p of cloud) {
+            const page = (p && p.pageNumber) || 1;
+            (grouped[page] = grouped[page] || []).push(p);
+          }
+          setPins(grouped);
+        }
+      } catch {
+        /* offline — keep local pins */
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load all PDF documents
@@ -210,6 +251,15 @@ function App() {
     });
   }, [floorNames]);
 
+  const cloudUpsertPin = (pin: DoorPin) => {
+    const cfg = getSupabaseConfig();
+    if (cfg.url && cfg.key) upsertPin(cfg, pin).catch(() => {});
+  };
+  const cloudDeletePin = (id: string) => {
+    const cfg = getSupabaseConfig();
+    if (cfg.url && cfg.key) deletePin(cfg, id).catch(() => {});
+  };
+
   const handlePDFUpload = (file: File) => {
     if (file.type === 'application/pdf') {
       const newEntry: PdfEntry = {
@@ -219,24 +269,27 @@ function App() {
         pageCount: 0,
       };
       setPdfEntries((prev) => [...prev, newEntry]);
+      const cfg = getSupabaseConfig();
+      if (cfg.url && cfg.key) uploadPlanPDF(cfg, file).catch(() => {});
     }
   };
 
   const handlePinAdded = (pin: DoorPin) => {
-    setPins((prev) => {
-      // Count total pins across ALL pages and ALL pdf entries for global sequence
-      const totalPins = Object.values(prev).reduce(
-        (sum, pagePins) => sum + pagePins.length,
-        0
-      );
-      const nextIconNo = String(totalPins + 1);
-      const pinWithNumber = { ...pin, iconNo: nextIconNo };
-
-      return {
-        ...prev,
-        [currentPage]: [...(prev[currentPage] || []), pinWithNumber],
-      };
-    });
+    // Count total pins across ALL pages for the global sequence number.
+    const totalPins = Object.values(pins).reduce(
+      (sum, pagePins) => sum + pagePins.length,
+      0
+    );
+    const pinWithNumber: DoorPin = {
+      ...pin,
+      iconNo: String(totalPins + 1),
+      pageNumber: currentPage,
+    };
+    setPins((prev) => ({
+      ...prev,
+      [currentPage]: [...(prev[currentPage] || []), pinWithNumber],
+    }));
+    cloudUpsertPin(pinWithNumber);
   };
 
   const handlePinRemoved = (pinId: string) => {
@@ -254,6 +307,7 @@ function App() {
       });
       return next;
     });
+    cloudDeletePin(pinId);
   };
 
   const handlePinsRemoved = (pinIds: Set<string>) => {
@@ -271,6 +325,7 @@ function App() {
       });
       return next;
     });
+    pinIds.forEach((id) => cloudDeletePin(id));
   };
 
   const handlePinStatusChanged = (pinId: string, status: DoorPin['status']) => {
@@ -283,6 +338,8 @@ function App() {
       }
       return next;
     });
+    const found = Object.values(pins).flat().find((p) => p.id === pinId);
+    if (found) cloudUpsertPin({ ...found, status });
   };
 
   const handlePinSelected = (pin: DoorPin) => {

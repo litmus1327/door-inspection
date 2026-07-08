@@ -126,3 +126,122 @@ export async function uploadPhotoToSupabase(
     return null;
   }
 }
+
+// ─── Door pins ────────────────────────────────────────────────────────────
+
+function pinToRow(pin: any) {
+  return {
+    id: pin.id,
+    project: pin.projectName || null,
+    page_number: pin.pageNumber ?? null,
+    data: pin,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+export async function upsertPin(config: SupabaseConfig, pin: any): Promise<boolean> {
+  if (!config.url || !config.key) return false;
+  try {
+    const res = await fetch(`${config.url}/rest/v1/door_pins`, {
+      method: 'POST',
+      headers: {
+        'apikey': config.key,
+        'Authorization': `Bearer ${config.key}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify(pinToRow(pin)),
+    });
+    return res.ok || res.status === 201;
+  } catch (error) {
+    console.error('Pin upsert error:', error);
+    return false;
+  }
+}
+
+export async function deletePin(config: SupabaseConfig, id: string): Promise<boolean> {
+  if (!config.url || !config.key) return false;
+  try {
+    const res = await fetch(
+      `${config.url}/rest/v1/door_pins?id=eq.${encodeURIComponent(id)}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'apikey': config.key,
+          'Authorization': `Bearer ${config.key}`,
+        },
+      }
+    );
+    return res.ok;
+  } catch (error) {
+    console.error('Pin delete error:', error);
+    return false;
+  }
+}
+
+// Returns the pin objects (the `data` blob of each row).
+export async function fetchPins(config: SupabaseConfig): Promise<any[] | null> {
+  if (!config.url || !config.key) return null;
+  try {
+    const res = await fetch(`${config.url}/rest/v1/door_pins?select=data`, {
+      headers: {
+        'apikey': config.key,
+        'Authorization': `Bearer ${config.key}`,
+        'Range': '0-9999',
+        'Range-Unit': 'items',
+      },
+    });
+    if (!res.ok) return null;
+    const rows = await res.json();
+    return Array.isArray(rows) ? rows.map((r: any) => r.data).filter(Boolean) : [];
+  } catch (error) {
+    console.error('Fetch pins error:', error);
+    return null;
+  }
+}
+
+// ─── Floor-plan PDF (Supabase Storage) ──────────────────────────────────────
+// Single primary plan stored at a fixed path. Mirrors the app's current
+// single-PDF local persistence.
+
+const PLAN_PATH = 'floor_plans/plan.pdf';
+
+export async function uploadPlanPDF(
+  config: SupabaseConfig,
+  file: File | Blob
+): Promise<boolean> {
+  if (!config.url || !config.key) return false;
+  try {
+    const res = await fetch(`${config.url}/storage/v1/object/${PLAN_PATH}`, {
+      method: 'POST',
+      headers: {
+        'apikey': config.key,
+        'Authorization': `Bearer ${config.key}`,
+        'Content-Type': 'application/pdf',
+        'x-upsert': 'true',
+      },
+      body: file,
+    });
+    return res.ok;
+  } catch (error) {
+    console.error('Plan upload error:', error);
+    return false;
+  }
+}
+
+export async function downloadPlanPDF(config: SupabaseConfig): Promise<Blob | null> {
+  if (!config.url || !config.key) return null;
+  try {
+    const res = await fetch(`${config.url}/storage/v1/object/public/${PLAN_PATH}`, {
+      headers: {
+        'apikey': config.key,
+        'Authorization': `Bearer ${config.key}`,
+      },
+    });
+    if (!res.ok) return null;
+    return await res.blob();
+  } catch (error) {
+    console.error('Plan download error:', error);
+    return null;
+  }
+}
