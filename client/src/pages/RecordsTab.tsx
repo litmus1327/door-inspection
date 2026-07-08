@@ -130,7 +130,7 @@ export default function RecordsTab() {
     total: records.length,
     pass: records.filter(r => r.overallStatus === 'pass').length,
     fail: records.filter(r => r.overallStatus === 'fail').length,
-    pending: records.filter(r => !r.synced).length,
+    pending: records.filter((r: any) => r.completedTime && !r.synced).length,
   };
 
   const exportCSV = () => {

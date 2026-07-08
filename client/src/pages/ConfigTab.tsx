@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { getSupabaseConfig, setSupabaseConfig, testSupabaseConnection } from '@/lib/supabase';
 
 interface ProjectVars {
   construction: 'existing' | 'new';
@@ -15,6 +17,22 @@ export default function ConfigTab() {
 
   const updateVar = <K extends keyof ProjectVars>(key: K, value: ProjectVars[K]) => {
     setProjectVars((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const initialSb = getSupabaseConfig();
+  const [sbUrl, setSbUrl] = useState(initialSb.url);
+  const [sbKey, setSbKey] = useState(initialSb.key);
+  const [sbMsg, setSbMsg] = useState('');
+
+  const saveSupabase = () => {
+    setSupabaseConfig(sbUrl.trim(), sbKey.trim());
+    setSbMsg('Saved.');
+  };
+  const testSupabase = async () => {
+    setSbMsg('Testing…');
+    setSupabaseConfig(sbUrl.trim(), sbKey.trim());
+    const ok = await testSupabaseConnection({ url: sbUrl.trim(), key: sbKey.trim() });
+    setSbMsg(ok ? 'Connected ✓' : 'Could not connect — check the URL/key and that the schema was run.');
   };
 
   const gapStandardOptions = [
@@ -88,6 +106,44 @@ export default function ConfigTab() {
                 {value ? 'Yes' : 'No'}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Cloud Sync (Supabase) */}
+        <div>
+          <label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3 block">
+            Cloud Sync (Supabase)
+          </label>
+          <p className="text-xs text-muted-foreground mb-3">
+            Paste your Supabase Project URL and anon public key to sync inspection records. Use the anon public key, not the service_role key.
+          </p>
+          <input
+            value={sbUrl}
+            onChange={(e) => setSbUrl(e.target.value)}
+            placeholder="https://your-project.supabase.co"
+            className="w-full px-4 py-2 mb-2 rounded border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <input
+            value={sbKey}
+            onChange={(e) => setSbKey(e.target.value)}
+            placeholder="anon public key"
+            type="password"
+            className="w-full px-4 py-2 mb-3 rounded border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <div className="flex gap-2 items-center flex-wrap">
+            <button
+              onClick={saveSupabase}
+              className="px-4 py-2 rounded border border-primary bg-primary text-primary-foreground font-medium"
+            >
+              Save
+            </button>
+            <button
+              onClick={testSupabase}
+              className="px-4 py-2 rounded border border-border text-foreground hover:border-primary/50 font-medium"
+            >
+              Test connection
+            </button>
+            {sbMsg && <span className="text-sm text-muted-foreground">{sbMsg}</span>}
           </div>
         </div>
       </div>
