@@ -18,7 +18,7 @@ import RecordsTab from './pages/RecordsTab';
 import ConfigTab from './pages/ConfigTab';
 import Plans from './pages/Plans';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { getSupabaseConfig, upsertPin, deletePin, fetchPins, uploadPlanPDF, downloadPlanPDF } from './lib/supabase';
+import { getSupabaseConfig, upsertPin, deletePin, fetchPins, uploadPlanPDF, downloadPlanPDF, planExistsInCloud } from './lib/supabase';
 import { DoorPin } from './types';
 
 type TabType = 'plans' | 'inspect' | 'records' | 'config';
@@ -92,17 +92,21 @@ function App() {
   };
 
   // Restore the plan on mount: local IndexedDB first, else pull from the cloud.
+  // If a local plan exists but the cloud doesn't have it yet, push it up once.
   useEffect(() => {
     (async () => {
+      const cfg = getSupabaseConfig();
       let file = await loadPDFFromIDB();
-      if (!file) {
-        const cfg = getSupabaseConfig();
+      if (file) {
         if (cfg.url && cfg.key) {
-          const blob = await downloadPlanPDF(cfg);
-          if (blob && blob.size > 0) {
-            file = new File([blob], 'floor-plan.pdf', { type: 'application/pdf' });
-            savePDFToIDB(file);
-          }
+          const exists = await planExistsInCloud(cfg);
+          if (!exists) uploadPlanPDF(cfg, file).catch(() => {});
+        }
+      } else if (cfg.url && cfg.key) {
+        const blob = await downloadPlanPDF(cfg);
+        if (blob && blob.size > 0) {
+          file = new File([blob], 'floor-plan.pdf', { type: 'application/pdf' });
+          savePDFToIDB(file);
         }
       }
       if (file) {

@@ -229,6 +229,22 @@ export async function uploadPlanPDF(
   }
 }
 
+export async function planExistsInCloud(config: SupabaseConfig): Promise<boolean> {
+  if (!config.url || !config.key) return false;
+  try {
+    const res = await fetch(`${config.url}/storage/v1/object/public/${PLAN_PATH}`, {
+      headers: {
+        'apikey': config.key,
+        'Authorization': `Bearer ${config.key}`,
+        'Range': 'bytes=0-0',
+      },
+    });
+    return res.ok; // 200 or 206
+  } catch {
+    return false;
+  }
+}
+
 export async function downloadPlanPDF(config: SupabaseConfig): Promise<Blob | null> {
   if (!config.url || !config.key) return null;
   try {
