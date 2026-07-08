@@ -31,6 +31,23 @@ export async function testSupabaseConnection(config: SupabaseConfig): Promise<bo
   }
 }
 
+// Map an app inspection record to a door_inspections table row. The full
+// record is kept in `data`; the rest are denormalized columns for querying.
+function recordToRow(record: any) {
+  return {
+    id: record.id,
+    project: record.projectName || null,
+    asset_id: record.assetId || null,
+    icon_no: record.iconNo || null,
+    floor: record.floorNo || null,
+    status: record.overallStatus || null,
+    inspector: record.inspectorName || null,
+    inspection_date: record.completedTime || new Date().toISOString(),
+    data: record,
+    updated_at: new Date().toISOString(),
+  };
+}
+
 export async function uploadInspectionRecord(
   config: SupabaseConfig,
   record: any
@@ -45,7 +62,7 @@ export async function uploadInspectionRecord(
         'Content-Type': 'application/json',
         'Prefer': 'resolution=merge-duplicates,return=minimal',
       },
-      body: JSON.stringify(record),
+      body: JSON.stringify(recordToRow(record)),
     });
     return res.ok || res.status === 201;
   } catch (error) {
@@ -54,6 +71,7 @@ export async function uploadInspectionRecord(
   }
 }
 
+// Returns the app records (the `data` blob of each row), newest first.
 export async function fetchInspectionRecords(
   config: SupabaseConfig,
   projectName?: string
@@ -62,18 +80,19 @@ export async function fetchInspectionRecords(
   try {
     const projectFilter = projectName ? `&project=eq.${encodeURIComponent(projectName)}` : '';
     const res = await fetch(
-      `${config.url}/rest/v1/door_inspections?select=*&order=inspection_date.desc${projectFilter}`,
+      `${config.url}/rest/v1/door_inspections?select=data&order=inspection_date.desc${projectFilter}`,
       {
         headers: {
           'apikey': config.key,
           'Authorization': `Bearer ${config.key}`,
-          'Range': '0-999',
+          'Range': '0-9999',
           'Range-Unit': 'items',
         },
       }
     );
     if (!res.ok) return null;
-    return await res.json();
+    const rows = await res.json();
+    return Array.isArray(rows) ? rows.map((r: any) => r.data).filter(Boolean) : [];
   } catch (error) {
     console.error('Fetch records error:', error);
     return null;

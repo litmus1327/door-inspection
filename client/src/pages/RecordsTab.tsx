@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { DoorPin } from '@/types';
+import { syncInspections, exportBackup } from '@/lib/sync';
+import { getSupabaseConfig } from '@/lib/supabase';
 
 const ASSEMBLY_TYPE_LABELS: Record<string, string> = {
   '3hr_fire': '3-Hour Fire Barrier',
@@ -40,8 +42,10 @@ export default function RecordsTab() {
   const [selected, setSelected] = useState<InspectionRecord | null>(null);
   const [filter, setFilter] = useState<'all' | 'pass' | 'fail'>('all');
   const [search, setSearch] = useState('');
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState('');
 
-  useEffect(() => {
+  const loadRecords = () => {
     // Load current pins (source of truth for what exists)
     const allPins = Object.values(
       JSON.parse(localStorage.getItem('floorPlanPins') || '{}')
@@ -86,7 +90,27 @@ export default function RecordsTab() {
 
     const tableRows = [...dedupedRecords, ...uninspectedRows];
     setRecords(tableRows.slice().reverse());
+  };
+
+  useEffect(() => {
+    (async () => {
+      const cfg = getSupabaseConfig();
+      if (cfg.url && cfg.key) {
+        try { await syncInspections(); } catch { /* offline — show local */ }
+      }
+      loadRecords();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncMsg('');
+    const r = await syncInspections();
+    setSyncMsg(r.ok ? `Synced: ${r.uploaded} up, ${r.downloaded} down` : (r.error || 'Sync failed'));
+    loadRecords();
+    setSyncing(false);
+  };
 
   const filtered = records.filter(r => {
     if (filter !== 'all' && r.overallStatus !== filter) return false;
@@ -180,6 +204,22 @@ export default function RecordsTab() {
           >
             Export CSV
           </button>
+          <button
+            onClick={exportBackup}
+            className="px-3 py-1.5 border border-border rounded-sm text-xs font-mono uppercase tracking-wide text-muted-foreground hover:border-primary/50 transition-all"
+          >
+            Backup
+          </button>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="px-3 py-1.5 border border-primary/50 rounded-sm text-xs font-mono uppercase tracking-wide text-primary hover:bg-primary/10 transition-all disabled:opacity-50"
+          >
+            {syncing ? 'Syncing…' : 'Sync'}
+          </button>
+          {syncMsg && (
+            <span className="text-xs font-mono text-muted-foreground self-center">{syncMsg}</span>
+          )}
         </div>
 
         {/* Table */}
