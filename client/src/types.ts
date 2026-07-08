@@ -1,5 +1,22 @@
 export type DoorStatus = 'not_inspected' | 'pass' | 'fail' | 'inaccessible';
 
+// Interactive door-diagram zones. Each maps to checklist item IDs in
+// client/src/lib/doorZones.ts. See INTERACTIVE_DOOR_DIAGRAM_SPEC.md.
+export type Zone =
+  | 'head_gap'
+  | 'hinge_stile'
+  | 'latch_stile'
+  | 'sill_gap'
+  | 'meeting_stile'
+  | 'leaf_face'
+  | 'frame'
+  | 'closer'
+  | 'latch_hw'
+  | 'panic_hw'
+  | 'vision_panel'
+  | 'gasketing'
+  | 'signage';
+
 export interface DoorScheduleEntry {
   assetId: string | null;
   iconNo: string;
