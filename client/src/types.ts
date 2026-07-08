@@ -15,6 +15,9 @@ export type Zone =
   | 'panic_hw'
   | 'vision_panel';
 
+// Result state of a diagram zone, derived from its checklist items.
+export type ZoneState = 'untouched' | 'pass' | 'advisory' | 'deficient';
+
 export interface DoorScheduleEntry {
   assetId: string | null;
   iconNo: string;
