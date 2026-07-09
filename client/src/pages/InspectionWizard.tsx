@@ -136,11 +136,11 @@ const HARDWARE_VARS = [
 const DEFAULT_HW_STATE: HwState = HARDWARE_VARS.reduce((acc, v) => ({ ...acc, [v.id]: v.default }), {});
 
 // Reference photo + plain-language description per hardware type (setup page 2).
-const HARDWARE_META: Record<string, { desc: string; img?: string }> = {
+const HARDWARE_META: Record<string, { desc: string; img?: string; img2?: string; imgNote?: string }> = {
   hw_automatic_operator: { desc: 'Powered arm that opens the door on its own.', img: '/hardware/hw_automatic_operator.webp' },
   hw_closer: { desc: 'Arm at the top that pulls the door shut on its own.', img: '/hardware/hw_closer.webp' },
   hw_continuous_hinge: { desc: 'Full-height hinge along the entire door edge.', img: '/hardware/hw_continuous_hinge.webp' },
-  hw_coordinator: { desc: 'Bar on a pair that closes the leaves in order.', img: '/hardware/hw_coordinator.jpeg' },
+  hw_coordinator: { desc: 'Bar on a pair that closes the leaves in order.', img: '/hardware/hw_coordinator.jpeg', img2: '/hardware/hw_coordinator_gravity.webp', imgNote: 'Bar and gravity types both count.' },
   hw_deadbolt: { desc: 'Separate bolt above the handle (thumb-turn or key).', img: '/hardware/hw_deadbolt.jpg' },
   hw_delayed_egress: { desc: 'Lock that releases a short delay after pushing.', img: '/hardware/hw_delayed_egress.webp' },
   hw_electric_strike: { desc: 'Electrified strike in the frame that releases the latch.', img: '/hardware/hw_electric_strike.jpg' },
@@ -1894,6 +1894,7 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
 
                 const meta = HARDWARE_META[v.id];
                 const img = meta?.img;
+                const img2 = meta?.img2;
                 const desc = meta?.desc;
                 return (
                   <button
@@ -1905,14 +1906,22 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
                         : 'border-border hover:border-primary/30'
                     }`}
                   >
-                    <div className="w-14 h-14 shrink-0 rounded-sm overflow-hidden bg-background border border-border flex items-center justify-center">
-                      {img
-                        ? <img src={img} alt="" className="w-full h-full object-cover" />
-                        : <span className="text-[10px] text-muted-foreground font-mono text-center px-1">no photo</span>}
+                    <div className="flex shrink-0 gap-1">
+                      <div className="w-14 h-14 rounded-sm overflow-hidden bg-background border border-border flex items-center justify-center">
+                        {img
+                          ? <img src={img} alt="" className="w-full h-full object-cover" />
+                          : <span className="text-[10px] text-muted-foreground font-mono text-center px-1">no photo</span>}
+                      </div>
+                      {img2 && (
+                        <div className="w-14 h-14 rounded-sm overflow-hidden bg-background border border-border flex items-center justify-center">
+                          <img src={img2} alt="" className="w-full h-full object-cover" />
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-medium ${hwState[v.id] ? 'text-primary' : 'text-foreground'}`}>{v.label}</p>
                       {desc && <p className="text-xs text-muted-foreground">{desc}</p>}
+                      {meta?.imgNote && <p className="text-[11px] text-muted-foreground italic mt-0.5">{meta.imgNote}</p>}
                     </div>
                     <span className={`text-xs font-mono shrink-0 ${hwState[v.id] ? 'text-primary' : 'text-muted-foreground'}`}>
                       {hwState[v.id] ? 'ON' : 'OFF'}
