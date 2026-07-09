@@ -3,16 +3,7 @@ import { DoorPin } from '@/types';
 import { syncInspections, exportBackup } from '@/lib/sync';
 import { getSupabaseConfig } from '@/lib/supabase';
 import { exportFieldwireCsv } from '@/lib/fieldwireExport';
-
-const ASSEMBLY_TYPE_LABELS: Record<string, string> = {
-  '3hr_fire': '3-Hour Fire Barrier',
-  '2hr_fire': '2-Hour Fire Barrier',
-  '1hr_fire': '1-Hour Fire Barrier',
-  '1hr_partition': '1-Hour Partition',
-  'smoke_barrier': 'Smoke Barrier',
-  'smoke_partition': 'Smoke Partition',
-  'suite_perimeter': 'Suite Perimeter',
-};
+import { ASSEMBLY_TYPE_LABELS } from '@/lib/inspectionRules';
 
 interface Deficiency {
   category: string;
