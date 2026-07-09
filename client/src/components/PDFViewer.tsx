@@ -54,6 +54,9 @@ export default function PDFViewer({
 }: PDFViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Transparent layer above the PDF for pins + grid, so pin changes never
+  // re-render the PDF (previously caused the flash and dropped/renumbered pins).
+  const overlayRef = useRef<HTMLCanvasElement>(null);
   const [pdf, setPdf] = useState<any>(null);
   const [activePage, setActivePage] = useState(initialPage);
   const [totalPages, setTotalPages] = useState(0);
@@ -308,13 +311,8 @@ export default function PDFViewer({
           setScale(fitScale);
         }
 
-        // Draw pins for this page immediately after PDF renders
-        const currentPins = pins.filter((p) => !p.pageNumber || p.pageNumber === activePage);
-        currentPins.forEach((pin) => drawBalloonPin(context, pin, viewport, selectedPinIds.has(pin.id)));
-
-        // Draw grid overlay
-        const currentFloorName = floorNames[activePage] || '';
-        drawGrid(context, viewport, currentFloorName);
+        // Paint pins + grid on the separate overlay layer (not on the PDF canvas).
+        drawOverlay();
 
         // Extract floor name from page text
         try {
@@ -389,41 +387,12 @@ export default function PDFViewer({
     renderPage();
   }, [pdf, activePage, totalPages]);
 
-  // Draw pins separately whenever pins change (re-render PDF first to clear old pins)
+  // Repaint ONLY the pin/grid overlay when pins, selection, or the floor name
+  // change — the PDF underneath is untouched (no flash, no dropped pins).
   useEffect(() => {
-    if (!canvasRef.current || !baseViewportRef.current || !pdf) return;
-    if (isRenderingRef.current) return; // PDF is rendering, skip — renderPage will draw pins
-
-    const redraw = async () => {
-      const canvas = canvasRef.current!;
-      const context = canvas.getContext('2d');
-      if (!context) return;
-
-      // Re-render PDF page to clear old pins
-      // Resolve correct local page number for multi-PDF support
-      const entry = pdfEntries.find(
-        (e) => activePage >= e.pageOffset + 1 &&
-                activePage <= e.pageOffset + e.pageCount
-      ) || pdfEntries[0];
-      const localPage = activePage - (entry?.pageOffset || 0);
-      
-      const page = await pdf.getPage(localPage);
-      const viewport = baseViewportRef.current;
-      const renderTask = page.render({ canvasContext: context, viewport });
-      await renderTask.promise;
-
-      // Draw current pins on top
-      const currentPins = pins
-        .filter((pin) => !pin.pageNumber || pin.pageNumber === activePage);
-      currentPins.forEach((pin) => drawBalloonPin(context, pin, viewport, selectedPinIds.has(pin.id)));
-
-      // Draw grid overlay
-      const currentFloorName = floorNames[activePage] || '';
-      drawGrid(context, viewport, currentFloorName);
-    };
-
-    redraw();
-  }, [pins, activePage, pdf, selectedPinIds]);
+    drawOverlay();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pins, selectedPinIds, floorNames, activePage]);
 
   const drawGrid = (
     context: CanvasRenderingContext2D,
@@ -550,6 +519,23 @@ export default function PDFViewer({
     context.fillText(pin.iconNo || '?', cx, cy);
 
     context.restore();
+  };
+
+  // Repaint the overlay layer (pins + grid) to match the PDF underneath. Cheap:
+  // just a canvas clear + shape draws, no PDF re-render.
+  const drawOverlay = () => {
+    const overlay = overlayRef.current;
+    const viewport = baseViewportRef.current;
+    if (!overlay || !viewport) return;
+    const ctx = overlay.getContext('2d');
+    if (!ctx) return;
+    if (overlay.width !== viewport.width) overlay.width = viewport.width;
+    if (overlay.height !== viewport.height) overlay.height = viewport.height;
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
+    pins
+      .filter((p) => !p.pageNumber || p.pageNumber === activePage)
+      .forEach((pin) => drawBalloonPin(ctx, pin, viewport, selectedPinIds.has(pin.id)));
+    drawGrid(ctx, viewport, floorNames[activePage] || '');
   };
 
   const handlePageChange = (delta: number) => {
@@ -868,6 +854,22 @@ export default function PDFViewer({
             transform: `translate(${panX}px, ${panY}px) scale(${scale / 2})`,
             transformOrigin: '0 0',
             transition: 'none',
+          }}
+        />
+
+        {/* Pin + grid overlay — same size/transform as the PDF canvas, on top,
+            transparent, and click-through so it never blocks pin placement. */}
+        <canvas
+          ref={overlayRef}
+          style={{
+            display: 'block',
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            transform: `translate(${panX}px, ${panY}px) scale(${scale / 2})`,
+            transformOrigin: '0 0',
+            transition: 'none',
+            pointerEvents: 'none',
           }}
         />
 
