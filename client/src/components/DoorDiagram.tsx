@@ -100,8 +100,6 @@ export default function DoorDiagram({
         onZoneHover?.(null);
       },
       onClick: () => {
-        // eslint-disable-next-line no-console
-        console.log('[DoorDiagram] zone click:', z, ZONE_TO_ITEM_IDS[z]);
         onZoneClick?.(z);
       },
     };

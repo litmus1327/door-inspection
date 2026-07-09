@@ -108,5 +108,9 @@ temp/
 # Webdev artifacts (checkpoint zips, migrations, etc.)
 .webdev/
 
+# Checkpoint / delivery zips (produced at repo root per the working rules)
+checkpoint-*.zip
+*.zip
+
 # Manus version file (auto-generated, not part of source)
 client/public/__manus__/version.json

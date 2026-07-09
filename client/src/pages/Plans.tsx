@@ -55,11 +55,8 @@ export default function Plans({
   useEffect(() => {
     if (pdfEntries.length === 0 || totalPages === 0) return;
 
-    console.log('Starting extraction for', totalPages, 'pages');
-
     const generateThumbnailsAndNames = async () => {
       for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-        console.log(`Extracting page ${pageNum} of ${totalPages}`);
         try {
           // Find which PDF entry contains this page
           const pdfEntry = pdfEntries.find(
@@ -151,7 +148,6 @@ export default function Plans({
             .replace(/\s+Floor\s*$/i, '')
             .trim();
 
-          console.log(`Page ${pageNum}: ${floorName}`);
           onFloorNameExtracted?.(pageNum, floorName);
         } catch (err) {
           console.warn(`Page ${pageNum} processing failed:`, err);

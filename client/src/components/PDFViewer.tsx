@@ -762,28 +762,13 @@ export default function PDFViewer({
         const minPctY = Math.min(startPctY, endPctY);
         const maxPctY = Math.max(startPctY, endPctY);
         
-        console.log('=== MARQUEE SELECTION DEBUG ===');
-        console.log('panXRef.current:', panXRef.current);
-        console.log('panYRef.current:', panYRef.current);
-        console.log('scaleRef.current:', scaleRef.current);
-        console.log('baseViewportRef.current.width:', baseViewportRef.current.width);
-        console.log('baseViewportRef.current.height:', baseViewportRef.current.height);
-        console.log('marqueeStart:', marqueeStart);
-        console.log('marqueeEnd:', marqueeEnd);
-        console.log('startPctX:', startPctX, 'startPctY:', startPctY);
-        console.log('endPctX:', endPctX, 'endPctY:', endPctY);
-        console.log('Selection rectangle (pct): X [', minPctX, '-', maxPctX, '] Y [', minPctY, '-', maxPctY, ']');
-        
         const selectedIds = new Set<string>();
         pins.forEach((pin) => {
           const isInRange = pin.x >= minPctX && pin.x <= maxPctX && pin.y >= minPctY && pin.y <= maxPctY;
-          console.log('Pin', pin.id, '- x:', pin.x, 'y:', pin.y, '- IN RANGE:', isInRange);
           if (isInRange) {
             selectedIds.add(pin.id);
           }
         });
-        console.log('Selected IDs:', Array.from(selectedIds));
-        console.log('=== END DEBUG ===');
         onSelectionChange(selectedIds);
       } else {
         // Click with no drag = clear selection
