@@ -457,7 +457,7 @@ function App() {
                     {/* Centered panel */}
                     <div className="fixed inset-x-0 top-0 z-50 flex items-stretch justify-center pointer-events-none" style={{ height: '100dvh' }}>
                       <div
-                        className="pointer-events-auto w-[42vw] min-w-[320px] overflow-hidden bg-background border-l border-r border-border shadow-2xl"
+                        className="pointer-events-auto w-full md:w-[42vw] md:min-w-[420px] overflow-hidden bg-background md:border-l md:border-r border-border shadow-2xl"
                         style={{ height: '100dvh' }}
                       >
                         <InspectionWizard

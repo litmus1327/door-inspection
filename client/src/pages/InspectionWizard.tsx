@@ -1552,7 +1552,7 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
             <div className="bg-card border border-border rounded-sm p-4 space-y-3">
               <h2 className="text-xs font-semibold uppercase tracking-widest text-primary font-mono">Door Identification</h2>
 
-              <div className="grid grid-cols-2 gap-x-6 items-start">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-y-3 md:gap-x-6 items-start">
                 {/* LEFT COLUMN */}
                 <div className="space-y-2">
                   {([

@@ -286,3 +286,20 @@
     transform: translateX(0);
   }
 }
+
+/* Mobile ergonomics (unlayered so these win over utility text-sm).
+   iOS Safari zooms the viewport when focusing any control under 16px — force
+   16px on phones. Also give real tap targets a comfortable minimum height. */
+@media (max-width: 640px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea,
+  .codify-input {
+    font-size: 16px;
+  }
+  button,
+  [role="button"],
+  select {
+    min-height: 40px;
+  }
+}

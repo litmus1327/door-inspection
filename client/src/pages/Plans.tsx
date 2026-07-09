@@ -365,8 +365,8 @@ export default function Plans({
                     });
                   }}
                   onClick={(e) => e.stopPropagation()}
-                  className={`absolute top-2 left-2 z-10 w-5 h-5 cursor-pointer transition-opacity ${
-                    checkedPages.size > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                  className={`absolute top-2 left-2 z-10 w-6 h-6 cursor-pointer transition-opacity ${
+                    checkedPages.size > 0 ? 'opacity-100' : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100'
                   }`}
                 />
 
