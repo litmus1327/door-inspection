@@ -131,7 +131,9 @@ export default function PDFViewer({
         e.preventDefault();
         const currentDistance = getTouchDistance(e.touches);
         const scaleFactor = currentDistance / touchDistanceRef.current;
-        const newScale = Math.max(0.25, Math.min(5, touchStartScaleRef.current * scaleFactor));
+        // Cap at 3x (was 5x): compositing the 2x-rendered canvas scaled much
+        // further crashes iOS Safari ("A problem repeatedly occurred").
+        const newScale = Math.max(0.25, Math.min(3, touchStartScaleRef.current * scaleFactor));
 
         // Zoom to center of pinch
         const touch1 = e.touches[0];
@@ -629,7 +631,7 @@ export default function PDFViewer({
     const pdfPointY = (cursorY - panYRef.current) / scaleRef.current;
 
     const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-    const newScale = Math.max(0.25, Math.min(5, scaleRef.current * zoomFactor));
+    const newScale = Math.max(0.25, Math.min(3, scaleRef.current * zoomFactor));
 
     const newPanX = cursorX - pdfPointX * newScale;
     const newPanY = cursorY - pdfPointY * newScale;
