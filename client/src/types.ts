@@ -44,8 +44,11 @@ export interface DoorPin {
 
 export interface InspectionDeficiency {
   id: string;
-  status: 'deficient' | 'advisory' | 'pass';
+  status: 'deficient' | 'advisory' | 'pass' | 'compliant';
+  text?: string;
+  category?: string;
   note?: string;
+  branchAnswers?: Record<string, string>;
 }
 
 export interface DoorInspection {
@@ -59,11 +62,8 @@ export interface DoorInspection {
   inspectorName: string;
   projectName: string;
   completedTime: string;
-  overallStatus: 'pass' | 'fail';
-  deficiencies: Array<{
-    deficiency: string;
-    note?: string;
-  }>;
+  overallStatus: 'pass' | 'fail' | 'conditional' | 'inaccessible';
+  deficiencies: InspectionDeficiency[];
   findings: Record<string, any>;
   additionalComments?: string;
   postInspectionStatus?: string;
@@ -73,6 +73,6 @@ export interface DoorInspection {
 
 export interface ProjectVars {
   construction: 'existing' | 'new';
-  gapStandard: 'codify' | 'other';
+  gapStandard: 'codify' | 'nfpa80' | 'preoccupancy' | 'surveyreadiness';
   sprinklered: boolean;
 }

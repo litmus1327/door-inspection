@@ -31,6 +31,8 @@ function mapStatus(overall: string | undefined, hasRecord: boolean): string {
   if (!hasRecord) return 'Not Inspected';
   if (overall === 'fail') return 'Fail';
   if (overall === 'pass' || overall === 'conditional') return 'Pass';
+  // 'inaccessible' (and any unknown status) report as Not Inspected — the door
+  // was reached but couldn't be evaluated, so it isn't a pass or a fail.
   return 'Not Inspected';
 }
 

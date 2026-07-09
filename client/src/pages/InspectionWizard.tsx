@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import DoorDiagram from '@/components/DoorDiagram';
 import type { Zone, ZoneState } from '@/types';
@@ -1228,10 +1228,11 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
     setPhase('inspect');
   };
 
-  // Derived: applicable items and visible sections
-  const applicableItems = currentDoor
+  // Derived: applicable items and visible sections. Memoized — this builds
+  // ~60 items + filter + sort and otherwise reran on every keystroke/hover.
+  const applicableItems = useMemo(() => currentDoor
     ? getApplicableItems(currentDoor.assemblyType, currentDoor.hwState, currentDoor.doorSwingType, currentDoor.projectVars, currentDoor.isCrossCorridor === true, currentDoor.doorRating, currentDoor.frameRating, currentDoor.isHealthCareOccupancy, x14Compliant)
-    : [];
+    : [], [currentDoor, x14Compliant]);
 
   const visibleSections = SECTIONS.filter(sec =>
     applicableItems.some(item => item.section === sec)
@@ -1242,16 +1243,19 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
   const isLastSection = currentSectionIdx >= visibleSections.length - 1;
 
   // Diagram: per-zone color state derived from current deficiencies.
-  const zoneStates: Partial<Record<Zone, ZoneState>> = {};
-  for (const z of Object.keys(ZONE_TO_ITEM_IDS) as Zone[]) {
-    let s: ZoneState | undefined;
-    for (const id of ZONE_TO_ITEM_IDS[z]) {
-      const st = deficiencies[id]?.status;
-      if (st === 'deficient') { s = 'deficient'; break; }
-      if (st === 'advisory') s = 'advisory';
+  const zoneStates = useMemo(() => {
+    const zs: Partial<Record<Zone, ZoneState>> = {};
+    for (const z of Object.keys(ZONE_TO_ITEM_IDS) as Zone[]) {
+      let s: ZoneState | undefined;
+      for (const id of ZONE_TO_ITEM_IDS[z]) {
+        const st = deficiencies[id]?.status;
+        if (st === 'deficient') { s = 'deficient'; break; }
+        if (st === 'advisory') s = 'advisory';
+      }
+      if (s) zs[z] = s;
     }
-    if (s) zoneStates[z] = s;
-  }
+    return zs;
+  }, [deficiencies]);
   const panicPresent = currentDoor?.hwState?.hw_panic_device === true;
   // Draw only the parts this door actually has.
   const dhw = currentDoor?.hwState || {};
