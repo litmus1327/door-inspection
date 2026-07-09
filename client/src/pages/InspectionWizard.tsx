@@ -3,6 +3,7 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import DoorDiagram from '@/components/DoorDiagram';
 import type { Zone, ZoneState } from '@/types';
 import { ZONE_TO_ITEM_IDS, ZONE_LABELS } from '@/lib/doorZones';
+import { getSupabaseConfig, uploadPhotoToSupabase } from '@/lib/supabase';
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -883,6 +884,9 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
   const [currentDoor, setCurrentDoor] = useState<CurrentDoor | null>(null);
   const [inspectView, setInspectView] = useState<'checklist' | 'diagram'>('diagram');
   const [diagramZone, setDiagramZone] = useState<Zone | null>(null);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  useEffect(() => { setPhotos([]); }, [selectedDoor?.pinId]);
 
   // Sync selectedDoor prop into form
   useEffect(() => {
@@ -1295,6 +1299,21 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
     });
   }, []);
 
+  const handleAddPhotos = async (files: FileList) => {
+    const cfg = getSupabaseConfig();
+    if (!cfg.url || !cfg.key) {
+      alert('Add your Supabase settings in Project Settings to attach photos.');
+      return;
+    }
+    setPhotoUploading(true);
+    const id = selectedDoor?.pinId || currentDoor?.iconNo || 'unknown';
+    for (const f of Array.from(files)) {
+      const url = await uploadPhotoToSupabase(cfg, f, id);
+      if (url) setPhotos(prev => [...prev, url]);
+    }
+    setPhotoUploading(false);
+  };
+
   const completeInspection = () => {
     const defList = Object.entries(deficiencies)
       .filter(([_, d]) => d.status === 'deficient' || d.status === 'advisory')
@@ -1318,6 +1337,7 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
       deficiencies: defList,
       findings: deficiencies,
       additionalComments: additionalComments,
+      photos: photos,
       synced: false,
     };
 
@@ -1930,6 +1950,33 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
 
       {/* Section content */}
       <div className="flex-1 overflow-auto p-4 max-w-2xl mx-auto w-full">
+        {/* Photos (optional) */}
+        <div className="mb-4 flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Photos</span>
+          {photos.map((url, i) => (
+            <div key={i} className="relative">
+              <img src={url} alt="" className="w-12 h-12 object-cover rounded-sm border border-border" />
+              <button
+                onClick={() => setPhotos(prev => prev.filter((_, j) => j !== i))}
+                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-[10px] leading-none flex items-center justify-center"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <label className="px-3 py-1.5 border border-border rounded-sm text-xs font-mono uppercase tracking-wide text-muted-foreground hover:border-primary/50 cursor-pointer">
+            {photoUploading ? 'Uploading…' : '+ Add photo'}
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              multiple
+              className="hidden"
+              onChange={e => { if (e.target.files) handleAddPhotos(e.target.files); e.target.value = ''; }}
+            />
+          </label>
+        </div>
+
         {inspectView === 'diagram' && (
           <div className="space-y-4">
             <DoorDiagram
