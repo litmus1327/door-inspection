@@ -204,7 +204,7 @@ const BLOCKING_PROMPTS: Array<{
   },
 ];
 
-function getApplicableItems(
+export function getApplicableItems(
   atype: string,
   hw: HwState,
   swing: string,
