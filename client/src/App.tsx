@@ -38,8 +38,14 @@ function App() {
   const [activeTab, setActiveTab] = useState<TabType>('plans');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // The active project gates the app: with none chosen, we show the Projects
-  // page (pick your name + pick/create a project) instead of a setup wizard.
-  const [activeProject, setActiveProject] = useLocalStorage('activeProject', '');
+  // page. It is SESSION state (starts empty on every launch) so the app always
+  // opens on the Projects home rather than jumping back into the last project;
+  // we still mirror it to localStorage so the other screens can read it.
+  const [activeProject, setActiveProjectState] = useState('');
+  const setActiveProject = (name: string) => {
+    setActiveProjectState(name);
+    try { localStorage.setItem('activeProject', name); } catch { /* ignore */ }
+  };
   const [inspectorName] = useLocalStorage('inspectorName', '');
   // Set right before activating a just-created project, so the restore effect
   // keeps the plan we already have in hand instead of re-reading IndexedDB
