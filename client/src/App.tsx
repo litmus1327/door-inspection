@@ -1,4 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+// uuid works in insecure contexts (e.g. the http:// LAN test link); crypto.randomUUID
+// is undefined there and throws, which broke PDF-entry creation on phones.
+import { v4 as uuidv4 } from 'uuid';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Configure PDF.js worker
@@ -38,6 +41,10 @@ function App() {
   // page (pick your name + pick/create a project) instead of a setup wizard.
   const [activeProject, setActiveProject] = useLocalStorage('activeProject', '');
   const [inspectorName] = useLocalStorage('inspectorName', '');
+  // Set right before activating a just-created project, so the restore effect
+  // keeps the plan we already have in hand instead of re-reading IndexedDB
+  // (which fails silently on some mobile browsers, e.g. iOS Safari).
+  const skipRestoreRef = useRef(false);
   const [selectedDoor, setSelectedDoor] = useState<{
     pinId?: string;
     assetId: string | null;
@@ -123,6 +130,12 @@ function App() {
       setPdfEntries([]);
       return;
     }
+    // A project we just created already has its plan in state — don't clobber it
+    // by re-reading storage (which may have silently failed to save on mobile).
+    if (skipRestoreRef.current) {
+      skipRestoreRef.current = false;
+      return;
+    }
     let cancelled = false;
     (async () => {
       const cfg = getSupabaseConfig();
@@ -143,7 +156,7 @@ function App() {
       if (cancelled) return;
       setPdfEntries(
         files.map((file) => ({
-          id: crypto.randomUUID(),
+          id: uuidv4(),
           file,
           pageOffset: 0,
           pageCount: 0,
@@ -358,7 +371,7 @@ function App() {
       return;
     }
     const newEntry: PdfEntry = {
-      id: crypto.randomUUID(),
+      id: uuidv4(),
       file,
       pageOffset: 0,
       pageCount: 0,
@@ -368,13 +381,16 @@ function App() {
     if (cfg.url && cfg.key && activeProject) uploadPlanPDF(cfg, file, activeProject).catch(() => {});
   };
 
-  // Create a project from the Projects page: cache its plan locally (so it
-  // opens instantly, even offline), upload it, then activate the project.
-  const handleCreateProject = async (name: string, plan: File) => {
-    await savePDFsToIDB([plan], name);
+  // Create a project from the Projects page: show its plan immediately from the
+  // file in hand (so it works even if IndexedDB or the network is unavailable),
+  // then persist to IndexedDB and the cloud as best-effort background work.
+  const handleCreateProject = (name: string, plan: File) => {
+    skipRestoreRef.current = true;
+    setPdfEntries([{ id: uuidv4(), file: plan, pageOffset: 0, pageCount: 0 }]);
+    setActiveProject(name);
+    savePDFsToIDB([plan], name).catch(() => {});
     const cfg = getSupabaseConfig();
     if (cfg.url && cfg.key) uploadPlanPDF(cfg, plan, name).catch(() => {});
-    setActiveProject(name);
   };
 
   const handlePinAdded = (pin: DoorPin) => {
