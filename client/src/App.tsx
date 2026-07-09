@@ -11,7 +11,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
-import Setup from './pages/Setup';
+import ProjectsPage from './pages/ProjectsPage';
 import FloorPlanViewer from './pages/FloorPlanViewer';
 import InspectionWizard from './pages/InspectionWizard';
 import RecordsTab from './pages/RecordsTab';
@@ -34,8 +34,10 @@ interface PdfEntry {
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>('plans');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // The active project gates the app: with none chosen, we show the Projects
+  // page (pick your name + pick/create a project) instead of a setup wizard.
+  const [activeProject, setActiveProject] = useLocalStorage('activeProject', '');
   const [inspectorName] = useLocalStorage('inspectorName', '');
-  const [showSetup, setShowSetup] = useState(!inspectorName);
   const [selectedDoor, setSelectedDoor] = useState<{
     pinId?: string;
     assetId: string | null;
@@ -69,20 +71,30 @@ function App() {
 
   // Persist ALL uploaded PDFs (ordered), not just the first. The previous
   // single-key scheme silently dropped every PDF after the first on reload.
-  const savePDFsToIDB = async (files: File[]) => {
+  const idbKey = (project: string) => `floorplans__${project}`;
+
+  const savePDFsToIDB = async (files: File[], project: string) => {
+    if (!project) return;
     try {
       const db = await openDB();
-      const tx = db.transaction('files', 'readwrite');
-      tx.objectStore('files').put({
-        id: 'floorplans',
-        files: files.map((f) => ({ name: f.name, file: f })),
+      // Await commit so a subsequent read (e.g. the restore effect right after
+      // creating a project) reliably sees the plan.
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction('files', 'readwrite');
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.objectStore('files').put({
+          id: idbKey(project),
+          files: files.map((f) => ({ name: f.name, file: f })),
+        });
       });
     } catch (err) {
       console.error('Error saving PDFs to IndexedDB:', err);
     }
   };
 
-  const loadPDFsFromIDB = async (): Promise<File[]> => {
+  const loadPDFsFromIDB = async (project: string): Promise<File[]> => {
+    if (!project) return [];
     try {
       const db = await openDB();
       const store = db.transaction('files', 'readonly').objectStore('files');
@@ -92,50 +104,55 @@ function App() {
           req.onsuccess = () => resolve(req.result || null);
           req.onerror = () => resolve(null);
         });
-      const multi = await get('floorplans');
+      const multi = await get(idbKey(project));
       if (multi?.files?.length) {
         return multi.files.map((x: { file: File }) => x.file).filter(Boolean);
       }
-      // Migrate the legacy single-PDF key if present.
-      const single = await get('floorplan');
-      return single?.file ? [single.file] : [];
+      return [];
     } catch (err) {
       console.error('Error loading PDFs from IndexedDB:', err);
       return [];
     }
   };
 
-  // Restore the plan on mount: local IndexedDB first, else pull from the cloud.
-  // If a local plan exists but the cloud doesn't have it yet, push it up once.
+  // Restore the ACTIVE project's plan: local IndexedDB first, else pull from the
+  // cloud. Re-runs when the project changes so switching projects loads the
+  // right plan. If a local plan exists but the cloud lacks it, push it up once.
   useEffect(() => {
+    if (!activeProject) {
+      setPdfEntries([]);
+      return;
+    }
+    let cancelled = false;
     (async () => {
       const cfg = getSupabaseConfig();
-      let files = await loadPDFsFromIDB();
+      let files = await loadPDFsFromIDB(activeProject);
       if (files.length > 0) {
         if (cfg.url && cfg.key) {
-          const exists = await planExistsInCloud(cfg);
-          if (!exists) uploadPlanPDF(cfg, files[0]).catch(() => {});
+          const exists = await planExistsInCloud(cfg, activeProject);
+          if (!exists) uploadPlanPDF(cfg, files[0], activeProject).catch(() => {});
         }
       } else if (cfg.url && cfg.key) {
-        const blob = await downloadPlanPDF(cfg);
+        const blob = await downloadPlanPDF(cfg, activeProject);
         if (blob && blob.size > 0) {
           const file = new File([blob], 'floor-plan.pdf', { type: 'application/pdf' });
           files = [file];
-          savePDFsToIDB(files);
+          savePDFsToIDB(files, activeProject);
         }
       }
-      if (files.length > 0) {
-        setPdfEntries(
-          files.map((file) => ({
-            id: crypto.randomUUID(),
-            file,
-            pageOffset: 0,
-            pageCount: 0,
-          }))
-        );
-      }
+      if (cancelled) return;
+      setPdfEntries(
+        files.map((file) => ({
+          id: crypto.randomUUID(),
+          file,
+          pageOffset: 0,
+          pageCount: 0,
+        }))
+      );
     })();
-  }, []);
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProject]);
 
   // Pin sync + multi-inspector presence.
   //  - On mount: push local pins up, then pull this project's cloud pins as the
@@ -200,7 +217,7 @@ function App() {
       window.removeEventListener('focus', onFocus);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeProject]);
 
   // Load all PDF documents
   useEffect(() => {
@@ -238,12 +255,14 @@ function App() {
     }
   }, [pdfEntries.length]);
 
-  // Persist all PDFs to IDB (ordered) so every uploaded plan survives reload.
+  // Persist all PDFs to IDB (ordered, per project) so every uploaded plan
+  // survives reload.
   useEffect(() => {
-    if (pdfEntries.length > 0) {
-      savePDFsToIDB(pdfEntries.map((e) => e.file));
+    if (pdfEntries.length > 0 && activeProject) {
+      savePDFsToIDB(pdfEntries.map((e) => e.file), activeProject);
     }
-  }, [pdfEntries]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pdfEntries, activeProject]);
 
   // Update sync status based on online/offline, and flush pending work when
   // connectivity returns (previously the app only recorded the status string).
@@ -346,7 +365,16 @@ function App() {
     };
     setPdfEntries((prev) => [...prev, newEntry]);
     const cfg = getSupabaseConfig();
-    if (cfg.url && cfg.key) uploadPlanPDF(cfg, file).catch(() => {});
+    if (cfg.url && cfg.key && activeProject) uploadPlanPDF(cfg, file, activeProject).catch(() => {});
+  };
+
+  // Create a project from the Projects page: cache its plan locally (so it
+  // opens instantly, even offline), upload it, then activate the project.
+  const handleCreateProject = async (name: string, plan: File) => {
+    await savePDFsToIDB([plan], name);
+    const cfg = getSupabaseConfig();
+    if (cfg.url && cfg.key) uploadPlanPDF(cfg, plan, name).catch(() => {});
+    setActiveProject(name);
   };
 
   const handlePinAdded = (pin: DoorPin) => {
@@ -436,13 +464,18 @@ function App() {
     setFloorNames((prev) => ({ ...prev, [pageNum]: name }));
   };
 
-  if (showSetup) {
+  // No project chosen yet → show the Projects page (pick your name, pick or
+  // create a project). This replaces the old name/project/Supabase setup wizard.
+  if (!activeProject) {
     return (
       <ErrorBoundary>
         <ThemeProvider defaultTheme="light" switchable>
           <TooltipProvider>
             <Toaster />
-            <Setup onComplete={() => setShowSetup(false)} />
+            <ProjectsPage
+              onSelectProject={(name) => setActiveProject(name)}
+              onCreateProject={handleCreateProject}
+            />
           </TooltipProvider>
         </ThemeProvider>
       </ErrorBoundary>
@@ -461,6 +494,8 @@ function App() {
               onTabChange={(tab) => setActiveTab(tab as TabType)}
               isOpen={sidebarOpen}
               onClose={() => setSidebarOpen(false)}
+              activeProject={activeProject}
+              onSwitchProject={() => { setSidebarOpen(false); setActiveProject(''); }}
             />
 
             {/* Main Content */}

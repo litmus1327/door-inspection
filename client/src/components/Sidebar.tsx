@@ -1,10 +1,12 @@
-import { MapPin, ClipboardList, FileText, Settings, ChevronRight } from 'lucide-react';
+import { MapPin, FileText, Settings, ChevronRight, FolderOpen } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   isOpen: boolean;
   onClose?: () => void;
+  activeProject?: string;
+  onSwitchProject?: () => void;
 }
 
 const tabs = [
@@ -13,7 +15,7 @@ const tabs = [
   { id: 'config', label: 'Project Settings', icon: Settings },
 ];
 
-export default function Sidebar({ activeTab, onTabChange, isOpen, onClose }: SidebarProps) {
+export default function Sidebar({ activeTab, onTabChange, isOpen, onClose, activeProject, onSwitchProject }: SidebarProps) {
   return (
     <>
       {/* Mobile backdrop */}
@@ -57,8 +59,19 @@ export default function Sidebar({ activeTab, onTabChange, isOpen, onClose }: Sid
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-sidebar-border text-xs text-sidebar-foreground/60">
-        <p className="font-mono">v1.0.0</p>
+      <div className="p-3 border-t border-sidebar-border space-y-2">
+        {onSwitchProject && (
+          <button
+            onClick={onSwitchProject}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-sm text-sidebar-foreground hover:bg-sidebar-accent transition-all"
+          >
+            <FolderOpen size={18} />
+            <span className="text-sm font-medium truncate">
+              {activeProject ? `Project: ${activeProject}` : 'Choose Project'}
+            </span>
+          </button>
+        )}
+        <p className="font-mono text-xs text-sidebar-foreground/60 px-1">v1.0.0</p>
       </div>
       </aside>
     </>

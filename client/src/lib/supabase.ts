@@ -4,9 +4,13 @@ export interface SupabaseConfig {
 }
 
 export function getSupabaseConfig(): SupabaseConfig {
+  // Prefer the connection baked into the deploy (Vite env vars) so inspectors
+  // never have to enter a URL/key. Fall back to any locally-saved config.
+  const envUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || '';
+  const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || '';
   return {
-    url: localStorage.getItem('supabaseUrl') || '',
-    key: localStorage.getItem('supabaseKey') || '',
+    url: envUrl || localStorage.getItem('supabaseUrl') || '',
+    key: envKey || localStorage.getItem('supabaseKey') || '',
   };
 }
 
@@ -204,18 +208,18 @@ export async function fetchPins(config: SupabaseConfig, projectName?: string): P
 }
 
 // ─── Floor-plan PDF (Supabase Storage) ──────────────────────────────────────
-// Single primary plan stored at a fixed path. Mirrors the app's current
-// single-PDF local persistence.
+// Each project has its own plan under floor_plans/<project>/plan.pdf.
 
-const PLAN_PATH = 'floor_plans/plan.pdf';
+const planPath = (project: string) => `floor_plans/${encodeURIComponent(project)}/plan.pdf`;
 
 export async function uploadPlanPDF(
   config: SupabaseConfig,
-  file: File | Blob
+  file: File | Blob,
+  project: string
 ): Promise<boolean> {
-  if (!config.url || !config.key) return false;
+  if (!config.url || !config.key || !project) return false;
   try {
-    const res = await fetch(`${config.url}/storage/v1/object/${PLAN_PATH}`, {
+    const res = await fetch(`${config.url}/storage/v1/object/${planPath(project)}`, {
       method: 'POST',
       headers: {
         'apikey': config.key,
@@ -232,10 +236,10 @@ export async function uploadPlanPDF(
   }
 }
 
-export async function planExistsInCloud(config: SupabaseConfig): Promise<boolean> {
-  if (!config.url || !config.key) return false;
+export async function planExistsInCloud(config: SupabaseConfig, project: string): Promise<boolean> {
+  if (!config.url || !config.key || !project) return false;
   try {
-    const res = await fetch(`${config.url}/storage/v1/object/public/${PLAN_PATH}`, {
+    const res = await fetch(`${config.url}/storage/v1/object/public/${planPath(project)}`, {
       headers: {
         'apikey': config.key,
         'Authorization': `Bearer ${config.key}`,
@@ -248,10 +252,10 @@ export async function planExistsInCloud(config: SupabaseConfig): Promise<boolean
   }
 }
 
-export async function downloadPlanPDF(config: SupabaseConfig): Promise<Blob | null> {
-  if (!config.url || !config.key) return null;
+export async function downloadPlanPDF(config: SupabaseConfig, project: string): Promise<Blob | null> {
+  if (!config.url || !config.key || !project) return null;
   try {
-    const res = await fetch(`${config.url}/storage/v1/object/public/${PLAN_PATH}`, {
+    const res = await fetch(`${config.url}/storage/v1/object/public/${planPath(project)}`, {
       headers: {
         'apikey': config.key,
         'Authorization': `Bearer ${config.key}`,
@@ -262,5 +266,86 @@ export async function downloadPlanPDF(config: SupabaseConfig): Promise<Blob | nu
   } catch (error) {
     console.error('Plan download error:', error);
     return null;
+  }
+}
+
+// ─── Projects & inspectors (team lists) ─────────────────────────────────────
+
+export interface ProjectRow {
+  name: string;
+  created_at?: string;
+}
+
+/** All projects the team has created, newest first. */
+export async function listProjects(config: SupabaseConfig): Promise<ProjectRow[] | null> {
+  if (!config.url || !config.key) return null;
+  try {
+    const res = await fetch(`${config.url}/rest/v1/projects?select=name,created_at&order=created_at.desc`, {
+      headers: { 'apikey': config.key, 'Authorization': `Bearer ${config.key}` },
+    });
+    if (!res.ok) return null;
+    const rows = await res.json();
+    return Array.isArray(rows) ? rows : [];
+  } catch (error) {
+    console.error('List projects error:', error);
+    return null;
+  }
+}
+
+/** Create a project (idempotent on name). */
+export async function createProject(config: SupabaseConfig, name: string): Promise<boolean> {
+  if (!config.url || !config.key || !name.trim()) return false;
+  try {
+    const res = await fetch(`${config.url}/rest/v1/projects`, {
+      method: 'POST',
+      headers: {
+        'apikey': config.key,
+        'Authorization': `Bearer ${config.key}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    return res.ok || res.status === 201;
+  } catch (error) {
+    console.error('Create project error:', error);
+    return false;
+  }
+}
+
+/** Team inspector names, alphabetical. */
+export async function listInspectors(config: SupabaseConfig): Promise<string[] | null> {
+  if (!config.url || !config.key) return null;
+  try {
+    const res = await fetch(`${config.url}/rest/v1/inspectors?select=name&order=name.asc`, {
+      headers: { 'apikey': config.key, 'Authorization': `Bearer ${config.key}` },
+    });
+    if (!res.ok) return null;
+    const rows = await res.json();
+    return Array.isArray(rows) ? rows.map((r: any) => r.name).filter(Boolean) : [];
+  } catch (error) {
+    console.error('List inspectors error:', error);
+    return null;
+  }
+}
+
+/** Add a teammate to the inspector list (idempotent on name). */
+export async function addInspector(config: SupabaseConfig, name: string): Promise<boolean> {
+  if (!config.url || !config.key || !name.trim()) return false;
+  try {
+    const res = await fetch(`${config.url}/rest/v1/inspectors`, {
+      method: 'POST',
+      headers: {
+        'apikey': config.key,
+        'Authorization': `Bearer ${config.key}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    return res.ok || res.status === 201;
+  } catch (error) {
+    console.error('Add inspector error:', error);
+    return false;
   }
 }
