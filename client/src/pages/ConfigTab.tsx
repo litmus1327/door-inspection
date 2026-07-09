@@ -24,6 +24,9 @@ export default function ConfigTab() {
   const initialSb = getSupabaseConfig();
   const [sbUrl, setSbUrl] = useState(initialSb.url);
   const [sbKey, setSbKey] = useState(initialSb.key);
+  // When the connection is baked into the deploy, hide the manual config so
+  // inspectors never see Supabase URL/key fields.
+  const envConnected = !!(import.meta.env.VITE_SUPABASE_URL as string | undefined);
   const [sbMsg, setSbMsg] = useState('');
 
   const saveSupabase = () => {
@@ -136,7 +139,8 @@ export default function ConfigTab() {
           </div>
         </div>
 
-        {/* Cloud Sync (Supabase) */}
+        {/* Cloud Sync (Supabase) — hidden when the deploy already provides it */}
+        {!envConnected && (
         <div>
           <label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3 block">
             Cloud Sync (Supabase)
@@ -173,6 +177,7 @@ export default function ConfigTab() {
             {sbMsg && <span className="text-sm text-muted-foreground">{sbMsg}</span>}
           </div>
         </div>
+        )}
       </div>
     </div>
   );
