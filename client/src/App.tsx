@@ -19,7 +19,7 @@ import ConfigTab from './pages/ConfigTab';
 import Plans from './pages/Plans';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { getSupabaseConfig, upsertPin, deletePin, fetchPins, uploadPlanPDF, downloadPlanPDF, planExistsInCloud } from './lib/supabase';
-import { syncInspections } from './lib/sync';
+import { syncInspections, flushPendingPhotos } from './lib/sync';
 import { DoorPin } from './types';
 
 type TabType = 'plans' | 'inspect' | 'records' | 'config';
@@ -173,6 +173,7 @@ function App() {
         for (const p of Object.values(local).flat()) {
           await upsertPin(cfg, p);
         }
+        flushPendingPhotos().catch(() => {});
         const cloud = await fetchPins(cfg, project());
         if (cloud) {
           const grouped: Record<number, DoorPin[]> = {};
@@ -256,6 +257,7 @@ function App() {
       if (cfg.url && cfg.key) {
         // Push anything captured offline and pull peers' work.
         syncInspections().catch(() => {});
+        flushPendingPhotos().catch(() => {});
         const local: Record<number, DoorPin[]> = JSON.parse(
           localStorage.getItem('floorPlanPins') || '{}'
         );

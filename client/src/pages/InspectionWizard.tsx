@@ -862,6 +862,40 @@ function DeficiencyItem({ item, defState, atype, swing, sprinklered, gapStd, onT
   );
 }
 
+// Compress a captured photo to a bounded-size JPEG data URL so it can be shown
+// and stored offline without exhausting localStorage; uploaded later when online.
+async function compressImage(file: File, maxDim = 1280, quality = 0.7): Promise<string> {
+  const dataUrl: string = await new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result as string);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+  try {
+    const img: HTMLImageElement = await new Promise((res, rej) => {
+      const im = new Image();
+      im.onload = () => res(im);
+      im.onerror = rej;
+      im.src = dataUrl;
+    });
+    let { width, height } = img;
+    if (width > maxDim || height > maxDim) {
+      const s = maxDim / Math.max(width, height);
+      width = Math.round(width * s);
+      height = Math.round(height * s);
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return dataUrl;
+    ctx.drawImage(img, 0, 0, width, height);
+    return canvas.toDataURL('image/jpeg', quality);
+  } catch {
+    return dataUrl; // fall back to the original if canvas processing fails
+  }
+}
+
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
 export default function InspectionWizard({ selectedDoor, onClear }: InspectionWizardProps) {
@@ -1354,16 +1388,21 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
   }, [currentDoor]);
 
   const handleAddPhotos = async (files: FileList) => {
-    const cfg = getSupabaseConfig();
-    if (!cfg.url || !cfg.key) {
-      alert('Add your Supabase settings in Project Settings to attach photos.');
-      return;
-    }
     setPhotoUploading(true);
+    const cfg = getSupabaseConfig();
     const id = selectedDoor?.pinId || currentDoor?.iconNo || 'unknown';
     for (const f of Array.from(files)) {
-      const url = await uploadPhotoToSupabase(cfg, f, id);
-      if (url) setPhotos(prev => [...prev, url]);
+      // Compress and show immediately — works with no signal and no Supabase.
+      let localUrl = '';
+      try { localUrl = await compressImage(f); } catch { /* skip unreadable file */ }
+      if (!localUrl) continue;
+      setPhotos(prev => [...prev, localUrl]);
+      // Upload now if we can; swap the local copy for the remote URL on success.
+      // Otherwise the data URL is saved with the record and flushed later.
+      if (cfg.url && cfg.key && navigator.onLine) {
+        const remote = await uploadPhotoToSupabase(cfg, f, id);
+        if (remote) setPhotos(prev => prev.map(p => (p === localUrl ? remote : p)));
+      }
     }
     setPhotoUploading(false);
   };

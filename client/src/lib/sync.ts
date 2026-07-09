@@ -2,6 +2,7 @@ import {
   getSupabaseConfig,
   uploadInspectionRecord,
   fetchInspectionRecords,
+  uploadPhotoToSupabase,
 } from './supabase';
 
 export interface SyncResult {
@@ -70,6 +71,39 @@ export async function syncInspections(): Promise<SyncResult> {
   if (downloaded > 0) saveLocal(local);
 
   return { ok: true, uploaded, downloaded };
+}
+
+/**
+ * Upload any photos captured offline. Photos taken with no signal are stored on
+ * the record as data: URLs; this converts each to a file, uploads it, and
+ * swaps in the remote URL — keeping localStorage from growing unbounded.
+ * Returns the number of photos migrated to the cloud.
+ */
+export async function flushPendingPhotos(): Promise<number> {
+  const config = getSupabaseConfig();
+  if (!config.url || !config.key || !navigator.onLine) return 0;
+  const records = loadLocal();
+  let changed = 0;
+  for (const rec of records) {
+    if (!rec || !Array.isArray(rec.photos)) continue;
+    for (let i = 0; i < rec.photos.length; i++) {
+      const p = rec.photos[i];
+      if (typeof p !== 'string' || !p.startsWith('data:')) continue;
+      try {
+        const blob = await (await fetch(p)).blob();
+        const file = new File([blob], `photo_${i}.jpg`, { type: blob.type || 'image/jpeg' });
+        const url = await uploadPhotoToSupabase(config, file, rec.pinId || rec.id || 'unknown');
+        if (url) {
+          rec.photos[i] = url;
+          changed++;
+        }
+      } catch {
+        /* keep the local copy; try again next flush */
+      }
+    }
+  }
+  if (changed > 0) saveLocal(records);
+  return changed;
 }
 
 /** Download a JSON backup of all local inspection data (records + pins). */
