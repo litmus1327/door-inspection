@@ -19,6 +19,7 @@ import ConfigTab from './pages/ConfigTab';
 import Plans from './pages/Plans';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { getSupabaseConfig, upsertPin, deletePin, fetchPins, uploadPlanPDF, downloadPlanPDF, planExistsInCloud } from './lib/supabase';
+import { syncInspections } from './lib/sync';
 import { DoorPin } from './types';
 
 type TabType = 'plans' | 'inspect' | 'records' | 'config';
@@ -66,28 +67,41 @@ function App() {
     });
   };
 
-  const savePDFToIDB = async (file: File) => {
+  // Persist ALL uploaded PDFs (ordered), not just the first. The previous
+  // single-key scheme silently dropped every PDF after the first on reload.
+  const savePDFsToIDB = async (files: File[]) => {
     try {
       const db = await openDB();
       const tx = db.transaction('files', 'readwrite');
-      await tx.objectStore('files').put({ id: 'floorplan', file, name: file.name });
+      tx.objectStore('files').put({
+        id: 'floorplans',
+        files: files.map((f) => ({ name: f.name, file: f })),
+      });
     } catch (err) {
-      console.error('Error saving PDF to IndexedDB:', err);
+      console.error('Error saving PDFs to IndexedDB:', err);
     }
   };
 
-  const loadPDFFromIDB = async (): Promise<File | null> => {
+  const loadPDFsFromIDB = async (): Promise<File[]> => {
     try {
       const db = await openDB();
-      const tx = db.transaction('files', 'readonly');
-      const req = tx.objectStore('files').get('floorplan');
-      return new Promise((resolve) => {
-        req.onsuccess = () => resolve(req.result?.file || null);
-        req.onerror = () => resolve(null);
-      });
+      const store = db.transaction('files', 'readonly').objectStore('files');
+      const get = (key: string): Promise<any> =>
+        new Promise((resolve) => {
+          const req = store.get(key);
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => resolve(null);
+        });
+      const multi = await get('floorplans');
+      if (multi?.files?.length) {
+        return multi.files.map((x: { file: File }) => x.file).filter(Boolean);
+      }
+      // Migrate the legacy single-PDF key if present.
+      const single = await get('floorplan');
+      return single?.file ? [single.file] : [];
     } catch (err) {
-      console.error('Error loading PDF from IndexedDB:', err);
-      return null;
+      console.error('Error loading PDFs from IndexedDB:', err);
+      return [];
     }
   };
 
@@ -96,27 +110,29 @@ function App() {
   useEffect(() => {
     (async () => {
       const cfg = getSupabaseConfig();
-      let file = await loadPDFFromIDB();
-      if (file) {
+      let files = await loadPDFsFromIDB();
+      if (files.length > 0) {
         if (cfg.url && cfg.key) {
           const exists = await planExistsInCloud(cfg);
-          if (!exists) uploadPlanPDF(cfg, file).catch(() => {});
+          if (!exists) uploadPlanPDF(cfg, files[0]).catch(() => {});
         }
       } else if (cfg.url && cfg.key) {
         const blob = await downloadPlanPDF(cfg);
         if (blob && blob.size > 0) {
-          file = new File([blob], 'floor-plan.pdf', { type: 'application/pdf' });
-          savePDFToIDB(file);
+          const file = new File([blob], 'floor-plan.pdf', { type: 'application/pdf' });
+          files = [file];
+          savePDFsToIDB(files);
         }
       }
-      if (file) {
-        const entry: PdfEntry = {
-          id: crypto.randomUUID(),
-          file,
-          pageOffset: 0,
-          pageCount: 0,
-        };
-        setPdfEntries([entry]);
+      if (files.length > 0) {
+        setPdfEntries(
+          files.map((file) => ({
+            id: crypto.randomUUID(),
+            file,
+            pageOffset: 0,
+            pageCount: 0,
+          }))
+        );
       }
     })();
   }, []);
@@ -186,25 +202,38 @@ function App() {
     }
   }, [pdfEntries.length]);
 
-  // Save first PDF to IDB for persistence
+  // Persist all PDFs to IDB (ordered) so every uploaded plan survives reload.
   useEffect(() => {
     if (pdfEntries.length > 0) {
-      savePDFToIDB(pdfEntries[0].file);
+      savePDFsToIDB(pdfEntries.map((e) => e.file));
     }
   }, [pdfEntries]);
 
-  // Update sync status based on online/offline
+  // Update sync status based on online/offline, and flush pending work when
+  // connectivity returns (previously the app only recorded the status string).
   useEffect(() => {
     const updateSyncStatus = () => {
       localStorage.setItem('syncStatus', navigator.onLine ? 'online' : 'offline');
     };
-    
-    window.addEventListener('online', updateSyncStatus);
+    const handleOnline = () => {
+      updateSyncStatus();
+      const cfg = getSupabaseConfig();
+      if (cfg.url && cfg.key) {
+        // Push anything captured offline and pull peers' work.
+        syncInspections().catch(() => {});
+        const local: Record<number, DoorPin[]> = JSON.parse(
+          localStorage.getItem('floorPlanPins') || '{}'
+        );
+        Object.values(local).flat().forEach((p) => upsertPin(cfg, p).catch(() => {}));
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
     window.addEventListener('offline', updateSyncStatus);
     updateSyncStatus();
 
     return () => {
-      window.removeEventListener('online', updateSyncStatus);
+      window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', updateSyncStatus);
     };
   }, []);

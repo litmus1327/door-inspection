@@ -1001,7 +1001,9 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
       return;
     }
     const record = {
-      id: Date.now().toString(36) + Math.random().toString(36).substring(2, 7),
+      id: selectedDoor?.pinId
+        ? `insp_${selectedDoor.pinId}`
+        : Date.now().toString(36) + Math.random().toString(36).substring(2, 7),
       pinId: selectedDoor?.pinId,
       iconNo: iconNo.trim(),
       assetId: assetId.trim(),
@@ -1020,8 +1022,11 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
       synced: false,
     };
     const records = JSON.parse(localStorage.getItem('doorInspections') || '[]');
-    records.push(record);
-    localStorage.setItem('doorInspections', JSON.stringify(records));
+    const deduped = record.pinId
+      ? records.filter((r: any) => r.pinId !== record.pinId)
+      : records;
+    deduped.push(record);
+    localStorage.setItem('doorInspections', JSON.stringify(deduped));
     if (selectedDoor?.pinId) {
       window.dispatchEvent(new CustomEvent('pinStatusUpdate', {
         detail: { pinId: selectedDoor.pinId, status: 'inaccessible' }
@@ -1352,7 +1357,11 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
     const hasDeficiencies = defList.some(d => d.status === 'deficient');
 
     const record = {
-      id: Date.now().toString(36) + Math.random().toString(36).substring(2, 7),
+      // Stable per-pin id so re-inspecting a door updates its record instead of
+      // creating a duplicate (cloud upsert merges on id; local dedupe below).
+      id: selectedDoor?.pinId
+        ? `insp_${selectedDoor.pinId}`
+        : Date.now().toString(36) + Math.random().toString(36).substring(2, 7),
       pinId: selectedDoor?.pinId,
       iconNo: currentDoor?.iconNo || '—',
       assetId: currentDoor?.assetId || '—',
@@ -1373,8 +1382,11 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
     };
 
     const existing = JSON.parse(localStorage.getItem('doorInspections') || '[]');
-    existing.push(record);
-    localStorage.setItem('doorInspections', JSON.stringify(existing));
+    const deduped = record.pinId
+      ? existing.filter((r: any) => r.pinId !== record.pinId)
+      : existing;
+    deduped.push(record);
+    localStorage.setItem('doorInspections', JSON.stringify(deduped));
 
     const pinStatus = hasDeficiencies ? 'fail' : 'pass';
     if (selectedDoor?.pinId) {
