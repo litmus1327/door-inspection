@@ -179,11 +179,14 @@ export async function deletePin(config: SupabaseConfig, id: string): Promise<boo
   }
 }
 
-// Returns the pin objects (the `data` blob of each row).
-export async function fetchPins(config: SupabaseConfig): Promise<any[] | null> {
+// Returns the pin objects (the `data` blob of each row). When a project name is
+// given, only that project's pins are returned — without it every device pulls
+// all pins for all projects, leaking pins from unrelated jobs onto the plan.
+export async function fetchPins(config: SupabaseConfig, projectName?: string): Promise<any[] | null> {
   if (!config.url || !config.key) return null;
   try {
-    const res = await fetch(`${config.url}/rest/v1/door_pins?select=data`, {
+    const projectFilter = projectName ? `&project=eq.${encodeURIComponent(projectName)}` : '';
+    const res = await fetch(`${config.url}/rest/v1/door_pins?select=data${projectFilter}`, {
       headers: {
         'apikey': config.key,
         'Authorization': `Bearer ${config.key}`,

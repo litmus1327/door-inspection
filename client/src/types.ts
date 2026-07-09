@@ -40,6 +40,7 @@ export interface DoorPin {
   projectName: string;
   pageNumber?: number; // Which page/floor this pin is on
   gridBlock?: string; // Grid block (e.g., 'A1', 'B3', 'E5')
+  owner?: string; // Inspector who placed the pin (for multi-inspector presence)
 }
 
 export interface InspectionDeficiency {

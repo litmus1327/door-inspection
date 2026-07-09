@@ -137,12 +137,35 @@ function App() {
     })();
   }, []);
 
-  // Sync pins with the cloud on mount: push local pins up, then pull the
-  // cloud set and use it as the source of truth so all devices match.
+  // Pin sync + multi-inspector presence.
+  //  - On mount: push local pins up, then pull this project's cloud pins as the
+  //    source of truth (project-filtered so other jobs' pins don't leak in).
+  //  - In the background: periodically and on window focus, ADD any new pins
+  //    peers have placed (merge-only, so a pin you just dropped is never wiped
+  //    by a poll that raced its upload). Deletions reconcile on next full load.
   useEffect(() => {
+    const cfg = getSupabaseConfig();
+    if (!cfg.url || !cfg.key) return;
+    const project = () => localStorage.getItem('activeProject') || undefined;
+
+    const mergePeerPins = async () => {
+      const cloud = await fetchPins(cfg, project());
+      if (!cloud) return;
+      setPins((prev) => {
+        const haveIds = new Set(Object.values(prev).flat().map((p) => p.id));
+        const next = { ...prev };
+        let changed = false;
+        for (const p of cloud) {
+          if (!p || !p.id || haveIds.has(p.id)) continue;
+          const page = p.pageNumber || 1;
+          next[page] = [...(next[page] || []), p];
+          changed = true;
+        }
+        return changed ? next : prev;
+      });
+    };
+
     (async () => {
-      const cfg = getSupabaseConfig();
-      if (!cfg.url || !cfg.key) return;
       try {
         const local: Record<number, DoorPin[]> = JSON.parse(
           localStorage.getItem('floorPlanPins') || '{}'
@@ -150,7 +173,7 @@ function App() {
         for (const p of Object.values(local).flat()) {
           await upsertPin(cfg, p);
         }
-        const cloud = await fetchPins(cfg);
+        const cloud = await fetchPins(cfg, project());
         if (cloud) {
           const grouped: Record<number, DoorPin[]> = {};
           for (const p of cloud) {
@@ -163,6 +186,18 @@ function App() {
         /* offline — keep local pins */
       }
     })();
+
+    const interval = window.setInterval(() => {
+      if (navigator.onLine) mergePeerPins().catch(() => {});
+    }, 25000);
+    const onFocus = () => {
+      if (navigator.onLine) mergePeerPins().catch(() => {});
+    };
+    window.addEventListener('focus', onFocus);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -308,15 +343,16 @@ function App() {
   };
 
   const handlePinAdded = (pin: DoorPin) => {
-    // Count total pins across ALL pages for the global sequence number.
-    const totalPins = Object.values(pins).reduce(
-      (sum, pagePins) => sum + pagePins.length,
-      0
-    );
+    // Next number = highest existing iconNo + 1 (not a count, which would
+    // reuse a number after a deletion and collide with an existing pin).
+    const maxNo = Object.values(pins)
+      .flat()
+      .reduce((m, p) => Math.max(m, parseInt(p.iconNo) || 0), 0);
     const pinWithNumber: DoorPin = {
       ...pin,
-      iconNo: String(totalPins + 1),
+      iconNo: String(maxNo + 1),
       pageNumber: currentPage,
+      owner: inspectorName || undefined,
     };
     setPins((prev) => ({
       ...prev,
