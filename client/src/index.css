@@ -43,45 +43,101 @@
 }
 
 :root {
-  /* CODIFY Industrial Blueprint Theme */
-  
-  /* Primary colors */
+  /* CODIFY — Light theme (default). Field-legible in sunlight; warm neutral
+     ground so it reads as chosen, not a flat grey. The amber brand is kept as
+     a deeper, text-safe ochre here so `text-primary` clears WCAG AA on white;
+     the vivid amber lives in the dark theme below. */
+
+  /* Primary — text-safe ochre, also used as a fill (with white foreground) */
+  --primary: #a8651a;
+  --primary-foreground: #ffffff;
+
+  /* Semantic colors (light-tuned) */
+  --pass: #2f8a55;
+  --fail: #c0271f;
+  --warn: #b9791a;
+
+  /* Surfaces & backgrounds */
+  --background: #f6f4ef;
+  --foreground: #1b1d21;
+  --card: #ffffff;
+  --card-foreground: #1b1d21;
+  --popover: #ffffff;
+  --popover-foreground: #1b1d21;
+
+  /* Secondary & muted */
+  --secondary: #efece4;
+  --secondary-foreground: #565b63;
+  --muted: #eceae2;
+  --muted-foreground: #5c626b;
+
+  /* Accent (same as primary) */
+  --accent: #a8651a;
+  --accent-foreground: #ffffff;
+
+  /* Destructive */
+  --destructive: #c0271f;
+  --destructive-foreground: #ffffff;
+
+  /* Borders & inputs */
+  --border: #e4dfd5;
+  --input: #ffffff;
+  --ring: #a8651a;
+
+  /* Sidebar */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1b1d21;
+  --sidebar-primary: #a8651a;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eceae2;
+  --sidebar-accent-foreground: #1b1d21;
+  --sidebar-border: #e4dfd5;
+  --sidebar-ring: #a8651a;
+
+  /* Chart colors */
+  --chart-1: #a8651a;
+  --chart-2: #3d7fff;
+  --chart-3: #2f8a55;
+  --chart-4: #c0271f;
+  --chart-5: #b9791a;
+
+  --radius: 0.375rem;
+}
+
+.dark {
+  /* CODIFY Industrial Blueprint — dark theme (opt-in via the header toggle) */
+
   --primary: #e8a020;
   --primary-foreground: #0d0f12;
-  
-  /* Semantic colors */
+
   --pass: #28c76f;
   --fail: #ea5455;
   --warn: #ff9f43;
-  
-  /* Surfaces & backgrounds */
+
   --background: #0d0f12;
   --foreground: #dce3f0;
   --card: #151820;
   --card-foreground: #dce3f0;
   --popover: #151820;
   --popover-foreground: #dce3f0;
-  
-  /* Secondary & muted */
+
   --secondary: #1c2030;
   --secondary-foreground: #8892aa;
   --muted: #232840;
-  --muted-foreground: #4a5570;
-  
-  /* Accent (same as primary for this theme) */
+  /* Raised from #4a5570 — the old value was near-illegible for the labels and
+     hints that use text-muted-foreground. */
+  --muted-foreground: #8a93ab;
+
   --accent: #e8a020;
   --accent-foreground: #0d0f12;
-  
-  /* Destructive */
+
   --destructive: #ea5455;
   --destructive-foreground: #0d0f12;
-  
-  /* Borders & inputs */
+
   --border: #2a3050;
   --input: #151820;
   --ring: #e8a020;
-  
-  /* Sidebar */
+
   --sidebar: #151820;
   --sidebar-foreground: #dce3f0;
   --sidebar-primary: #e8a020;
@@ -90,15 +146,12 @@
   --sidebar-accent-foreground: #dce3f0;
   --sidebar-border: #2a3050;
   --sidebar-ring: #e8a020;
-  
-  /* Chart colors */
+
   --chart-1: #e8a020;
   --chart-2: #3d7fff;
   --chart-3: #28c76f;
   --chart-4: #ea5455;
   --chart-5: #ff9f43;
-  
-  --radius: 0.375rem;
 }
 
 @layer base {

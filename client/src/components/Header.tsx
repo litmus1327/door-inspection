@@ -1,5 +1,6 @@
-import { Menu } from 'lucide-react';
+import { Menu, Sun, Moon } from 'lucide-react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -9,6 +10,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const [inspectorName] = useLocalStorage('inspectorName', '');
   const [activeProject] = useLocalStorage('activeProject', '');
   const [syncStatus] = useLocalStorage('syncStatus', 'offline');
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <header className="codify-header">
@@ -29,6 +31,16 @@ export default function Header({ onMenuClick }: HeaderProps) {
           <div className="text-xs text-muted-foreground">
             <span className="font-mono tracking-widest uppercase">Project:</span> {activeProject}
           </div>
+        )}
+        {toggleTheme && (
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label="Toggle color theme"
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
         )}
         <div
           className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-mono tracking-widest uppercase ${

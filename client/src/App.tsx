@@ -367,7 +367,7 @@ function App() {
   if (showSetup) {
     return (
       <ErrorBoundary>
-        <ThemeProvider defaultTheme="dark">
+        <ThemeProvider defaultTheme="light" switchable>
           <TooltipProvider>
             <Toaster />
             <Setup onComplete={() => setShowSetup(false)} />
@@ -379,7 +379,7 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="dark">
+      <ThemeProvider defaultTheme="light" switchable>
         <TooltipProvider>
           <Toaster />
           <div className="flex bg-background text-foreground" style={{ height: '100dvh' }}>
