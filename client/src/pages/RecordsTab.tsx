@@ -154,9 +154,9 @@ export default function RecordsTab() {
         <div className="grid grid-cols-4 gap-px border-b border-border bg-border">
           {[
             { label: 'Total', value: stats.total, color: 'text-foreground' },
-            { label: 'Pass', value: stats.pass, color: 'text-green-400' },
-            { label: 'Fail', value: stats.fail, color: 'text-red-400' },
-            { label: 'Pending', value: stats.pending, color: 'text-yellow-400' },
+            { label: 'Pass', value: stats.pass, color: 'text-green-600 dark:text-green-400' },
+            { label: 'Fail', value: stats.fail, color: 'text-red-600 dark:text-red-400' },
+            { label: 'Pending', value: stats.pending, color: 'text-yellow-600 dark:text-yellow-400' },
           ].map(s => (
             <div key={s.label} className="bg-card px-4 py-3 text-center">
               <div className={`text-2xl font-bold font-mono ${s.color}`}>{s.value}</div>
@@ -180,8 +180,8 @@ export default function RecordsTab() {
                 onClick={() => setFilter(f)}
                 className={`px-3 py-1.5 rounded-sm text-xs font-mono uppercase tracking-wide border transition-all ${
                   filter === f
-                    ? f === 'pass' ? 'border-green-500 bg-green-500/10 text-green-400' :
-                      f === 'fail' ? 'border-red-500 bg-red-500/10 text-red-400' :
+                    ? f === 'pass' ? 'border-green-500 bg-green-500/10 text-green-600 dark:text-green-400' :
+                      f === 'fail' ? 'border-red-500 bg-red-500/10 text-red-600 dark:text-red-400' :
                       'border-primary bg-primary/10 text-primary'
                     : 'border-border text-muted-foreground hover:border-primary/50'
                 }`}
@@ -257,15 +257,15 @@ export default function RecordsTab() {
                       <td className="px-3 py-2 text-xs font-mono">{r.doorRating === '0' ? 'Non-Rated' : r.doorRating ? r.doorRating + ' min' : '—'}</td>
                       <td className="px-3 py-2">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-mono font-semibold ${
-                          r.overallStatus === 'pass' ? 'bg-green-500/15 text-green-400' :
-                          r.overallStatus === 'fail' ? 'bg-red-500/15 text-red-400' :
-                          'bg-yellow-500/15 text-yellow-400'
+                          r.overallStatus === 'pass' ? 'bg-green-500/15 text-green-600 dark:text-green-400' :
+                          r.overallStatus === 'fail' ? 'bg-red-500/15 text-red-600 dark:text-red-400' :
+                          'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400'
                         }`}>
                           {r.overallStatus === 'pass' ? 'PASS' : r.overallStatus === 'fail' ? 'FAIL' : 'NOT INSPECTED'}
                         </span>
                       </td>
                       <td className="px-3 py-2 text-xs">
-                        {defCount > 0 ? <span className="text-red-400">{defCount} deficiencies</span> : <span className="text-green-400">None</span>}
+                        {defCount > 0 ? <span className="text-red-600 dark:text-red-400">{defCount} deficiencies</span> : <span className="text-green-600 dark:text-green-400">None</span>}
                       </td>
                       <td className="px-3 py-2 text-xs text-muted-foreground">{r.inspectorName || '—'}</td>
                       <td className="px-3 py-2 text-xs font-mono text-muted-foreground whitespace-nowrap">
@@ -280,9 +280,9 @@ export default function RecordsTab() {
         </div>
       </div>
 
-      {/* Right: Detail panel */}
+      {/* Right: Detail panel — full-screen overlay on mobile, side panel on md+ */}
       {selected && (
-        <div className="w-80 border-l border-border bg-card overflow-y-auto flex-shrink-0">
+        <div className="fixed inset-0 z-50 md:static md:z-auto w-full md:w-80 border-l border-border bg-card overflow-y-auto flex-shrink-0">
           <div className="flex items-center justify-between p-4 border-b border-border">
             <h3 className="font-mono text-sm font-semibold uppercase tracking-wider">Icon #{selected.iconNo}</h3>
             <button onClick={() => setSelected(null)} className="text-muted-foreground hover:text-foreground text-lg">✕</button>
@@ -291,9 +291,9 @@ export default function RecordsTab() {
           <div className="p-4 space-y-4">
             {/* Status */}
             <div className={`px-3 py-2 rounded-sm text-center font-mono font-bold text-sm ${
-              selected.overallStatus === 'pass' ? 'bg-green-500/10 text-green-400 border border-green-500/30' :
-              selected.overallStatus === 'fail' ? 'bg-red-500/10 text-red-400 border border-red-500/30' :
-              'bg-yellow-500/10 text-yellow-400 border border-yellow-500/30'
+              selected.overallStatus === 'pass' ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30' :
+              selected.overallStatus === 'fail' ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/30' :
+              'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30'
             }`}>
               {selected.overallStatus.toUpperCase()}
             </div>
