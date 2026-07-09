@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Setup redesign — mobile proposal</title>
+<style>
+  :root{
+    --bg:#0d0f12; --panel:#151820; --card:#1c2030; --cardhover:#232840;
+    --stroke:#2a3040; --amber:#e8a020; --text:#dce3f0; --muted:#8892aa; --green:#28c76f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.45}
+  .phone{max-width:420px;margin:0 auto;padding:18px 14px 40px}
+  h1{font-size:18px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 20px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--amber);
+    margin:26px 0 8px;font-family:ui-monospace,Consolas,monospace}
+  .note{background:var(--panel);border-left:3px solid var(--amber);padding:9px 12px;font-size:12.5px;margin:0 0 12px}
+  .row{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--stroke);
+    border-radius:10px;padding:10px;margin-bottom:8px;cursor:pointer;min-height:64px;transition:all .12s}
+  .row:active{background:var(--cardhover)}
+  .row.sel{border-color:var(--amber);background:var(--cardhover)}
+  .thumb{flex:0 0 auto;width:56px;height:56px;border-radius:8px;
+    background:repeating-linear-gradient(45deg,#12151c,#12151c 6px,#171b24 6px,#171b24 12px);
+    border:1px dashed var(--stroke);display:flex;align-items:center;justify-content:center;
+    color:var(--muted);font-size:9px;font-family:ui-monospace,monospace;text-align:center}
+  .body{flex:1;min-width:0}
+  .term{font-weight:600;font-size:14px;margin:0}
+  .desc{color:var(--muted);font-size:12px;margin:2px 0 0}
+  .check{flex:0 0 auto;width:22px;height:22px;border-radius:50%;border:2px solid var(--stroke);
+    display:flex;align-items:center;justify-content:center;color:var(--green);font-size:13px}
+  .row.sel .check{border-color:var(--green)}
+  .hint{color:var(--amber);font-size:11px;font-family:ui-monospace,monospace;margin:2px 0 0}
+  select{width:100%;background:var(--card);color:var(--text);border:1px solid var(--stroke);
+    border-radius:10px;padding:12px;font-size:15px;min-height:48px}
+  .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;
+    justify-content:center;flex-direction:column;padding:24px;z-index:50}
+  .lightbox.on{display:flex}
+  .lightbox .big{width:100%;max-width:340px;height:260px;border-radius:12px;
+    background:repeating-linear-gradient(45deg,#12151c,#12151c 10px,#171b24 10px,#171b24 20px);
+    border:1px dashed var(--stroke);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px}
+  .lightbox .cap{color:var(--text);margin-top:14px;font-size:15px;text-align:center}
+  .lightbox .close{color:var(--muted);margin-top:8px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="phone">
+  <h1>Setup redesign (mobile) — proposal</h1>
+  <p class="sub">Sized for a phone. Hatched boxes are where real photos go. Tap a thumbnail to see the enlarged view. Nothing here is wired in yet.</p>
+
+  <h2>Assembly type</h2>
+  <div class="note">Usually read from the building's life safety plan, not the door. Each option pairs the term with a plain description and a legend/example image.</div>
+  <div id="assembly"></div>
+
+  <h2>Door and frame rating</h2>
+  <div class="note">Stays the same; the inspector reads the label. We only add a "where to find it" helper.</div>
+  <select>
+    <option>Door rating — select</option>
+    <option>180 min</option><option>90 min</option><option>60 min</option>
+    <option>45 min</option><option>20 min</option><option>Non-Rated</option><option>Label Illegible</option>
+  </select>
+  <div class="row" onclick="zoom('Rating label','On the hinge edge of the door and on the frame. Reads minutes, e.g. 90 MIN.')" style="margin-top:8px">
+    <div class="thumb">label<br>photo</div>
+    <div class="body">
+      <p class="term">Where is the rating?</p>
+      <p class="hint">Tap to see where the label sits</p>
+    </div>
+  </div>
+
+  <h2>Hardware on the door</h2>
+  <div class="note">Where photos help most. Tap the row to mark present; tap the thumbnail to enlarge the example.</div>
+  <div id="hardware"></div>
+</div>
+
+<div class="lightbox" id="lb" onclick="this.classList.remove('on')">
+  <div class="big" id="lbimg">enlarged photo</div>
+  <div class="cap" id="lbcap"></div>
+  <div class="close">tap anywhere to close</div>
+</div>
+
+<script>
+const ASSEMBLY = [
+  ["3-Hour Fire Barrier","Highest-rated separation; major hazard divisions."],
+  ["2-Hour Fire Barrier","Heavy separation, e.g. tall-building stair enclosures."],
+  ["1-Hour Fire Barrier","Common: corridors, stairwells, mechanical rooms."],
+  ["1-Hour Partition","Lighter 1-hour, often tenant/corridor partitions."],
+  ["Smoke Barrier","Limits smoke between compartments; common in healthcare."],
+  ["Smoke Partition","Resists smoke, not rated for fire."],
+  ["Suite Perimeter","Boundary of a suite of rooms."],
+];
+const HARDWARE = [
+  ["Closer","Arm at the top that shuts the door on its own."],
+  ["Panic Device","Horizontal push bar across the door."],
+  ["Lockset (Mortise)","Handle set into a pocket in the door edge."],
+  ["Lockset (Cylindrical)","Handle with a round bored hole."],
+  ["Coordinator","Bar on a pair that closes leaves in order."],
+  ["Overlapping Astragal","Strip covering the gap at the meeting edge."],
+  ["Flush Bolts","Rods top/bottom pinning the inactive leaf."],
+  ["Vision Panel","Window in the door."],
+  ["Sweep","Strip along the bottom of the door."],
+  ["Gasketing","Seals around the door edges."],
+  ["Deadbolt","Separate bolt above the handle."],
+  ["Magnetic Lock","Plate at the top held by an electromagnet."],
+];
+function zoom(term, desc){
+  document.getElementById('lbcap').textContent = term + (desc? ' — ' + desc : '');
+  document.getElementById('lb').classList.add('on');
+}
+function row(term, desc, tag, selectable){
+  const d=document.createElement('div');
+  d.className='row';
+  const t=document.createElement('div'); t.className='thumb'; t.innerHTML=tag;
+  t.onclick=(e)=>{e.stopPropagation(); zoom(term, desc);};
+  const b=document.createElement('div'); b.className='body';
+  b.innerHTML='<p class="term">'+term+'</p><p class="desc">'+desc+'</p>';
+  d.appendChild(t); d.appendChild(b);
+  if(selectable){
+    const c=document.createElement('div'); c.className='check'; c.textContent='✓';
+    d.appendChild(c);
+    d.onclick=()=>d.classList.toggle('sel');
+  }
+  return d;
+}
+const a=document.getElementById('assembly');
+ASSEMBLY.forEach(([t,de])=>a.appendChild(row(t,de,'legend',true)));
+const hw=document.getElementById('hardware');
+HARDWARE.forEach(([t,de])=>hw.appendChild(row(t,de,'photo',true)));
+</script>
+</body>
+</html>

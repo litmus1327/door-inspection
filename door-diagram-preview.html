@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Door Diagram — preview</title>
+<style>
+  :root{
+    --bg:#0d0f12; --panel:#151820; --frame:#2b3350; --base:#1c2030;
+    --hover:#2c3350; --stroke:#4a5570; --metal:#6b7590; --glass:#10131a;
+    --amber:#e8a020; --text:#dce3f0; --muted:#8892aa;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;padding:24px}
+  h1{font-size:18px;font-weight:600;letter-spacing:.02em;margin:0 0 4px}
+  .hint{color:var(--muted);font-size:13px;margin:0 0 18px;max-width:720px;line-height:1.55}
+  .bar{display:flex;align-items:center;justify-content:space-between;gap:16px;max-width:760px;margin-bottom:12px}
+  .cap{font-family:ui-monospace,Consolas,monospace;font-size:13px;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--muted);min-height:18px}
+  .cap.on{color:var(--amber)}
+  .toggle{display:inline-flex;align-items:center;gap:8px;font-family:ui-monospace,Consolas,monospace;
+    font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap}
+  .toggle input{width:16px;height:16px;cursor:pointer}
+  .coord{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--amber);min-width:110px}
+  .rightbar{display:flex;align-items:center;gap:16px}
+  .wrap{display:grid;grid-template-columns:320px 1fr;gap:24px;align-items:start;max-width:760px}
+  .zone{fill:var(--base);stroke:var(--stroke);stroke-width:1.5;cursor:pointer;transition:fill .12s}
+  .zone:hover{fill:var(--hover);stroke:var(--amber)}
+  .zone.sel{fill:var(--hover);stroke:var(--amber);stroke-width:2.5}
+  .hmark{fill:var(--metal);stroke:var(--stroke);stroke-width:.75;cursor:pointer}
+  .hmark:hover{fill:var(--metal);stroke:var(--amber)}
+  .hmark.sel{fill:var(--metal);stroke:var(--amber);stroke-width:2}
+  .metal{fill:var(--metal)}
+  .st-pass{fill:#16382a;stroke:#28c76f}
+  .st-advisory{fill:#3a2f14;stroke:#e8a020}
+  .st-deficient{fill:#3d1a1c;stroke:#ea5455}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin:16px 0 0;max-width:760px}
+  .legend span{display:inline-flex;align-items:center;gap:6px;font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--muted)}
+  .swatch{width:13px;height:13px;border-radius:2px;border:1.5px solid var(--stroke)}
+  .deco{pointer-events:none}
+  .glass-fill{fill:var(--glass)}
+  .panel{background:var(--panel);border-radius:10px;padding:16px 18px;min-height:320px}
+  .panel h3{margin:0 0 2px;font-size:16px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .item{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--text);
+    border:1px solid #2a3040;border-radius:6px;padding:8px 10px;margin-bottom:6px}
+  .empty{color:var(--muted);font-size:14px;line-height:1.6}
+  @media (max-width:640px){.wrap{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>Door diagram — preview</h1>
+<p class="hint">Hover a part of the door to see its name. Click a part to see the checklist items it would open.
+Flip the "Panic device" toggle to swap the lever handle for a push bar.</p>
+
+<div class="bar">
+  <div class="cap" id="cap">Hover or tap a part of the door</div>
+  <div class="rightbar">
+    <span class="coord" id="coord">x —, y —</span>
+    <label class="toggle"><input type="checkbox" id="sample" checked> Sample results</label>
+    <label class="toggle"><input type="checkbox" id="grid" checked> Grid</label>
+    <label class="toggle"><input type="checkbox" id="panic"> Panic device</label>
+  </div>
+</div>
+
+<div class="wrap">
+  <svg id="doorSvg" viewBox="0 0 420 600" width="100%" role="img" aria-label="Single-leaf door diagram">
+    <rect class="zone" data-zone="frame" x="40" y="26" width="340" height="514" rx="3"></rect>
+    <rect class="zone" data-zone="leaf_face" x="84" y="56" width="252" height="448"></rect>
+    <rect class="zone" data-zone="head_gap" x="84" y="44" width="252" height="12"></rect>
+    <rect class="zone" data-zone="sill_gap" x="84" y="504" width="252" height="12"></rect>
+    <g>
+      <rect class="zone" data-zone="hinge_stile" x="84" y="56" width="16" height="448"></rect>
+      <rect class="hmark" data-zone="hinge_stile" x="94" y="102" width="8" height="46" rx="2"></rect>
+      <rect class="hmark" data-zone="hinge_stile" x="94" y="256" width="8" height="46" rx="2"></rect>
+      <rect class="hmark" data-zone="hinge_stile" x="94" y="410" width="8" height="46" rx="2"></rect>
+    </g>
+    <rect class="zone" data-zone="latch_stile" x="320" y="56" width="16" height="448"></rect>
+    <g>
+      <rect class="zone glass-fill" data-zone="vision_panel" x="236" y="96" width="52" height="168" rx="3" stroke-width="2"></rect>
+      <rect class="deco" x="243" y="103" width="38" height="154" rx="2" fill="none" stroke="var(--stroke)" stroke-width="0.75"></rect>
+    </g>
+    <g>
+      <rect class="zone metal-hover" data-zone="closer" x="104" y="70" width="62" height="16" rx="2"></rect>
+      <polyline class="deco" points="140,68 109,63 152,56" fill="none" stroke="var(--metal)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"></polyline>
+    </g>
+    <g id="lever">
+      <rect class="zone" data-zone="latch_hw" x="291" y="269" width="16" height="44" rx="8"></rect>
+      <rect class="metal deco" x="269" y="287" width="30" height="8" rx="4" stroke="var(--stroke)" stroke-width="0.75"></rect>
+    </g>
+    <g id="pushbar" style="display:none">
+      <rect class="zone" data-zone="panic_hw" x="104" y="282" width="214" height="22" rx="4"></rect>
+      <rect class="deco" x="122" y="288" width="178" height="10" rx="2" fill="var(--base)"></rect>
+    </g>
+  </svg>
+
+  <div class="panel" id="panelBox">
+    <div class="empty">Tap a part of the door to see the inspection items it would open. In the app, this list replaces the long scroll of checks: you only see what is relevant to the part you touched.</div>
+  </div>
+</div>
+
+<div class="legend" id="legend">
+  <span><span class="swatch" style="background:var(--base)"></span> Not inspected</span>
+  <span><span class="swatch" style="background:#16382a;border-color:#28c76f"></span> Pass</span>
+  <span><span class="swatch" style="background:#3a2f14;border-color:#e8a020"></span> Advisory</span>
+  <span><span class="swatch" style="background:#3d1a1c;border-color:#ea5455"></span> Deficient</span>
+</div>
+
+<script>
+const ZONES = {
+  head_gap:{label:"Top edge gap",items:["gap_top","pi_gasketing"]},
+  hinge_stile:{label:"Hinge edge",items:["gap_hinge","pi_laminate_hinge","pi_hinge_filler","pi_hinge_missing","pi_screws","pi_gasketing"]},
+  latch_stile:{label:"Latch edge",items:["gap_latch","pi_laminate_latch","pi_gasketing"]},
+  sill_gap:{label:"Bottom gap",items:["gap_bottom_3_4","gap_bottom_1","gap_sweep","pi_sweep","sc_rub_floor","sc_sweep_dragging"]},
+  leaf_face:{label:"Door face",items:["gap_face","pi_door_damaged","pi_holes","pi_prep","pi_dissimilar","pi_laminate_face","pi_hydraulic","label_door","rating_door","sign_delayed_egress","sign_coat_rack","sign_mech_fastened","sign_5pct"]},
+  frame:{label:"Frame",items:["pi_frame","label_frame","rating_frame"]},
+  closer:{label:"Closer",items:["sc_closer_missing","sc_arm_disconnected","sc_slamming","sc_maladjusted","sc_hold_open","sc_air_pressure","sc_rub_adjacent","sc_rub_frame","sc_coordinator_missing","sc_coordinator_failing"]},
+  latch_hw:{label:"Latch / lockset",items:["hw_latch_missing","pl_latch_sticks","pl_latch_fails","pl_defeated","pl_hw_damaged","pl_electric_strike","pl_mechanical_hw","pi_latching_hw","lock_locked_egress","lock_illegitimate_arrangement"]},
+  panic_hw:{label:"Panic / exit device",items:["lock_panic_actuating","pi_panic_endcap","lock_delayed_failure","lock_delayed_sprinkler","lock_deadbolt","lock_motion_fails","lock_pte_fails","lock_pte_distance","lock_pte_missing"]},
+  vision_panel:{label:"Vision panel",items:["rating_vision","vp_missing","sign_vision"]}
+};
+const cap=document.getElementById('cap');
+const panelBox=document.getElementById('panelBox');
+const panicCb=document.getElementById('panic');
+const lever=document.getElementById('lever');
+const pushbar=document.getElementById('pushbar');
+let sel=null;
+function els(z){return Array.from(document.querySelectorAll('[data-zone="'+z+'"]'));}
+function setCap(z){
+  const s=z||sel;
+  if(s){cap.textContent=ZONES[s].label+' — '+ZONES[s].items.length+' item(s)';cap.classList.add('on');}
+  else{cap.textContent='Hover or tap a part of the door';cap.classList.remove('on');}
+}
+function render(z){
+  const d=ZONES[z];
+  let h='<h3>'+d.label+'</h3><p class="sub">'+d.items.length+' applicable checklist item'+(d.items.length>1?'s':'')+'</p>';
+  h+=d.items.map(i=>'<div class="item">'+i+'</div>').join('');
+  panelBox.innerHTML=h;
+}
+function bind(el){
+  const z=el.getAttribute('data-zone');
+  el.addEventListener('mouseenter',()=>setCap(z));
+  el.addEventListener('mouseleave',()=>setCap(null));
+  el.addEventListener('click',()=>{
+    if(sel)els(sel).forEach(e=>e.classList.remove('sel'));
+    sel=z; els(z).forEach(e=>e.classList.add('sel'));
+    setCap(null); render(z);
+  });
+}
+document.querySelectorAll('.zone, .hmark').forEach(bind);
+
+const svg=document.getElementById('doorSvg');
+const coord=document.getElementById('coord');
+const gridCb=document.getElementById('grid');
+const SVGNS='http://www.w3.org/2000/svg';
+const grid=document.createElementNS(SVGNS,'g');
+grid.setAttribute('pointer-events','none');
+function gline(x1,y1,x2,y2,major){
+  const l=document.createElementNS(SVGNS,'line');
+  l.setAttribute('x1',x1);l.setAttribute('y1',y1);l.setAttribute('x2',x2);l.setAttribute('y2',y2);
+  l.setAttribute('stroke','var(--stroke)');
+  l.setAttribute('stroke-width',major?0.7:0.35);
+  l.setAttribute('opacity',major?0.55:0.28);
+  grid.appendChild(l);
+}
+function glabel(x,y,t){
+  const e=document.createElementNS(SVGNS,'text');
+  e.setAttribute('x',x);e.setAttribute('y',y);
+  e.setAttribute('fill','var(--muted)');e.setAttribute('font-size','9');
+  e.setAttribute('font-family','monospace');e.textContent=t;
+  grid.appendChild(e);
+}
+for(let x=0;x<=420;x+=20)gline(x,0,x,600,x%100===0);
+for(let y=0;y<=600;y+=20)gline(0,y,420,y,y%100===0);
+for(let x=0;x<=420;x+=100)glabel(x+2,10,x);
+for(let y=100;y<=600;y+=100)glabel(2,y-3,y);
+svg.appendChild(grid);
+gridCb.addEventListener('change',()=>{grid.style.display=gridCb.checked?'':'none';});
+const pt=svg.createSVGPoint();
+svg.addEventListener('mousemove',e=>{
+  pt.x=e.clientX;pt.y=e.clientY;
+  const p=pt.matrixTransform(svg.getScreenCTM().inverse());
+  coord.textContent='x '+Math.round(p.x)+', y '+Math.round(p.y);
+});
+svg.addEventListener('mouseleave',()=>{coord.textContent='x —, y —';});
+
+const SAMPLE={hinge_stile:'deficient',head_gap:'advisory',leaf_face:'pass',frame:'pass',closer:'pass',vision_panel:'advisory',latch_hw:'deficient'};
+const sampleCb=document.getElementById('sample');
+function applySample(on){
+  document.querySelectorAll('.st-pass,.st-advisory,.st-deficient').forEach(e=>e.classList.remove('st-pass','st-advisory','st-deficient'));
+  if(!on)return;
+  Object.keys(SAMPLE).forEach(z=>els(z).forEach(e=>e.classList.add('st-'+SAMPLE[z])));
+}
+sampleCb.addEventListener('change',()=>applySample(sampleCb.checked));
+applySample(true);
+panicCb.addEventListener('change',()=>{
+  const on=panicCb.checked;
+  pushbar.style.display=on?'':'none';
+  lever.style.display=on?'none':'';
+  if(sel==='panic_hw'||sel==='latch_hw'){sel=null;setCap(null);
+    panelBox.innerHTML='<div class="empty">Tap a part of the door to see the inspection items it would open.</div>';}
+});
+</script>
+</body>
+</html>

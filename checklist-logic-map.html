@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Codify Door Inspection — Checklist Logic Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F6F1E7; --panel:#FDFBF5; --ink:#26231D; --muted:#7A7264; --line:#E3DBC9;
+    --olive:#74855C; --olive-d:#55643F;
+    --clay:#BE6E4A; --clay-d:#96522F;
+    --stone:#8E8676;
+    --ochre:#C79A3B; --ochre-d:#9C7523;
+    --rust:#A8492F;
+    --pine:#3B5B4E; --pine-d:#2A443A;
+    --warn:#B03A2E;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);
+    font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;}
+  #wrap{max-width:1840px;margin:0 auto;padding:34px 40px 60px;}
+
+  /* ── Header ─────────────────────────────────────── */
+  .kicker{font-size:12px;font-weight:800;letter-spacing:.28em;color:var(--clay-d);text-transform:uppercase;}
+  h1{font-family:'Fraunces',Georgia,serif;font-weight:900;font-size:44px;line-height:1.04;margin:8px 0 10px;letter-spacing:-.01em;}
+  .sub{max-width:880px;font-size:15px;line-height:1.55;color:var(--muted);margin:0 0 18px;}
+  .sub b{color:var(--ink);font-weight:600;}
+  .chips{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;}
+  .chip{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:600;color:var(--ink);}
+  .chip b{font-weight:800;color:var(--clay-d);}
+
+  /* ── Legend ─────────────────────────────────────── */
+  .legend{display:flex;gap:22px;flex-wrap:wrap;align-items:center;margin:14px 0 10px;font-size:12.5px;color:var(--muted);}
+  .lg{display:flex;align-items:center;gap:8px;}
+  .sw{width:22px;height:12px;border-radius:3px;flex:none;}
+  .ribbon-solid{width:34px;height:10px;border-radius:5px;background:linear-gradient(90deg,#74855C88,#3B5B4E88);}
+  .ribbon-dash{width:34px;height:0;border-top:3px dashed #BE6E4A99;}
+
+  /* ── Stage ──────────────────────────────────────── */
+  #stage{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    box-shadow:0 2px 6px rgba(60,50,30,.06), 0 14px 40px rgba(60,50,30,.07);overflow:hidden;margin-top:12px;}
+  #sv{display:block;width:100%;height:auto;cursor:grab;touch-action:none;}
+  #sv.grabbing{cursor:grabbing;}
+  .ctrls{position:absolute;top:14px;right:14px;display:flex;flex-direction:column;gap:6px;z-index:5;}
+  .ctrls button{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:#fff;color:var(--ink);
+    font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08);line-height:1;}
+  .ctrls button:hover{background:var(--paper);}
+  .hintbar{position:absolute;left:14px;bottom:12px;font-size:11.5px;color:var(--muted);background:#ffffffd9;
+    border:1px solid var(--line);border-radius:8px;padding:5px 10px;z-index:5;}
+
+  /* ── Tooltip ────────────────────────────────────── */
+  #tip{position:fixed;z-index:50;max-width:420px;background:#211E18;color:#F3EEE2;border-radius:10px;
+    padding:13px 15px;font-size:12.5px;line-height:1.5;box-shadow:0 10px 30px rgba(0,0,0,.35);
+    pointer-events:none;opacity:0;transition:opacity .12s;}
+  #tip h4{margin:0 0 4px;font-size:13.5px;font-weight:800;letter-spacing:.02em;}
+  #tip .code{font-size:10.5px;color:#C9BFA8;font-family:ui-monospace,Consolas,monospace;margin-bottom:6px;}
+  #tip .desc{color:#DDD5C2;margin-bottom:6px;}
+  #tip ul{margin:4px 0 0;padding:0;list-style:none;max-height:300px;overflow:hidden;}
+  #tip li{padding:2.5px 0;border-top:1px solid #3a352b;}
+  #tip li b{color:#F3EEE2;font-weight:600;}
+  #tip li span{color:#B7AD93;font-family:ui-monospace,Consolas,monospace;font-size:10.8px;display:block;}
+  #tip .warn{color:#F0A090;font-weight:600;}
+
+  /* ── SVG text ───────────────────────────────────── */
+  text{font-family:'Inter',sans-serif;}
+  .colhead{font-size:12px;font-weight:800;letter-spacing:.22em;fill:var(--muted);}
+  .nlabel{font-size:13px;font-weight:700;fill:var(--ink);paint-order:stroke;stroke:#FDFBF5;stroke-width:4px;stroke-linejoin:round;}
+  .nsub{font-size:10.5px;font-weight:500;fill:var(--muted);paint-order:stroke;stroke:#FDFBF5;stroke-width:3.5px;stroke-linejoin:round;}
+  .seclabel{font-family:'Fraunces',Georgia,serif;font-size:16.5px;font-weight:700;fill:var(--pine-d);paint-order:stroke;stroke:#FDFBF5;stroke-width:5px;stroke-linejoin:round;}
+  .warnglyph{font-size:13px;font-weight:800;fill:var(--warn);paint-order:stroke;stroke:#FDFBF5;stroke-width:3px;}
+  .dim{opacity:.08;transition:opacity .15s;}
+  .lit{opacity:1;transition:opacity .15s;}
+  path.link{fill:none;mix-blend-mode:multiply;}
+  .orphantxt{font-size:11px;font-weight:600;fill:var(--warn);}
+
+  /* ── Findings ───────────────────────────────────── */
+  #findings{margin-top:26px;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--warn);
+    border-radius:12px;padding:22px 28px;}
+  #findings h2{font-family:'Fraunces',Georgia,serif;font-size:22px;margin:0 0 4px;}
+  #findings p.lead{color:var(--muted);font-size:13.5px;margin:0 0 14px;}
+  .finding{display:flex;gap:14px;padding:11px 0;border-top:1px solid var(--line);font-size:13.5px;line-height:1.55;}
+  .fnum{flex:none;width:26px;height:26px;border-radius:50%;background:var(--warn);color:#fff;font-weight:800;
+    font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:1px;}
+  .finding code{background:#EFE8D8;border-radius:4px;padding:1px 5px;font-size:11.5px;font-family:ui-monospace,Consolas,monospace;}
+  .foot{margin-top:18px;font-size:11.5px;color:var(--muted);}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div class="kicker">Codify Door Inspection · InspectionWizard.tsx</div>
+  <h1>The Checklist Logic, End to End</h1>
+  <p class="sub">How <b>getApplicableItems()</b> decides what the inspector sees. Read left to right:
+    <b>user inputs</b> set <b>derived conditions</b>, some items pass through <b>gates and follow-up branches</b>,
+    and everything lands in one of seven <b>checklist sections</b>. Ribbon width = number of checklist items carried.
+    Hover any node or ribbon for the exact boolean condition and code line; click to pin.</p>
+  <div class="chips">
+    <span class="chip"><b>10</b> input groups</span>
+    <span class="chip"><b>13</b> derived conditions</span>
+    <span class="chip"><b>4</b> blocking prompts · <b>10</b> follow-up branches</span>
+    <span class="chip"><b>75</b> checklist items</span>
+    <span class="chip" style="border-color:#B03A2E55;color:#B03A2E;"><b>5</b> review flags ⚠</span>
+  </div>
+  <div class="legend">
+    <span class="lg"><span class="ribbon-solid"></span> checklist items (width = count)</span>
+    <span class="lg"><span class="ribbon-dash"></span> modifier — changes rules, carries no items</span>
+    <span class="lg"><span class="sw" style="background:var(--olive)"></span> input</span>
+    <span class="lg"><span class="sw" style="background:var(--clay)"></span> derived condition</span>
+    <span class="lg"><span class="sw" style="background:var(--stone)"></span> always shown</span>
+    <span class="lg"><span class="sw" style="background:var(--ochre)"></span> follow-up branch</span>
+    <span class="lg"><span class="sw" style="background:var(--rust)"></span> blocking prompt</span>
+    <span class="lg"><span class="sw" style="background:var(--pine)"></span> checklist section</span>
+    <span class="lg" style="color:var(--warn);font-weight:700;">⚠ suspected issue</span>
+  </div>
+
+  <div id="stage">
+    <svg id="sv" viewBox="0 0 1780 1010" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="ctrls">
+      <button id="zin" title="Zoom in">+</button>
+      <button id="zout" title="Zoom out">−</button>
+      <button id="zreset" title="Reset view" style="font-size:13px;">⤾</button>
+    </div>
+    <div class="hintbar">scroll to zoom · drag to pan · hover for logic · click to pin</div>
+  </div>
+
+  <div id="findings">
+    <h2>Review flags — where the code may not match intent</h2>
+    <p class="lead">Found while tracing the logic for this map. Each is worth a look before trusting the checklist output.</p>
+    <div class="finding"><div class="fnum">1</div><div><b>Dead stair-door check.</b> <code>getApplicableItems</code> L183 tests <code>swing === 'stair'</code>, but swing is only ever <code>single / dbl_pair / dbl_dual_egress / dbl_active / dbl_inactive</code> — the condition can never fire. The real 60-min stair override lives in the auto-flag effect (L1047, L1065) via <code>isStairDoor</code>, which is never passed into <code>getApplicableItems</code>. Net effect: a 45-min door on a 1-hr fire barrier stair gets <i>auto-flagged deficient</i>, but the <code>rating_door</code> row itself is <i>not shown</i> in the checklist (45 ≥ 45, so <code>doorIsUnderrated</code> is false).</div></div>
+    <div class="finding"><div class="fnum">2</div><div><b>Same bug class for corridor doors.</b> The 1-hr partition corridor override (L1103: 20-min door + <code>isCorridorDoor</code> → deficient) also only exists in the auto-flag effect. <code>getApplicableItems</code> never sees <code>isCorridorDoor</code>, so the flagged <code>rating_door</code> row is hidden there too.</div></div>
+    <div class="finding"><div class="fnum">3</div><div><b>Unreachable branches x5, x9, x10.</b> Fully implemented in <code>getBranchResult</code> (damaged astragal, damaged sweep, bottom rod/flush bolt) but no checklist item carries <code>branch: 'x5' / 'x9' / 'x10'</code>. The likely intended hosts — <code>pi_astragal</code> (L282) and <code>pi_sweep</code> (L283) — have no branch at all, so those follow-up question chains can never be asked.</div></div>
+    <div class="finding"><div class="fnum">4</div><div><b>Three different “illegitimate mag-lock” definitions.</b> Blocking prompt (L161): <code>mag && !motion && !PTE</code>. Item show (L314): <code>mag && (!motion || !PTE)</code>. Auto-flag (L1127): <code>mag && (motion XOR PTE)</code>. These disagree when exactly one of motion sensor / PUSH-TO-EXIT is present. Decide which is canonical.</div></div>
+    <div class="finding"><div class="fnum">5</div><div><b>Docs drifted from code.</b> DEVELOPMENT_NOTES.md (and CLAUDE.md) say the stair override keys off <code>hwState.hw_stair_door</code> — no such hardware var exists in <code>HARDWARE_VARS</code>. The code uses the <code>isStairDoor</code> setup question instead.</div></div>
+    <div class="foot">Ribbon widths audited against source: Rating 8 · Gaps 10 · Self-Closing 12 · Positive Latching 11 · Physical Integrity 18 · Signage 5 · Locking 11 = 75 items.
+      Source of truth: <code>getApplicableItems()</code> L167–326, <code>BLOCKING_PROMPTS</code> L130–165, <code>getBranchResult()</code> L328–544 · generated 2026-07-08.</div>
+  </div>
+</div>
+
+<div id="tip"></div>
+
+<script>
+/* ════════ ITEM DEFINITIONS — exact show-conditions from source ════════ */
+const IT = {
+  label_door:{s:'Rating',t:'Door label is illegible',c:"scope && doorRating==='label_illegible' · auto-flag"},
+  rating_door:{s:'Rating',t:'Door is underrated',c:"scope && (rating < minRequired || illegible) ⚠ stair/corridor overrides never reach here"},
+  label_frame:{s:'Rating',t:'Frame label is illegible',c:"scope && frameRating==='label_illegible' · advisory if existing construction"},
+  rating_frame:{s:'Rating',t:'Frame is underrated',c:"scope && (frame < minRequired || illegible)"},
+  rating_cont_hinge:{s:'Rating',t:'Continuous hinge underrated',c:'scope && hw_continuous_hinge'},
+  rating_panic:{s:'Rating',t:'Panic device underrated',c:'scope && hw_panic_device'},
+  rating_plate:{s:'Rating',t:'Protective plate(s) underrated / >16″',c:'scope && hw_protective_plate'},
+  rating_vision:{s:'Rating',t:'Vision panel underrated',c:'(scope || isSmoke) && hw_vision_panel · hint if cross-corridor dual-egress'},
+  gap_astragal:{s:'Gaps',t:'Astragal not for gap mitigation',c:'double && scope · branch x4 if smoke'},
+  gap_sweep:{s:'Gaps',t:'Sweep not for gap mitigation',c:'hw_sweep && !partition && !suite && !(smoke && cross-corr && dual-egress) · branch x1'},
+  gap_bottom_3_4:{s:'Gaps',t:'Bottom clearance > 3/4″',c:'always, except Suite Perimeter'},
+  gap_bottom_1:{s:'Gaps',t:'Bottom clearance > 1″',c:'Suite Perimeter only'},
+  gap_face:{s:'Gaps',t:'Face gap excessive',c:'always · branch x2'},
+  gap_fire_pin:{s:'Gaps',t:'Face gap defeats fire pin',c:'double && locksetOrPanic && (fire || smoke) · x4 if smoke'},
+  gap_hinge:{s:'Gaps',t:'Hinge edge gap excessive',c:'always · gap-standard hint · branch x3 if suite'},
+  gap_latch:{s:'Gaps',t:'Latch edge gap excessive',c:'always · gap-standard hint · branch x3 if suite'},
+  gap_top:{s:'Gaps',t:'Top edge gap excessive',c:'always · gap-standard hint · branch x3 if suite'},
+  gap_meeting:{s:'Gaps',t:'Meeting edge gap excessive',c:'double doors · 1/8″ wood, 3/16″ metal'},
+  sc_closer_missing:{s:'Self-Closing',t:'Closer not provided',c:'!closerOrAuto && !suite && !x14Compliant · auto-flag · branch x14 if inactive leaf'},
+  sc_arm_disconnected:{s:'Self-Closing',t:'Closer arm disconnected',c:'closerOrAuto'},
+  sc_slamming:{s:'Self-Closing',t:'Door slamming shut',c:'hw_closer only'},
+  sc_maladjusted:{s:'Self-Closing',t:'Closer maladjusted',c:'closerOrAuto'},
+  sc_coordinator_missing:{s:'Self-Closing',t:'Coordinator not provided',c:'double || astragal || coordinator'},
+  sc_coordinator_failing:{s:'Self-Closing',t:'Coordinator failing',c:'double || astragal || coordinator'},
+  sc_rub_adjacent:{s:'Self-Closing',t:'Rubbing adjacent leaf',c:'closerOrAuto && double'},
+  sc_rub_floor:{s:'Self-Closing',t:'Rubbing floor',c:'closerOrAuto'},
+  sc_rub_frame:{s:'Self-Closing',t:'Rubbing frame',c:'closerOrAuto'},
+  sc_air_pressure:{s:'Self-Closing',t:'Air pressure prevents closing',c:'closerOrAuto'},
+  sc_hold_open:{s:'Self-Closing',t:'Hold-open device present',c:'hw_closer only'},
+  sc_sweep_dragging:{s:'Self-Closing',t:'Sweep dragging floor',c:'closerOrAuto && hw_sweep'},
+  hw_latch_missing:{s:'Positive Latching',t:'Latching hardware not provided',c:'!(lockset|panic|delayed|flush bolts) · x4 if smoke'},
+  pl_latch_sticks:{s:'Positive Latching',t:'Latch bolt sticks',c:'locksetOrPanic'},
+  pl_latch_fails:{s:'Positive Latching',t:'Latch fails to engage strike',c:'locksetOrPanic'},
+  pl_defeated:{s:'Positive Latching',t:'Latching hardware defeated',c:'locksetOrPanic'},
+  pl_hw_damaged:{s:'Positive Latching',t:'Latching hw missing/damaged',c:'locksetOrPanic'},
+  pl_electric_strike:{s:'Positive Latching',t:'Electric strike fails to stay rigid',c:'hw_electric_strike'},
+  pl_mechanical_hw:{s:'Positive Latching',t:'Mechanical hw where electrified needed',c:'locksetOrPanic && hw_automatic_operator'},
+  pl_bottom_fails:{s:'Positive Latching',t:'Bottom latch fails floor strike',c:'double && (panic|flush bolts)'},
+  pl_floor_strike_missing:{s:'Positive Latching',t:'Floor strike not provided',c:'double && (panic|flush bolts)'},
+  pl_fire_pin:{s:'Positive Latching',t:'Fire pin missing',c:'double && locksetOrPanic && scope · x4 if smoke'},
+  pl_flush_bolts_manual:{s:'Positive Latching',t:'Manual flush bolts where auto needed',c:'hw_flush_bolts_manual && inactive · branch x13'},
+  pi_hinge_filler:{s:'Physical Integrity',t:'Hinge filler plate(s) missing',c:'always · x8 if partition/suite/non-rated-SB, else x4 if smoke'},
+  pi_hinge_missing:{s:'Physical Integrity',t:'Hinge missing/damaged',c:'scope · x4 if smoke'},
+  pi_screws:{s:'Physical Integrity',t:'Screws missing/broken',c:'scope · x4 if smoke'},
+  pi_frame:{s:'Physical Integrity',t:'Frame damaged/unsecured',c:'always'},
+  pi_door_damaged:{s:'Physical Integrity',t:'Door severely damaged',c:'always'},
+  pi_hydraulic:{s:'Physical Integrity',t:'Hydraulic fluid on door face',c:'hw_closer only'},
+  pi_holes:{s:'Physical Integrity',t:'Fastener hole(s) present',c:'always · branch x6'},
+  pi_prep:{s:'Physical Integrity',t:'Prep exposed',c:'always · branch x6'},
+  pi_dissimilar:{s:'Physical Integrity',t:'Holes filled with dissimilar material',c:'scope · x4 if smoke'},
+  pi_laminate_hinge:{s:'Physical Integrity',t:'Laminate damaged — hinge edge',c:'always · x8 if partition/suite/non-rated-SB'},
+  pi_laminate_latch:{s:'Physical Integrity',t:'Laminate damaged — latch edge',c:'always · x8 if partition/suite/non-rated-SB'},
+  pi_laminate_face:{s:'Physical Integrity',t:'Laminate damaged — face',c:'always · x8 if partition/suite/non-rated-SB'},
+  pi_latching_hw:{s:'Physical Integrity',t:'Latching hw missing/damaged',c:'lockset | panic | delayed egress'},
+  pi_astragal:{s:'Physical Integrity',t:'Astragal damaged',c:'double · ⚠ branch x5 exists but is not attached'},
+  pi_sweep:{s:'Physical Integrity',t:'Sweep damaged',c:'hw_sweep · ⚠ branch x9 exists but is not attached'},
+  pi_gasketing:{s:'Physical Integrity',t:'Gasketing missing/damaged',c:'always · branch x7'},
+  pi_panic_endcap:{s:'Physical Integrity',t:'Panic end cap missing/damaged',c:'scope && panic · x4 if smoke'},
+  vp_missing:{s:'Physical Integrity',t:'Cross-corridor door lacks vision panel',c:'isCrossCorridor && !hw_vision_panel · auto-flag'},
+  sign_delayed_egress:{s:'Signage',t:'Delayed egress signage missing',c:'hw_delayed_egress'},
+  sign_coat_rack:{s:'Signage',t:'Mechanically fastened coat rack',c:'hw_signage && scope · x4 if smoke'},
+  sign_mech_fastened:{s:'Signage',t:'Signage mechanically fastened',c:'hw_signage && scope · x4 if smoke'},
+  sign_5pct:{s:'Signage',t:'Signage exceeds 5% of face',c:'hw_signage && scope · x4 if smoke'},
+  sign_vision:{s:'Signage',t:'Signage adhered to vision panel',c:'hw_signage && scope && hw_vision_panel'},
+  lock_panic_actuating:{s:'Locking',t:'Panic bar < 1/2 door width',c:'hw_panic_device'},
+  lock_overlap_independent:{s:'Locking',t:'Astragal prevents independent operation',c:'hw_overlapping_astragal'},
+  lock_deadbolt:{s:'Locking',t:'Deadbolt where occupant load > 3',c:'hw_deadbolt · branch x11 (also blocking prompt)'},
+  lock_delayed_failure:{s:'Locking',t:'Delayed egress device failure',c:'hw_delayed_egress'},
+  lock_delayed_sprinkler:{s:'Locking',t:'Delayed egress, not fully sprinklered',c:'hw_delayed_egress && !sprinklered · auto-flag'},
+  lock_motion_fails:{s:'Locking',t:'Motion sensor fails to release mag-lock',c:'hw_motion_sensor'},
+  lock_locked_egress:{s:'Locking',t:'Door mechanically locked in egress',c:'always'},
+  lock_pte_fails:{s:'Locking',t:'PTE fails 30-second release',c:'hw_push_to_exit'},
+  lock_pte_distance:{s:'Locking',t:'PTE not within 5 ft',c:'hw_push_to_exit'},
+  lock_pte_missing:{s:'Locking',t:'PTE button/signage not provided',c:'hw_magnetic_lock && !hw_push_to_exit'},
+  lock_illegitimate_arrangement:{s:'Locking',t:'Illegitimate locking arrangement',c:'mag && (!motion || !PTE) ⚠ 3 conflicting definitions — see flag 4'},
+};
+
+/* ════════ NODES ════════ */
+const NODES = [
+ // col 0 — inputs
+ {id:'in_rating',col:0,g:'input',l:'Door & Frame Rating',sub:'180/90/60/45/20/0 · Label Illegible',
+  d:'Rating dropdowns compared against MIN_RATINGS for the assembly. “Label Illegible” parses to −1 and auto-flags both label and rating items.',code:'L88–96 · L185–188'},
+ {id:'in_assembly',col:0,g:'input',l:'Assembly Type',sub:'7 types → min rating',
+  d:'3-Hr Fire 180 · 2-Hr Fire 90 · 1-Hr Fire 45 · 1-Hr Partition 20 · Smoke Barrier 20 · Smoke Partition — · Suite Perimeter —. Fire-rated set = first four (FIRE_RATED).',code:'L76–96'},
+ {id:'in_furnish',col:0,g:'input',l:'HW · Furnishings',sub:'Sweep · Vision · Signage · Plates · Cont. Hinge',
+  d:'Presence toggles that key items directly.',code:'L98–119'},
+ {id:'in_latch',col:0,g:'input',l:'HW · Latching',sub:'Locksets · Panic · Delayed Egress',
+  d:'locksetOrPanic = cylindrical | mortise | panic | delayed egress. Lockset toggles hidden unless swing is single/active.',code:'L200 · L1776–1780'},
+ {id:'in_swing',col:0,g:'input',l:'Door Swing Type',sub:'single · pair · dual-egress · active · inactive',
+  d:'Five options. Also hides inapplicable hardware toggles (coordinator/astragal hidden when single; flush bolts only on inactive; deadbolt only single/active).',code:'L1620–1789'},
+ {id:'in_closer',col:0,g:'input',l:'HW · Closer / Auto Operator',sub:'closerOrAuto',
+  d:'closerOrAuto = hw_closer || hw_automatic_operator. Absence auto-flags “Closer not provided”. Four items require hw_closer specifically (slamming, hold-open, hydraulic fluid).',code:'L199'},
+ {id:'in_pairhw',col:0,g:'input',l:'HW · Pair Hardware',sub:'Flush Bolts · Coordinator · Astragal',
+  d:'Only visible for double-door swings. Manual flush bolts on an inactive leaf trigger blocking prompt x13.',code:'L1770–1786'},
+ {id:'in_setupq',col:0,g:'input',l:'Setup Follow-Ups',sub:'Stair · Cross-Corridor · Healthcare · Corridor',
+  d:'Conditional questions on setup page 1: Stair door (1-Hr Fire + 45), Cross-corridor (SB + pair/dual-egress), Healthcare occupancy (SB + dual-egress), Corridor door (1-Hr Partition + 20). ⚠ Stair & corridor answers feed only the auto-flag effect — never getApplicableItems().',code:'L1494–1614',warn:true},
+ {id:'in_access',col:0,g:'input',l:'HW · Access Control',sub:'Deadbolt · Mag Lock · Motion · PTE · E-Strike',
+  d:'Deadbolt triggers blocking prompt x11. Mag lock without motion sensor or PUSH-TO-EXIT triggers blocking prompt x12.',code:'L152–164'},
+ {id:'in_project',col:0,g:'input',l:'Project Settings',sub:'Sprinklered · Gap Standard · Construction',
+  d:'Set once in Config: sprinklered (default true), gapStandard (codify 1/4″ · nfpa80 1/8″±1/16″ · preoccupancy 3/16″ · survey 3/8″), construction (existing softens frame-label to advisory).',code:'L178–204 · L1071'},
+
+ // col 1 — derived conditions
+ {id:'c_rating',col:1,g:'cond',l:'Under-Rated / Illegible',sub:'rating < minRequired',
+  d:'doorIsUnderrated / frameIsUnderrated: minRequired > 0 && rating < minRequired. ⚠ L183 stair check (swing===’stair’) is dead code — swing never takes that value; stair (60-min) and corridor (45-min) overrides exist only in the auto-flag effect, so rows can be flagged deficient yet hidden here.',code:'L180–188 · dead code L183',warn:true},
+ {id:'c_hw',col:1,g:'cond',l:'Hardware Present',sub:'item keyed to one toggle',
+  d:'Items shown directly because a hardware toggle is ON (some also require rated-assembly scope — see each item).',code:'various'},
+ {id:'c_double',col:1,g:'cond',l:'Double Door',sub:'notSingleDoor',
+  d:'swing !== ’single’. Enables pair-specific items: astragal, meeting edge, coordinator, bottom latching, fire pin.',code:'L195–198'},
+ {id:'c_closer',col:1,g:'cond',l:'Closer / Auto-Operator State',sub:'present → 9 checks · absent → auto-flag',
+  d:'Present: operational checks. Absent: “Closer not provided” auto-flags (suppressed for Suite Perimeter, or when x14 answered compliant).',code:'L199 · L240–251'},
+ {id:'c_latchhw',col:1,g:'cond',l:'Latching HW State',sub:'locksetOrPanic / any-latch',
+  d:'Present: latch operation checks. Nothing latching at all: “Latching hardware not provided” (x4 if smoke barrier).',code:'L200 · L254–266'},
+ {id:'c_inactive',col:1,g:'cond',l:'Inactive Leaf',sub:"swing === 'dbl_inactive'",
+  d:'Gates blocking prompts x13 (manual flush bolts) and x14 (no closer). x14 answered compliant hides sc_closer_missing.',code:'L138–150'},
+ {id:'c_scope',col:1,g:'cond',l:'Rated Scope',sub:'isNotSmokePartOrSuite',
+  d:'!smoke_partition && !suite && !non-rated-SB. Directly carries 3 items here; also an AND-term on 15 more (rating_*, sign_*, gap_astragal, pl_fire_pin, pi_panic_endcap) shown under other ribbons.',code:'L194'},
+ {id:'c_core',col:1,g:'core',l:'Always Shown',sub:'unconditional core items',
+  d:'15 items every door gets regardless of inputs (gap edges, face gap, frame/door damage, holes & prep, laminate, gasketing, locked-in-egress). Suite Perimeter swaps the 3/4″ bottom rule for 1″.',code:'L230–304'},
+ {id:'c_partsuite',col:1,g:'cond',l:'Smoke Partition / Suite',sub:'relaxed, judgment-based scope',
+  d:'Non-rated assemblies. Removes the 18 rated-scope items; adds branch x3 (suite gap edges > 5/8″?) and x8 (laminate — infection-control question). x6/x7 gain extra questions instead of auto-deficient.',code:'L192–193 · L455–503'},
+ {id:'c_crosscorr',col:1,g:'cond',l:'Cross-Corridor (SB)',sub:'+ dual-egress + healthcare → min 0',
+  d:'Cross-corridor smoke barrier: requires vision panel (auto-flag if absent). With dual-egress swing + healthcare occupancy → the non-rated SB exception: minimum rating drops to 0 and laminate items take branch x8.',code:'L184 · L191 · L287'},
+ {id:'c_smoke',col:1,g:'cond',l:'Smoke Barrier',sub:'isSmoke → branch x4',
+  d:'Attaches follow-up x4 to 12 items (astragal, fire pins, latch-missing, hinges, screws, dissimilar, panic end cap, signage). x4: compliant only if dual-egress AND healthcare occupancy.',code:'L190 · L446–453'},
+ {id:'c_access',col:1,g:'cond',l:'Access-Control Logic',sub:'deadbolt · mag-lock supervision',
+  d:'Deadbolt → x11 chain. Mag lock: motion-sensor and PTE items; unsupervised mag lock → blocking prompt x12 and “illegitimate arrangement”. ⚠ see flag 4 — three conflicting definitions.',code:'L296–316',warn:true},
+ {id:'c_project',col:1,g:'cond',l:'Project Modifiers',sub:'no items — changes rules',
+  d:'!sprinklered → extra sprinkler questions in x2 & x12 and auto-flags lock_delayed_sprinkler. gapStandard sets the hint on the three gap-edge items. construction=existing → frame label becomes advisory.',code:'L178–179 · L386 · L420'},
+
+ // col 2 — gates & branches
+ {id:'x1',col:2,g:'branch',l:'x1 · Sweep',sub:'2 questions',d:'Push-side clearance excessive? → deficient. Else: room with pressure / sound / outside-air consideration? yes → compliant.',code:'L435–444'},
+ {id:'x2',col:2,g:'branch',l:'x2 · Face Gap',sub:'sprinkler-aware',d:'Gap excessive? If building not fully sprinklered, asks; then final question differs for sprinklered vs not.',code:'L416–433'},
+ {id:'x14',col:2,g:'block',l:'x14 · Inactive, No Closer',sub:'BLOCKING',d:'Must answer before checklist opens: “Is this inactive leaf normally closed and infrequently used to permit large equipment through?” Yes → compliant and sc_closer_missing is suppressed (x14Compliant).',code:'L137–143 · L409–414'},
+ {id:'x13',col:2,g:'block',l:'x13 · Manual Flush Bolts',sub:'BLOCKING',d:'Must answer first: “Does the inactive leaf serve a room that is typically not occupied?” Yes → compliant.',code:'L144–150 · L402–407'},
+ {id:'x6',col:2,g:'branch',l:'x6 · Holes & Prep',sub:'auto-deficient if rated',d:'Fire assemblies: always deficient, no questions. Smoke partition / suite: one judgment question; compliant answer recommends filling with rated material.',code:'L480–486'},
+ {id:'x7',col:2,g:'branch',l:'x7 · Gasketing',sub:'1–2 questions',d:'Interferes with closing/latching? → deficient. Partition/suite additionally: does damage reveal excessive gap?',code:'L488–497'},
+ {id:'x11',col:2,g:'block',l:'x11 · Deadbolt',sub:'BLOCKING',d:'Egress? → space use (ambulatory/business: ≤3 occupant calc; healthcare: inpatient/sleeping sub-chains) → compliant or deficient.',code:'L152–157 · L339–366'},
+ {id:'x12',col:2,g:'block',l:'x12 · Mag-Lock Unsupervised',sub:'BLOCKING ⚠',d:'7-question chain: egress → space use → special units → 3 criteria → smoke detection/remote unlock → sprinklered (skipped if project says yes) → fail-safe locks. ⚠ Trigger differs from item and from auto-flag (flag 4).',code:'L158–164 · L368–400',warn:true},
+ {id:'x3',col:2,g:'branchT',l:'x3 · Suite Gap Edges',sub:'modifies 3 items',d:'When Suite Perimeter, the hinge/latch/top gap items ask: “gap > 5/8″ — can you see daylight?” yes → deficient.',code:'L455–460'},
+ {id:'x4',col:2,g:'branchT',l:'x4 · Smoke Compliance',sub:'modifies 12 items',d:'Attached to 12 smoke-barrier items. Anything but dual-egress → deficient; dual-egress asks “healthcare occupancy?” — yes → compliant.',code:'L446–453'},
+ {id:'x8',col:2,g:'branchT',l:'x8 · Infection Control',sub:'modifies 4 items',d:'For partition / suite / non-rated SB: laminate damage & hinge fillers ask “patient-care area with infection-control concern?” no → compliant, recommend protective plate.',code:'L499–504'},
+
+ // col 3 — sections
+ {id:'S_Rating',col:3,g:'sec',l:'Rating',sub:'8 items',d:'Labels and rating adequacy for door, frame, and rated accessories.',code:'L207–224'},
+ {id:'S_Gaps',col:3,g:'sec',l:'Gaps',sub:'10 items',d:'Clearances at every edge, plus mitigation-hardware misuse.',code:'L227–237'},
+ {id:'S_SC',col:3,g:'sec',l:'Self-Closing',sub:'12 items',d:'Closer presence and every way a door can fail to close.',code:'L239–251'},
+ {id:'S_PL',col:3,g:'sec',l:'Positive Latching',sub:'11 items',d:'Latch engagement, bottom latching points, fire pins, flush bolts.',code:'L253–266'},
+ {id:'S_PI',col:3,g:'sec',l:'Physical Integrity',sub:'18 items',d:'Damage, holes, laminate, gasketing, hinges — the largest section.',code:'L268–287'},
+ {id:'S_Sign',col:3,g:'sec',l:'Signage',sub:'5 items',d:'Signage fastening, size, and delayed-egress signage.',code:'L289–294'},
+ {id:'S_Lock',col:3,g:'sec',l:'Locking',sub:'11 items',d:'Egress locking: deadbolts, mag locks, PTE, delayed egress, panic width.',code:'L296–316'},
+];
+
+/* ════════ LINKS — v = item count; dash = modifier ════════ */
+const LINKS = [
+ {s:'in_rating',t:'c_rating',v:4,items:['label_door','rating_door','label_frame','rating_frame']},
+ {s:'in_assembly',t:'c_scope',v:3,items:['pi_hinge_missing','pi_screws','pi_dissimilar']},
+ {s:'in_assembly',t:'c_partsuite',v:1,items:['gap_bottom_1']},
+ {s:'in_swing',t:'c_double',v:9,items:['gap_astragal','gap_fire_pin','gap_meeting','sc_coordinator_missing','sc_coordinator_failing','pl_bottom_fails','pl_floor_strike_missing','pl_fire_pin','pi_astragal']},
+ {s:'in_swing',t:'c_inactive',v:1,items:['pl_flush_bolts_manual']},
+ {s:'in_setupq',t:'c_crosscorr',v:1,items:['vp_missing']},
+ {s:'in_closer',t:'c_closer',v:11,items:['sc_closer_missing','sc_arm_disconnected','sc_slamming','sc_maladjusted','sc_rub_adjacent','sc_rub_floor','sc_rub_frame','sc_air_pressure','sc_hold_open','sc_sweep_dragging','pi_hydraulic']},
+ {s:'in_latch',t:'c_latchhw',v:8,items:['hw_latch_missing','pl_latch_sticks','pl_latch_fails','pl_defeated','pl_hw_damaged','pl_mechanical_hw','pi_latching_hw','pi_panic_endcap']},
+ {s:'in_latch',t:'c_hw',v:5,items:['rating_panic','sign_delayed_egress','lock_panic_actuating','lock_delayed_failure','lock_delayed_sprinkler']},
+ {s:'in_access',t:'c_hw',v:1,items:['pl_electric_strike']},
+ {s:'in_access',t:'c_access',v:6,items:['lock_deadbolt','lock_motion_fails','lock_pte_fails','lock_pte_distance','lock_pte_missing','lock_illegitimate_arrangement']},
+ {s:'in_pairhw',t:'c_hw',v:1,items:['lock_overlap_independent']},
+ {s:'in_furnish',t:'c_hw',v:9,items:['rating_cont_hinge','rating_plate','rating_vision','gap_sweep','pi_sweep','sign_coat_rack','sign_mech_fastened','sign_5pct','sign_vision']},
+
+ {s:'c_rating',t:'S_Rating',v:4,items:['label_door','rating_door','label_frame','rating_frame']},
+ {s:'c_hw',t:'S_Rating',v:4,items:['rating_cont_hinge','rating_panic','rating_plate','rating_vision']},
+ {s:'c_hw',t:'x1',v:1,items:['gap_sweep']},
+ {s:'x1',t:'S_Gaps',v:1,items:['gap_sweep']},
+ {s:'c_hw',t:'S_PL',v:1,items:['pl_electric_strike']},
+ {s:'c_hw',t:'S_PI',v:1,items:['pi_sweep']},
+ {s:'c_hw',t:'S_Sign',v:5,items:['sign_delayed_egress','sign_coat_rack','sign_mech_fastened','sign_5pct','sign_vision']},
+ {s:'c_hw',t:'S_Lock',v:4,items:['lock_panic_actuating','lock_overlap_independent','lock_delayed_failure','lock_delayed_sprinkler']},
+ {s:'c_double',t:'S_Gaps',v:3,items:['gap_astragal','gap_fire_pin','gap_meeting']},
+ {s:'c_double',t:'S_SC',v:2,items:['sc_coordinator_missing','sc_coordinator_failing']},
+ {s:'c_double',t:'S_PL',v:3,items:['pl_bottom_fails','pl_floor_strike_missing','pl_fire_pin']},
+ {s:'c_double',t:'S_PI',v:1,items:['pi_astragal']},
+ {s:'c_closer',t:'S_SC',v:9,items:['sc_arm_disconnected','sc_slamming','sc_maladjusted','sc_rub_adjacent','sc_rub_floor','sc_rub_frame','sc_air_pressure','sc_hold_open','sc_sweep_dragging']},
+ {s:'c_closer',t:'x14',v:1,items:['sc_closer_missing']},
+ {s:'x14',t:'S_SC',v:1,items:['sc_closer_missing']},
+ {s:'c_closer',t:'S_PI',v:1,items:['pi_hydraulic']},
+ {s:'c_latchhw',t:'S_PL',v:6,items:['hw_latch_missing','pl_latch_sticks','pl_latch_fails','pl_defeated','pl_hw_damaged','pl_mechanical_hw']},
+ {s:'c_latchhw',t:'S_PI',v:2,items:['pi_latching_hw','pi_panic_endcap']},
+ {s:'c_access',t:'x11',v:1,items:['lock_deadbolt']},
+ {s:'x11',t:'S_Lock',v:1,items:['lock_deadbolt']},
+ {s:'c_access',t:'x12',v:1,items:['lock_illegitimate_arrangement']},
+ {s:'x12',t:'S_Lock',v:1,items:['lock_illegitimate_arrangement']},
+ {s:'c_access',t:'S_Lock',v:4,items:['lock_motion_fails','lock_pte_fails','lock_pte_distance','lock_pte_missing']},
+ {s:'c_inactive',t:'x13',v:1,items:['pl_flush_bolts_manual']},
+ {s:'x13',t:'S_PL',v:1,items:['pl_flush_bolts_manual']},
+ {s:'c_scope',t:'S_PI',v:3,items:['pi_hinge_missing','pi_screws','pi_dissimilar']},
+ {s:'c_partsuite',t:'S_Gaps',v:1,items:['gap_bottom_1']},
+ {s:'c_crosscorr',t:'S_PI',v:1,items:['vp_missing']},
+ {s:'c_core',t:'S_Gaps',v:4,items:['gap_bottom_3_4','gap_hinge','gap_latch','gap_top']},
+ {s:'c_core',t:'x2',v:1,items:['gap_face']},
+ {s:'x2',t:'S_Gaps',v:1,items:['gap_face']},
+ {s:'c_core',t:'x6',v:2,items:['pi_holes','pi_prep']},
+ {s:'x6',t:'S_PI',v:2,items:['pi_holes','pi_prep']},
+ {s:'c_core',t:'x7',v:1,items:['pi_gasketing']},
+ {s:'x7',t:'S_PI',v:1,items:['pi_gasketing']},
+ {s:'c_core',t:'S_PI',v:6,items:['pi_hinge_filler','pi_frame','pi_door_damaged','pi_laminate_hinge','pi_laminate_latch','pi_laminate_face']},
+ {s:'c_core',t:'S_Lock',v:1,items:['lock_locked_egress']},
+
+ // modifiers (dashed — no item flow)
+ {s:'in_assembly',t:'c_rating',v:.5,dash:1,note:'minimum rating comes from assembly type (MIN_RATINGS)'},
+ {s:'in_setupq',t:'c_rating',v:.5,dash:1,warn:1,note:'⚠ stair (60-min) & corridor (45-min) overrides bypass getApplicableItems — auto-flag effect only (L1047, L1103)'},
+ {s:'in_assembly',t:'c_smoke',v:.5,dash:1,note:'isSmoke = assemblyType === ’smoke_barrier’'},
+ {s:'in_pairhw',t:'c_inactive',v:.5,dash:1,note:'manual flush bolts + inactive leaf → blocking prompt x13'},
+ {s:'in_project',t:'c_project',v:.5,dash:1,note:'sprinklered · gap standard · construction'},
+ {s:'c_smoke',t:'x4',v:.5,dash:1,note:'attaches x4 follow-up to 12 items already shown via other ribbons'},
+ {s:'c_partsuite',t:'x3',v:.5,dash:1,note:'suite: gap-edge items gain the 5/8″ daylight question'},
+ {s:'c_partsuite',t:'x8',v:.5,dash:1,note:'laminate & hinge-filler items gain the infection-control question'},
+ {s:'c_inactive',t:'x14',v:.5,dash:1,note:'x14 branch attaches to “Closer not provided” only on the inactive leaf'},
+];
+
+/* ════════ LAYOUT (hand-rolled sankey) ════════ */
+const COLX=[95,540,995,1445], NW=17, SCALE=8, MINH=16, TOP=96, INNERH=858;
+const COLGAP=[15,12,13,17];
+const COLORDER=[
+ ['in_rating','in_assembly','in_furnish','in_latch','in_swing','in_closer','in_pairhw','in_setupq','in_access','in_project'],
+ ['c_rating','c_hw','c_double','c_closer','c_latchhw','c_inactive','c_scope','c_core','c_partsuite','c_crosscorr','c_smoke','c_access','c_project'],
+ ['x1','x2','x14','x13','x6','x7','x11','x12','x3','x4','x8'],
+ ['S_Rating','S_Gaps','S_SC','S_PL','S_PI','S_Sign','S_Lock'],
+];
+const GCOLOR={input:'#74855C',cond:'#BE6E4A',core:'#8E8676',branch:'#C79A3B',branchT:'#C79A3B',block:'#A8492F',sec:'#3B5B4E'};
+const N={}; NODES.forEach(n=>N[n.id]=n);
+NODES.forEach(n=>{n.in=[];n.out=[];});
+LINKS.forEach(L=>{N[L.s].out.push(L);N[L.t].in.push(L);});
+NODES.forEach(n=>{
+  const si=n.in.reduce((a,l)=>a+l.v,0), so=n.out.reduce((a,l)=>a+l.v,0);
+  n.value=Math.max(si,so); n.h=Math.max(n.value*SCALE,MINH);
+});
+COLORDER.forEach((ids,c)=>{
+  const tot=ids.reduce((a,id)=>a+N[id].h,0)+COLGAP[c]*(ids.length-1);
+  let y=TOP+(INNERH-tot)/2;
+  ids.forEach(id=>{const n=N[id];n.x=COLX[c];n.y=y;y+=n.h+COLGAP[c];});
+});
+// link endpoint offsets
+NODES.forEach(n=>{
+  const outs=n.out.slice().sort((a,b)=>N[a.t].y-N[b.t].y);
+  const sumO=outs.reduce((a,l)=>a+l.v,0)*SCALE;
+  let off=(n.h-sumO)/2;
+  outs.forEach(l=>{l.sy=n.y+off+l.v*SCALE/2;off+=l.v*SCALE;});
+  const ins=n.in.slice().sort((a,b)=>N[a.s].y-N[b.s].y);
+  const sumI=ins.reduce((a,l)=>a+l.v,0)*SCALE;
+  off=(n.h-sumI)/2;
+  ins.forEach(l=>{l.ty=n.y+off+l.v*SCALE/2;off+=l.v*SCALE;});
+});
+
+/* ════════ RENDER ════════ */
+const svg=document.getElementById('sv');
+const NS='http://www.w3.org/2000/svg';
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);(parent||svg).appendChild(e);return e;}
+const defs=el('defs',{});
+const view=el('g',{id:'view'});
+
+// column headers
+const HEADS=['USER INPUTS','DERIVED CONDITIONS','GATES & BRANCHES','CHECKLIST · 75 ITEMS'];
+HEADS.forEach((h,i)=>{
+  const t=el('text',{class:'colhead',x:COLX[i]+(i===0?-8:NW/2),y:58,'text-anchor':i===0?'start':'middle'},view);
+  t.textContent=h;
+});
+
+// links
+const linkEls=[];
+LINKS.forEach((L,i)=>{
+  const x0=N[L.s].x+NW, x1=N[L.t].x, mx=(x0+x1)/2;
+  const gid='g'+i;
+  const g=el('linearGradient',{id:gid,gradientUnits:'userSpaceOnUse',x1:x0,y1:L.sy,x2:x1,y2:L.ty},defs);
+  el('stop',{offset:'0%','stop-color':GCOLOR[N[L.s].g]},g);
+  el('stop',{offset:'100%','stop-color':GCOLOR[N[L.t].g]},g);
+  const p=el('path',{class:'link',
+    d:`M${x0},${L.sy} C${mx},${L.sy} ${mx},${L.ty} ${x1},${L.ty}`,
+    stroke:`url(#${gid})`,'stroke-width':L.dash?3:Math.max(L.v*SCALE,2.5),
+    'stroke-opacity':L.dash?0.55:0.38,fill:'none'},view);
+  if(L.dash)p.setAttribute('stroke-dasharray','7 5');
+  p.dataset.idx=i;linkEls.push(p);
+});
+
+// nodes
+const nodeEls={};
+NODES.forEach(n=>{
+  const g=el('g',{class:'node','data-id':n.id},view);
+  el('rect',{x:n.x,y:n.y,width:NW,height:n.h,rx:4,fill:GCOLOR[n.g],
+    stroke:n.warn?'#B03A2E':'rgba(0,0,0,.18)','stroke-width':n.warn?2:1},g);
+  const isLeft=n.col===0, isSec=n.g==='sec';
+  const lx=isLeft?n.x-9:n.x+NW+9, anchor=isLeft?'end':'start';
+  const ly=n.y+n.h/2;
+  const t1=el('text',{class:isSec?'seclabel':'nlabel',x:lx,y:ly-(n.sub?2:0),'text-anchor':anchor,'dominant-baseline':n.sub?'auto':'middle'},g);
+  t1.textContent=(n.warn?'⚠ ':'')+n.l;
+  if(n.sub){const t2=el('text',{class:'nsub',x:lx,y:ly+12,'text-anchor':anchor},g);t2.textContent=n.sub;}
+  nodeEls[n.id]=g;
+});
+
+// orphan-branch annotation (col 2, below stack)
+(function(){
+  const last=N[COLORDER[2][COLORDER[2].length-1]];
+  const bx=COLX[2]-78, by=last.y+last.h+34;
+  const g=el('g',{class:'node','data-id':'orphans'},view);
+  el('rect',{x:bx,y:by,width:236,height:66,rx:8,fill:'none',stroke:'#B03A2E','stroke-width':1.6,'stroke-dasharray':'6 4'},g);
+  const t1=el('text',{class:'orphantxt',x:bx+12,y:by+22},g);t1.textContent='⚠ UNREACHABLE BRANCHES';
+  const t2=el('text',{class:'nsub',x:bx+12,y:by+39},g);t2.textContent='x5 astragal · x9 sweep · x10 bottom rod';
+  const t3=el('text',{class:'nsub',x:bx+12,y:by+54},g);t3.textContent='implemented, but no item points to them';
+  nodeEls['orphans']=g;
+})();
+
+/* ════════ TOOLTIP ════════ */
+const tip=document.getElementById('tip');
+function itemList(ids){
+  return '<ul>'+ids.map(id=>{const d=IT[id];return `<li><b>${d.t}</b><span>${id} — ${d.c}</span></li>`;}).join('')+'</ul>';
+}
+function nodeTip(n){
+  if(n==='orphans')return `<h4 class="warn">⚠ Unreachable branches x5 · x9 · x10</h4><div class="code">getBranchResult L462–478 · L506–541</div><div class="desc">Question chains for damaged astragal (x5), damaged sweep (x9), and bottom rod / flush bolt (x10) are fully implemented but no checklist item carries these branch ids. Likely intended hosts: pi_astragal and pi_sweep, which currently have no branch. See review flag 3.</div>`;
+  const d=N[n];
+  let ids=new Set();
+  d.in.concat(d.out).forEach(l=>(l.items||[]).forEach(id=>ids.add(id)));
+  if(d.g==='sec')ids=new Set(Object.keys(IT).filter(k=>('S_'+{'Rating':'Rating','Gaps':'Gaps','Self-Closing':'SC','Positive Latching':'PL','Physical Integrity':'PI','Signage':'Sign','Locking':'Lock'}[IT[k].s])===d.id));
+  const items=[...ids];
+  return `<h4>${d.warn?'⚠ ':''}${d.l}</h4><div class="code">${d.code||''}</div><div class="desc">${d.d}</div>`+
+    (items.length?`<div class="code">${items.length} item${items.length>1?'s':''}</div>`+itemList(items.slice(0,20)):'');
+}
+function linkTip(L){
+  if(L.dash)return `<h4>${L.warn?'⚠ ':''}Modifier</h4><div class="desc">${L.note}</div>`;
+  return `<h4>${N[L.s].l} → ${N[L.t].l}</h4><div class="code">${L.v} item${L.v>1?'s':''}</div>`+itemList(L.items);
+}
+function showTip(html,ev){tip.innerHTML=html;tip.style.opacity=1;moveTip(ev);}
+function moveTip(ev){
+  const w=tip.offsetWidth,h=tip.offsetHeight;
+  let x=ev.clientX+16,y=ev.clientY+14;
+  if(x+w>innerWidth-12)x=ev.clientX-w-16;
+  if(y+h>innerHeight-12)y=ev.clientY-h-14;
+  tip.style.left=x+'px';tip.style.top=y+'px';
+}
+function hideTip(){tip.style.opacity=0;}
+
+/* ════════ HIGHLIGHT ════════ */
+let pinned=null;
+function connected(id){
+  const nodes=new Set([id]),links=new Set();
+  // downstream
+  let front=[id];
+  while(front.length){const nx=[];front.forEach(f=>N[f]&&N[f].out.forEach(l=>{links.add(l);if(!nodes.has(l.t)){nodes.add(l.t);nx.push(l.t);}}));front=nx;}
+  front=[id];
+  while(front.length){const nx=[];front.forEach(f=>N[f]&&N[f].in.forEach(l=>{links.add(l);if(!nodes.has(l.s)){nodes.add(l.s);nx.push(l.s);}}));front=nx;}
+  return {nodes,links};
+}
+function applyHi(id){
+  if(id==null||id==='orphans'){clearHi();return;}
+  const c=connected(id);
+  NODES.forEach(n=>nodeEls[n.id].setAttribute('class',c.nodes.has(n.id)?'node lit':'node dim'));
+  LINKS.forEach((L,i)=>linkEls[i].setAttribute('class',c.links.has(L)?'link lit':'link dim'));
+}
+function clearHi(){
+  NODES.forEach(n=>nodeEls[n.id].setAttribute('class','node'));
+  linkEls.forEach(p=>p.setAttribute('class','link'));
+}
+NODES.forEach(n=>{
+  const g=nodeEls[n.id];
+  g.style.cursor='pointer';
+  g.addEventListener('mousemove',ev=>{if(!pinned)applyHi(n.id);showTip(nodeTip(n.id),ev);});
+  g.addEventListener('mouseleave',()=>{if(!pinned)clearHi();hideTip();});
+  g.addEventListener('click',ev=>{ev.stopPropagation();pinned=pinned===n.id?null:n.id;pinned?applyHi(pinned):clearHi();});
+});
+nodeEls['orphans'].style.cursor='pointer';
+nodeEls['orphans'].addEventListener('mousemove',ev=>showTip(nodeTip('orphans'),ev));
+nodeEls['orphans'].addEventListener('mouseleave',hideTip);
+linkEls.forEach((p,i)=>{
+  p.style.cursor='pointer';
+  p.addEventListener('mousemove',ev=>{if(!pinned){NODES.forEach(n=>nodeEls[n.id].setAttribute('class',(n.id===LINKS[i].s||n.id===LINKS[i].t)?'node lit':'node dim'));LINKS.forEach((L,j)=>linkEls[j].setAttribute('class',j===i?'link lit':'link dim'));}showTip(linkTip(LINKS[i]),ev);});
+  p.addEventListener('mouseleave',()=>{if(!pinned)clearHi();hideTip();});
+});
+svg.addEventListener('click',()=>{pinned=null;clearHi();});
+
+/* ════════ ZOOM & PAN ════════ */
+let k=1,tx=0,ty=0;
+function apply(){view.setAttribute('transform',`translate(${tx},${ty}) scale(${k})`);}
+function svgPoint(ev){
+  const r=svg.getBoundingClientRect();
+  return {x:(ev.clientX-r.left)*(1780/r.width),y:(ev.clientY-r.top)*(1010/r.height)};
+}
+function zoomAt(px,py,f){
+  const nk=Math.min(4.5,Math.max(.4,k*f));
+  tx=px-(px-tx)*nk/k; ty=py-(py-ty)*nk/k; k=nk; apply();
+}
+svg.addEventListener('wheel',ev=>{ev.preventDefault();const p=svgPoint(ev);zoomAt(p.x,p.y,Math.exp(-ev.deltaY*0.0016));},{passive:false});
+let drag=null;
+svg.addEventListener('pointerdown',ev=>{drag={x:ev.clientX,y:ev.clientY,tx,ty};svg.classList.add('grabbing');svg.setPointerCapture(ev.pointerId);});
+svg.addEventListener('pointermove',ev=>{if(!drag)return;const r=svg.getBoundingClientRect(),sc=1780/r.width;tx=drag.tx+(ev.clientX-drag.x)*sc;ty=drag.ty+(ev.clientY-drag.y)*sc;apply();});
+svg.addEventListener('pointerup',ev=>{drag=null;svg.classList.remove('grabbing');});
+document.getElementById('zin').onclick=()=>zoomAt(890,505,1.3);
+document.getElementById('zout').onclick=()=>zoomAt(890,505,1/1.3);
+document.getElementById('zreset').onclick=()=>{k=1;tx=0;ty=0;apply();};
+apply();
+
+/* ════════ SELF-CHECK (console) ════════ */
+(function(){
+  const sec={};Object.values(IT).forEach(d=>sec[d.s]=(sec[d.s]||0)+1);
+  const flow={};LINKS.filter(l=>!l.dash&&l.t.startsWith('S_')).forEach(l=>flow[l.t]=(flow[l.t]||0)+l.v);
+  console.table({defs:sec,ribbons:flow});
+})();
+</script>
+</body>
+</html>
