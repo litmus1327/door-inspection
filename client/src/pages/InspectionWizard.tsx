@@ -902,11 +902,14 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
   // Inspector
   const [inspectorName] = useLocalStorage('inspectorName', '');
 
+  // Assisted mode ("training wheels") — presentation only, never inspection logic.
+  const [assistedMode, setAssistedMode] = useLocalStorage('assistedMode', true);
+
   // Inspection state
   const [currentSectionIdx, setCurrentSectionIdx] = useState(0);
   const [deficiencies, setDeficiencies] = useState<Record<string, DeficiencyState>>({});
   const [currentDoor, setCurrentDoor] = useState<CurrentDoor | null>(null);
-  const [inspectView, setInspectView] = useState<'checklist' | 'diagram'>('diagram');
+  const [inspectView, setInspectView] = useState<'checklist' | 'diagram'>(assistedMode ? 'diagram' : 'checklist');
   const [diagramZone, setDiagramZone] = useState<Zone | null>(null);
   const [photos, setPhotos] = useState<string[]>([]);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -1475,9 +1478,22 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
       return (
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="px-4 pt-4 pb-2 shrink-0">
-            <h1 className="text-2xl font-bold tracking-wide uppercase font-mono">Inspection Wizard</h1>
-            <p className="text-sm text-muted-foreground mt-1">Page 1 of 2: Door Identification</p>
+          <div className="px-4 pt-4 pb-2 shrink-0 flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-bold tracking-wide uppercase font-mono">Inspection Wizard</h1>
+              <p className="text-sm text-muted-foreground mt-1">Page 1 of 2: Door Identification</p>
+            </div>
+            <button
+              onClick={() => setAssistedMode(!assistedMode)}
+              title="Assisted mode shows reference photos and plain-language help. Turn off for a faster, expert layout. Inspection rules are identical either way."
+              className={`shrink-0 px-3 py-1.5 rounded-sm border text-xs font-mono uppercase tracking-wider transition-all ${
+                assistedMode
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border text-muted-foreground hover:border-primary/50'
+              }`}
+            >
+              Assisted {assistedMode ? 'ON' : 'OFF'}
+            </button>
           </div>
 
           {/* Scrollable content */}
@@ -1540,7 +1556,7 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
                       <option value="suite_perimeter">Suite Perimeter</option>
                     </select>
                   </div>
-                  {assemblyType && ASSEMBLY_TYPE_DESCRIPTIONS[assemblyType] && (
+                  {assistedMode && assemblyType && ASSEMBLY_TYPE_DESCRIPTIONS[assemblyType] && (
                     <p className="text-xs text-muted-foreground">
                       {ASSEMBLY_TYPE_DESCRIPTIONS[assemblyType]}
                     </p>
@@ -1574,7 +1590,7 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
                       <option value="label_illegible">Label Illegible</option>
                     </select>
                   </div>}
-                  {assemblyType !== 'smoke_partition' && assemblyType !== 'suite_perimeter' && (
+                  {assistedMode && assemblyType !== 'smoke_partition' && assemblyType !== 'suite_perimeter' && (
                     <div className="space-y-2">
                       <p className="text-xs text-amber-400/80">
                         The rating is stamped on a metal label on the hinge edge of the door and on the frame (reads minutes, e.g. 90 MIN). If you can't read it, choose Label Illegible.
@@ -1906,22 +1922,24 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
                         : 'border-border hover:border-primary/30'
                     }`}
                   >
-                    <div className="flex shrink-0 gap-1">
-                      <div className="w-14 h-14 rounded-sm overflow-hidden bg-background border border-border flex items-center justify-center">
-                        {img
-                          ? <img src={img} alt="" className="w-full h-full object-cover" />
-                          : <span className="text-[10px] text-muted-foreground font-mono text-center px-1">no photo</span>}
-                      </div>
-                      {img2 && (
+                    {assistedMode && (
+                      <div className="flex shrink-0 gap-1">
                         <div className="w-14 h-14 rounded-sm overflow-hidden bg-background border border-border flex items-center justify-center">
-                          <img src={img2} alt="" className="w-full h-full object-cover" />
+                          {img
+                            ? <img src={img} alt="" className="w-full h-full object-cover" />
+                            : <span className="text-[10px] text-muted-foreground font-mono text-center px-1">no photo</span>}
                         </div>
-                      )}
-                    </div>
+                        {img2 && (
+                          <div className="w-14 h-14 rounded-sm overflow-hidden bg-background border border-border flex items-center justify-center">
+                            <img src={img2} alt="" className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-medium ${hwState[v.id] ? 'text-primary' : 'text-foreground'}`}>{v.label}</p>
-                      {desc && <p className="text-xs text-muted-foreground">{desc}</p>}
-                      {meta?.imgNote && <p className="text-[11px] text-muted-foreground italic mt-0.5">{meta.imgNote}</p>}
+                      {assistedMode && desc && <p className="text-xs text-muted-foreground">{desc}</p>}
+                      {assistedMode && meta?.imgNote && <p className="text-[11px] text-muted-foreground italic mt-0.5">{meta.imgNote}</p>}
                     </div>
                     <span className={`text-xs font-mono shrink-0 ${hwState[v.id] ? 'text-primary' : 'text-muted-foreground'}`}>
                       {hwState[v.id] ? 'ON' : 'OFF'}

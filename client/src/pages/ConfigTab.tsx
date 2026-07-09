@@ -15,6 +15,8 @@ export default function ConfigTab() {
     sprinklered: true,
   });
 
+  const [assistedMode, setAssistedMode] = useLocalStorage('assistedMode', true);
+
   const updateVar = <K extends keyof ProjectVars>(key: K, value: ProjectVars[K]) => {
     setProjectVars((prev) => ({ ...prev, [key]: value }));
   };
@@ -47,6 +49,31 @@ export default function ConfigTab() {
       <h1 className="text-3xl font-bold mb-8">Project Settings</h1>
 
       <div className="space-y-8">
+        {/* Assisted Mode */}
+        <div>
+          <label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3 block">
+            Assisted Mode
+          </label>
+          <div className="flex gap-2">
+            {([true, false] as const).map((on) => (
+              <button
+                key={String(on)}
+                onClick={() => setAssistedMode(on)}
+                className={`px-4 py-2 rounded border transition-all font-medium ${
+                  assistedMode === on
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'border-border text-foreground hover:border-primary/50'
+                }`}
+              >
+                {on ? 'On' : 'Off'}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground mt-2 max-w-md">
+            On shows reference photos, plain-language descriptions, and the door diagram by default — best for learning. Off is a faster, compact layout for experienced inspectors. Inspection rules and checks are identical either way.
+          </p>
+        </div>
+
         {/* Construction Type */}
         <div>
           <label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3 block">
