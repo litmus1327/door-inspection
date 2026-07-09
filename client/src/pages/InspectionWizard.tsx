@@ -86,6 +86,17 @@ const ASSEMBLY_TYPE_LABELS: Record<string, string> = {
   'suite_perimeter': 'Suite Perimeter',
 };
 
+// Plain-language descriptions shown under the assembly-type picker.
+const ASSEMBLY_TYPE_DESCRIPTIONS: Record<string, string> = {
+  '3hr_fire': 'Highest-rated separation; major hazard divisions or between buildings.',
+  '2hr_fire': 'Heavy separation, e.g. exit stair enclosures in taller buildings.',
+  '1hr_fire': 'Common fire separation: corridors, stairwells, mechanical/electrical rooms.',
+  '1hr_partition': 'Lighter 1-hour separation, often tenant or corridor partitions.',
+  'smoke_barrier': 'Limits smoke spread between compartments; common in healthcare.',
+  'smoke_partition': 'Resists smoke passage but is not rated for fire.',
+  'suite_perimeter': 'Boundary of a suite of rooms (healthcare context).',
+};
+
 const FIRE_RATED = ['3hr_fire', '2hr_fire', '1hr_fire', '1hr_partition'];
 
 const MIN_RATINGS: Record<string, number | null> = {
@@ -1485,6 +1496,11 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
                       <option value="suite_perimeter">Suite Perimeter</option>
                     </select>
                   </div>
+                  {assemblyType && ASSEMBLY_TYPE_DESCRIPTIONS[assemblyType] && (
+                    <p className="text-xs text-muted-foreground">
+                      {ASSEMBLY_TYPE_DESCRIPTIONS[assemblyType]}
+                    </p>
+                  )}
 
                   {/* Door Rating — hidden for smoke partition and suite perimeter */}
                   {assemblyType !== 'smoke_partition' && assemblyType !== 'suite_perimeter' && <div className="flex items-center gap-2">
@@ -1514,6 +1530,11 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
                       <option value="label_illegible">Label Illegible</option>
                     </select>
                   </div>}
+                  {assemblyType !== 'smoke_partition' && assemblyType !== 'suite_perimeter' && (
+                    <p className="text-xs text-amber-400/80">
+                      The rating is stamped on a metal label on the hinge edge of the door and on the frame (reads minutes, e.g. 90 MIN). If you can't read it, choose Label Illegible.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
