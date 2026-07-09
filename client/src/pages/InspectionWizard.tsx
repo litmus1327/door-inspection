@@ -2081,6 +2081,20 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
               zoneStates={zoneStates}
               onZoneClick={(z) => setDiagramZone(z)}
             />
+            {currentDoor?.doorSwingType?.startsWith('dbl') && (
+              <button
+                onClick={() => setDiagramZone('meeting_stile')}
+                className={`w-full py-2 rounded-sm border text-sm font-medium transition-all ${
+                  diagramZone === 'meeting_stile'
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : zoneStates.meeting_stile === 'deficient'
+                      ? 'border-red-500/60 text-red-400 hover:border-red-500'
+                      : 'border-border text-muted-foreground hover:border-primary/50'
+                }`}
+              >
+                Meeting edge (pair) — checks between the two leaves
+              </button>
+            )}
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold uppercase tracking-wider font-mono">
                 {diagramZone ? ZONE_LABELS[diagramZone] : 'All items'}

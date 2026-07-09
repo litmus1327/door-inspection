@@ -19,6 +19,7 @@ export const ZONE_TO_ITEM_IDS: Record<Zone, string[]> = {
     'pi_hinge_missing',
     'pi_screws',
     'pi_gasketing',
+    'rating_cont_hinge',
   ],
   latch_stile: ['gap_latch', 'pi_laminate_latch', 'pi_gasketing'],
   sill_gap: [
@@ -38,6 +39,7 @@ export const ZONE_TO_ITEM_IDS: Record<Zone, string[]> = {
     'pl_bottom_fails',
     'pl_floor_strike_missing',
     'lock_overlap_independent',
+    'pl_flush_bolts_manual',
   ],
   leaf_face: [
     'gap_face',
@@ -49,6 +51,7 @@ export const ZONE_TO_ITEM_IDS: Record<Zone, string[]> = {
     'pi_hydraulic',
     'label_door',
     'rating_door',
+    'rating_plate',
     'sign_delayed_egress',
     'sign_coat_rack',
     'sign_mech_fastened',
@@ -80,6 +83,7 @@ export const ZONE_TO_ITEM_IDS: Record<Zone, string[]> = {
     'lock_illegitimate_arrangement',
   ],
   panic_hw: [
+    'rating_panic',
     'lock_panic_actuating',
     'pi_panic_endcap',
     'lock_delayed_failure',
