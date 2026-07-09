@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { MapPin, RotateCcw, Trash, MousePointer } from 'lucide-react';
 import PDFViewer from '@/components/PDFViewer';
-import InspectionModal from '@/components/InspectionModal';
 import { DoorPin } from '@/types';
 
 interface PdfEntry {
@@ -49,9 +48,7 @@ export default function FloorPlanViewer({
 }: FloorPlanViewerProps) {
   const [isDropMode, setIsDropMode] = useState(false);
   const [isSelectMode, setIsSelectMode] = useState(false);
-  const [selectedPin, setSelectedPin] = useState<DoorPin | null>(null);
   const [selectedPinIds, setSelectedPinIds] = useState<Set<string>>(new Set());
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Clear selection when switching modes or pages
   useEffect(() => {
@@ -117,13 +114,7 @@ export default function FloorPlanViewer({
   const handlePinSelected = (pin: DoorPin) => {
     const currentPagePins = pins[currentPage] || [];
     const updatedPin = currentPagePins.find((p) => p.id === pin.id) || pin;
-    setSelectedPin(updatedPin);
     onPinSelected(updatedPin);
-  };
-
-  const handleSavePin = (updatedPin: DoorPin) => {
-    // Pin updates are handled by parent through onPinStatusChanged
-    setIsModalOpen(false);
   };
 
   return (
@@ -206,7 +197,6 @@ export default function FloorPlanViewer({
               pinIds.forEach((pinId) => {
                 onPinRemoved(pinId);
               });
-              setSelectedPin(null);
             }
           }}
           disabled={(pins[currentPage] || []).length === 0}
@@ -226,7 +216,6 @@ export default function FloorPlanViewer({
                   onPinRemoved(pinId);
                 });
                 setSelectedPinIds(new Set());
-                setSelectedPin(null);
               }
             }}
             className="p-3 rounded-lg shadow-lg bg-red-600 text-white hover:bg-red-700 transition-all"
@@ -237,17 +226,6 @@ export default function FloorPlanViewer({
         )}
 
       </div>
-
-      {/* Inspection Modal */}
-      <InspectionModal
-        pin={selectedPin}
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSave={handleSavePin}
-        onStatusChange={onPinStatusChanged}
-        onRemove={onPinRemoved}
-        allPins={Object.values(pins).flat()}
-      />
     </div>
   );
 }
