@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { DoorPin } from '@/types';
 import { syncInspections, exportBackup } from '@/lib/sync';
 import { getSupabaseConfig } from '@/lib/supabase';
+import { exportFieldwireCsv } from '@/lib/fieldwireExport';
 
 const ASSEMBLY_TYPE_LABELS: Record<string, string> = {
   '3hr_fire': '3-Hour Fire Barrier',
@@ -209,6 +210,12 @@ export default function RecordsTab() {
             className="px-3 py-1.5 border border-border rounded-sm text-xs font-mono uppercase tracking-wide text-muted-foreground hover:border-primary/50 transition-all"
           >
             Backup
+          </button>
+          <button
+            onClick={exportFieldwireCsv}
+            className="px-3 py-1.5 border border-border rounded-sm text-xs font-mono uppercase tracking-wide text-muted-foreground hover:border-primary/50 transition-all"
+          >
+            Export for Report
           </button>
           <button
             onClick={handleSync}
