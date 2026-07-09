@@ -1575,9 +1575,21 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
                     </select>
                   </div>}
                   {assemblyType !== 'smoke_partition' && assemblyType !== 'suite_perimeter' && (
-                    <p className="text-xs text-amber-400/80">
-                      The rating is stamped on a metal label on the hinge edge of the door and on the frame (reads minutes, e.g. 90 MIN). If you can't read it, choose Label Illegible.
-                    </p>
+                    <div className="space-y-2">
+                      <p className="text-xs text-amber-400/80">
+                        The rating is stamped on a metal label on the hinge edge of the door and on the frame (reads minutes, e.g. 90 MIN). If you can't read it, choose Label Illegible.
+                      </p>
+                      <div className="flex gap-3">
+                        <figure className="m-0">
+                          <img src="/hardware/door_label.png" alt="Door label example" className="w-28 h-20 object-cover rounded-sm border border-border" />
+                          <figcaption className="text-[10px] font-mono text-muted-foreground mt-1">Door label (hinge edge)</figcaption>
+                        </figure>
+                        <figure className="m-0">
+                          <img src="/hardware/frame_label.webp" alt="Frame label example" className="w-28 h-20 object-cover rounded-sm border border-border" />
+                          <figcaption className="text-[10px] font-mono text-muted-foreground mt-1">Frame label</figcaption>
+                        </figure>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
