@@ -331,17 +331,22 @@ function App() {
   };
 
   const handlePDFUpload = (file: File) => {
-    if (file.type === 'application/pdf') {
-      const newEntry: PdfEntry = {
-        id: crypto.randomUUID(),
-        file,
-        pageOffset: 0,
-        pageCount: 0,
-      };
-      setPdfEntries((prev) => [...prev, newEntry]);
-      const cfg = getSupabaseConfig();
-      if (cfg.url && cfg.key) uploadPlanPDF(cfg, file).catch(() => {});
+    // Accept by extension as well as MIME type — mobile file pickers often
+    // report a PDF with an empty or non-standard type, which silently dropped it.
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    if (!isPdf) {
+      alert('That doesn’t look like a PDF. Please choose a PDF floor plan.');
+      return;
     }
+    const newEntry: PdfEntry = {
+      id: crypto.randomUUID(),
+      file,
+      pageOffset: 0,
+      pageCount: 0,
+    };
+    setPdfEntries((prev) => [...prev, newEntry]);
+    const cfg = getSupabaseConfig();
+    if (cfg.url && cfg.key) uploadPlanPDF(cfg, file).catch(() => {});
   };
 
   const handlePinAdded = (pin: DoorPin) => {
