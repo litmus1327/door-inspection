@@ -135,6 +135,30 @@ const HARDWARE_VARS = [
 
 const DEFAULT_HW_STATE: HwState = HARDWARE_VARS.reduce((acc, v) => ({ ...acc, [v.id]: v.default }), {});
 
+// Reference photo + plain-language description per hardware type (setup page 2).
+const HARDWARE_META: Record<string, { desc: string; img?: string }> = {
+  hw_automatic_operator: { desc: 'Powered arm that opens the door on its own.', img: '/hardware/hw_automatic_operator.webp' },
+  hw_closer: { desc: 'Arm at the top that pulls the door shut on its own.', img: '/hardware/hw_closer.webp' },
+  hw_continuous_hinge: { desc: 'Full-height hinge along the entire door edge.', img: '/hardware/hw_continuous_hinge.webp' },
+  hw_coordinator: { desc: 'Bar on a pair that closes the leaves in order.', img: '/hardware/hw_coordinator.jpeg' },
+  hw_deadbolt: { desc: 'Separate bolt above the handle (thumb-turn or key).' },
+  hw_delayed_egress: { desc: 'Lock that releases a short delay after pushing.' },
+  hw_electric_strike: { desc: 'Electrified strike in the frame that releases the latch.', img: '/hardware/hw_electric_strike.jpg' },
+  hw_flush_bolts_auto: { desc: 'Self-retracting rods on the inactive leaf.', img: '/hardware/hw_flush_bolts_auto.jpeg' },
+  hw_flush_bolts_manual: { desc: 'Hand-operated rods pinning the inactive leaf.', img: '/hardware/hw_flush_bolts_manual.jpg' },
+  hw_lockset_cylindrical: { desc: 'Handle with a round bored hole through the door.', img: '/hardware/hw_lockset_cylindrical.webp' },
+  hw_lockset_mortise: { desc: 'Handle set into a pocket in the door edge.', img: '/hardware/hw_lockset_mortise.webp' },
+  hw_magnetic_lock: { desc: 'Plate at the top held by an electromagnet.', img: '/hardware/hw_magnetic_lock.webp' },
+  hw_motion_sensor: { desc: 'Sensor that releases the lock on approach.', img: '/hardware/hw_motion_sensor.jpg' },
+  hw_overlapping_astragal: { desc: 'Strip on one leaf covering the meeting-edge gap.', img: '/hardware/hw_overlapping_astragal.webp' },
+  hw_panic_device: { desc: 'Horizontal push bar across the door.', img: '/hardware/hw_panic_device.webp' },
+  hw_protective_plate: { desc: 'Metal kick plate on the lower door face.', img: '/hardware/hw_protective_plate.jpg' },
+  hw_push_to_exit: { desc: 'Button that releases the lock to exit.', img: '/hardware/hw_push_to_exit.jpg' },
+  hw_signage: { desc: 'Applied signs or labels on the door.' },
+  hw_sweep: { desc: 'Strip along the bottom of the door.', img: '/hardware/hw_sweep.webp' },
+  hw_vision_panel: { desc: 'Window in the door.', img: '/hardware/hw_vision_panel.webp' },
+};
+
 // ... [rest of constants and helper functions remain the same] ...
 // [For brevity, I'll insert the complete file, but the key change is in the setup screen rendering]
 
@@ -1833,7 +1857,7 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
           <div className="bg-card border border-border rounded-sm p-4 space-y-3">
             <h2 className="text-xs font-semibold uppercase tracking-widest text-primary font-mono">Door Hardware</h2>
             <p className="text-xs text-muted-foreground">Toggle ON for hardware present on this door.</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2">
               {HARDWARE_VARS.map(v => {
                 const hiddenWhenSingle = [
                   'hw_coordinator',
@@ -1856,18 +1880,29 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
                 if (v.id === 'hw_deadbolt' && !['single', 'dbl_active'].includes(doorSwingType)) return null;
                 if (v.id === 'hw_electric_strike' && doorSwingType === 'dbl_active') return null;
 
+                const meta = HARDWARE_META[v.id];
+                const img = meta?.img;
+                const desc = meta?.desc;
                 return (
                   <button
                     key={v.id}
                     onClick={() => toggleHardware(v.id)}
-                    className={`flex items-center justify-between px-3 py-2 rounded-sm border text-sm transition-all ${
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-sm border text-left transition-all ${
                       hwState[v.id]
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border text-muted-foreground hover:border-primary/30'
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border hover:border-primary/30'
                     }`}
                   >
-                    <span>{v.label}</span>
-                    <span className={`text-xs font-mono ml-2 ${hwState[v.id] ? 'text-primary' : 'text-muted-foreground'}`}>
+                    <div className="w-14 h-14 shrink-0 rounded-sm overflow-hidden bg-background border border-border flex items-center justify-center">
+                      {img
+                        ? <img src={img} alt="" className="w-full h-full object-cover" />
+                        : <span className="text-[10px] text-muted-foreground font-mono text-center px-1">no photo</span>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium ${hwState[v.id] ? 'text-primary' : 'text-foreground'}`}>{v.label}</p>
+                      {desc && <p className="text-xs text-muted-foreground">{desc}</p>}
+                    </div>
+                    <span className={`text-xs font-mono shrink-0 ${hwState[v.id] ? 'text-primary' : 'text-muted-foreground'}`}>
                       {hwState[v.id] ? 'ON' : 'OFF'}
                     </span>
                   </button>
