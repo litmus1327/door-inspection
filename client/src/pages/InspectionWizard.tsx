@@ -1458,7 +1458,7 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
           {/* Header */}
           <div className="px-4 pt-4 pb-2 shrink-0 flex items-start justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold tracking-wide uppercase font-mono">Inspection Wizard</h1>
+              <h1 className="text-2xl font-bold tracking-tight">Inspection Wizard</h1>
               <p className="text-sm text-muted-foreground mt-1">Page 1 of 2: Door Identification</p>
             </div>
             <button
@@ -1854,7 +1854,7 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
       <div className="flex flex-col h-full">
         {/* Header */}
         <div className="px-4 pt-4 pb-2 shrink-0">
-          <h1 className="text-2xl font-bold tracking-wide uppercase font-mono">Inspection Wizard</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Inspection Wizard</h1>
           <p className="text-sm text-muted-foreground mt-1">Page 2 of 2: Door Hardware</p>
         </div>
 

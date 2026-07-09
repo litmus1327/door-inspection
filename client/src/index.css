@@ -160,6 +160,10 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Warm humanist sans for body copy — easier to read and less intimidating
+       for new inspectors than the system default. Mono is reserved for small
+       eyebrow labels and data (IDs) via the .codify-* / font-mono utilities. */
+    font-family: 'Barlow', -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
