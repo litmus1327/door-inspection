@@ -68,6 +68,7 @@ interface CurrentDoor {
   frameRating: string;
   doorSwingType: string;
   isStairDoor: boolean | null;
+  isCorridorDoor: boolean | null;
   isCrossCorridor: boolean | null;
   isHealthCareOccupancy: boolean;
   hwState: HwState;
@@ -213,14 +214,18 @@ function getApplicableItems(
   frameRating: string = '',
   isHealthCareOccupancy: boolean = true,
   x14Compliant: boolean = false,
+  isStairDoor: boolean = false,
+  isCorridorDoor: boolean = false,
 ): ChecklistItem[] {
   const sprinklered = projVars.sprinklered !== false;
   const gapStd = projVars.gapStandard || 'codify';
   const minRating = MIN_RATINGS[atype] ?? null;
   const isDualEgressSwing = swing === 'dbl_dual_egress';
   let minRequired = minRating;
-  if (atype === '1hr_fire' && swing === 'stair') minRequired = 60;
+  if (atype === '1hr_fire' && isStairDoor) minRequired = 60;
     if (atype === 'smoke_barrier' && isDualEgressSwing && isCrossCorridor && isHealthCareOccupancy) minRequired = 0;
+  // 1-Hour Partition corridor doors require a 45-min minimum (IBC).
+  if (atype === '1hr_partition' && isCorridorDoor) minRequired = 45;
   const doorRatingNum = doorRating === 'label_illegible' ? -1 : parseInt(doorRating) || 0;
   const frameRatingNum = frameRating === 'label_illegible' ? -1 : parseInt(frameRating) || 0;
   const doorIsUnderrated = minRequired !== null && minRequired > 0 && doorRatingNum < minRequired;
@@ -318,8 +323,8 @@ function getApplicableItems(
   items.push({ section: 'Physical Integrity', id: 'pi_laminate_latch', text: 'Physical Integrity: Laminate is missing or damaged latch edge.', show: true, branch: (isSmokePart || isSuite || isSmokeBarrierNonRated) ? 'x8' : null });
   items.push({ section: 'Physical Integrity', id: 'pi_laminate_face', text: 'Physical Integrity: Laminate is missing or damaged on door face.', show: true, branch: (isSmokePart || isSuite || isSmokeBarrierNonRated) ? 'x8' : null });
   items.push({ section: 'Physical Integrity', id: 'pi_latching_hw', text: 'Physical Integrity: Latching hardware is missing or damaged.', show: hw.hw_lockset_cylindrical || hw.hw_lockset_mortise || hw.hw_panic_device || hw.hw_delayed_egress });
-  items.push({ section: 'Physical Integrity', id: 'pi_astragal', text: 'Physical Integrity: Astragal is damaged.', show: notSingleDoor });
-  items.push({ section: 'Physical Integrity', id: 'pi_sweep', text: 'Physical Integrity: Sweep is damaged.', show: hw.hw_sweep });
+  items.push({ section: 'Physical Integrity', id: 'pi_astragal', text: 'Physical Integrity: Astragal is damaged.', show: notSingleDoor, branch: 'x5' });
+  items.push({ section: 'Physical Integrity', id: 'pi_sweep', text: 'Physical Integrity: Sweep is damaged.', show: hw.hw_sweep, branch: 'x9' });
   items.push({ section: 'Physical Integrity', id: 'pi_gasketing', text: 'Physical Integrity: Gasketing is missing or damaged.', show: true, branch: 'x7' });
   items.push({ section: 'Physical Integrity', id: 'pi_panic_endcap', text: 'Physical Integrity: Panic device end cap is missing or damaged.', show: isNotSmokePartOrSuite && hw.hw_panic_device, branch: isSmoke ? 'x4' : null });
 
@@ -875,7 +880,6 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
   const [hwState, setHwState] = useState<HwState>({ ...DEFAULT_HW_STATE });
 
   const [additionalComments, setAdditionalComments] = useState('');
-  const [showCorridorPrompt, setShowCorridorPrompt] = useState(false);
   const [isCorridorDoor, setIsCorridorDoor] = useState<boolean | null>(null);
 
   const [occTableExpanded, setOccTableExpanded] = useState(false);
@@ -1063,6 +1067,7 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
       frameRating,
       doorSwingType,
       isStairDoor,
+      isCorridorDoor,
       isCrossCorridor,
       isHealthCareOccupancy,
       hwState: { ...hwState },
@@ -1163,6 +1168,19 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
       };
     }
 
+    // Auto-flag a cross-corridor smoke barrier door that has no vision panel
+    // (mirrors the vp_missing show-condition, which carried autoFlag).
+    if (isCrossCorridor && !hwState.hw_vision_panel) {
+      initDefs['vp_missing'] = {
+        status: 'deficient',
+        text: 'Vision Panel: Cross-corridor smoke barrier door not equipped with vision panel.',
+        category: 'Physical Integrity',
+        note: 'Auto-flagged: cross-corridor smoke barrier doors require a vision panel.',
+        branchAnswers: {},
+        autoFlagged: true,
+      };
+    }
+
     // Auto-flag delayed egress if not sprinklered
     if (hwState.hw_delayed_egress && !projectVars.sprinklered) {
       initDefs['lock_delayed_sprinkler'] = {
@@ -1236,7 +1254,7 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
   // Derived: applicable items and visible sections. Memoized — this builds
   // ~60 items + filter + sort and otherwise reran on every keystroke/hover.
   const applicableItems = useMemo(() => currentDoor
-    ? getApplicableItems(currentDoor.assemblyType, currentDoor.hwState, currentDoor.doorSwingType, currentDoor.projectVars, currentDoor.isCrossCorridor === true, currentDoor.doorRating, currentDoor.frameRating, currentDoor.isHealthCareOccupancy, x14Compliant)
+    ? getApplicableItems(currentDoor.assemblyType, currentDoor.hwState, currentDoor.doorSwingType, currentDoor.projectVars, currentDoor.isCrossCorridor === true, currentDoor.doorRating, currentDoor.frameRating, currentDoor.isHealthCareOccupancy, x14Compliant, currentDoor.isStairDoor === true, currentDoor.isCorridorDoor === true)
     : [], [currentDoor, x14Compliant]);
 
   const visibleSections = SECTIONS.filter(sec =>
@@ -1440,7 +1458,6 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
     setIsStairDoor(null);
     setIsCrossCorridor(null);
     setIsCorridorDoor(null);
-    setShowCorridorPrompt(false);
     setIsHealthCareOccupancy(true);
     setHwState({ ...DEFAULT_HW_STATE });
     setDeficiencies({});
@@ -1732,8 +1749,8 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
               </div>
             )}
 
-            {/* Corridor Door Prompt for 1-Hour Partition */}
-            {showCorridorPrompt && (
+            {/* Corridor Door Prompt for 1-Hour Partition at 20 min */}
+            {assemblyType === '1hr_partition' && doorRating === '20' && (
               <div className="mt-2 p-3 bg-card border border-border rounded-sm space-y-2">
                 <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Is this door also a corridor door?</p>
                 <div className="flex gap-2">
