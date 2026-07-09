@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
 import { vitePluginManusRuntime } from "vite-plugin-manus-runtime";
+import { VitePWA } from "vite-plugin-pwa";
 
 // =============================================================================
 // Manus Debug Collector - Vite Plugin
@@ -150,7 +151,42 @@ function vitePluginManusDebugCollector(): Plugin {
   };
 }
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector()];
+const plugins = [
+  react(),
+  tailwindcss(),
+  jsxLocPlugin(),
+  vitePluginManusRuntime(),
+  vitePluginManusDebugCollector(),
+  // Offline-first: precache the app shell, fonts, hardware photos, and the
+  // pdf.js worker so the app loads and runs on-site with no signal.
+  VitePWA({
+    registerType: "autoUpdate",
+    injectRegister: "auto",
+    includeAssets: ["favicon-64.png", "apple-touch-icon.png", "pdf.worker.min.js", "pdf.worker.min.mjs"],
+    manifest: {
+      name: "CODIFY Door Inspection",
+      short_name: "CODIFY Doors",
+      description: "Fire & smoke door inspections — works offline on-site.",
+      theme_color: "#a8651a",
+      background_color: "#f6f4ef",
+      display: "standalone",
+      orientation: "portrait",
+      start_url: "/",
+      icons: [
+        { src: "pwa-192x192.png", sizes: "192x192", type: "image/png" },
+        { src: "pwa-512x512.png", sizes: "512x512", type: "image/png" },
+        { src: "maskable-icon-512x512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      ],
+    },
+    workbox: {
+      globPatterns: ["**/*.{js,css,html,ico,png,svg,webp,jpg,jpeg,woff,woff2,mjs}"],
+      maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+      cleanupOutdatedCaches: true,
+    },
+    // Keep the service worker out of dev so it doesn't cache during development.
+    devOptions: { enabled: false },
+  }),
+];
 
 export default defineConfig({
   plugins,

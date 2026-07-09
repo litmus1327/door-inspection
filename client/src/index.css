@@ -173,27 +173,9 @@
     @apply cursor-pointer;
   }
   
-  /* Typography */
-  @font-face {
-    font-family: 'Barlow Condensed';
-    font-style: normal;
-    font-weight: 400;
-    src: local('Barlow Condensed'), url('https://fonts.gstatic.com/s/barlowcondensed/v12/HTxxL3I-JCHnYTewS9haVHZ_8-1.woff2') format('woff2');
-  }
-  
-  @font-face {
-    font-family: 'Barlow Condensed';
-    font-style: normal;
-    font-weight: 600;
-    src: local('Barlow Condensed SemiBold'), url('https://fonts.gstatic.com/s/barlowcondensed/v12/HTx_L3I-JCHnYTewS9haVHZ_8KlrVkNGqg.woff2') format('woff2');
-  }
-  
-  @font-face {
-    font-family: 'Barlow Condensed';
-    font-style: normal;
-    font-weight: 700;
-    src: local('Barlow Condensed Bold'), url('https://fonts.gstatic.com/s/barlowcondensed/v12/HTx_L3I-JCHnYTewS9haVHZ_8KlrVkNGqg.woff2') format('woff2');
-  }
+  /* Typography — Barlow Condensed / Barlow / Share Tech Mono are now self-hosted
+     via @fontsource imports in main.tsx (bundled + precached for offline use),
+     replacing the former Google Fonts CDN @font-face declarations. */
 }
 
 @layer components {
