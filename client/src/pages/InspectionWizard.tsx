@@ -1324,7 +1324,7 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
         },
       };
     });
-  }, []);
+  }, [currentDoor]);
 
   const handleAddPhotos = async (files: FileList) => {
     const cfg = getSupabaseConfig();
@@ -1381,6 +1381,23 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
 
     setPhase('complete');
     if (onClear) onClear();
+  };
+
+  // Completion guard shared by both the checklist and diagram Complete buttons.
+  // Presentation differs by view, but the validation is identical either way.
+  const handleComplete = () => {
+    if (!currentDoor?.assetId?.trim()) {
+      alert('Asset ID is missing — please finish door setup before completing.');
+      return;
+    }
+    if (visitedSections.size < visibleSections.length) {
+      const unreviewed = visibleSections.length - visitedSections.size;
+      const msg = inspectView === 'diagram'
+        ? 'Have you reviewed every part of the door? Any parts you didn’t open are recorded as compliant. Complete the inspection?'
+        : `You haven’t opened ${unreviewed} checklist section${unreviewed !== 1 ? 's' : ''} yet. Complete the inspection anyway?`;
+      if (!window.confirm(msg)) return;
+    }
+    completeInspection();
   };
 
   const navigateToSection = (idx: number) => {
@@ -1858,6 +1875,7 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
                 if (!assetId.trim()) { alert('Asset ID is required.'); return; }
                 if (!assemblyType) { alert('Select an Assembly Type.'); return; }
                 if (doorRating === '') { alert('Door Rating is required.'); return; }
+                if (frameRating === '') { alert('Frame Rating is required.'); return; }
                 if (!doorSwingType) { alert('Select a Door Swing Type.'); return; }
                 setSetupPage(2);
               }}
@@ -2094,7 +2112,7 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
               )}
             </div>
             <button
-              onClick={completeInspection}
+              onClick={handleComplete}
               className="w-full py-2 bg-green-600 text-white rounded-sm font-semibold uppercase tracking-wide text-sm"
             >
               Complete Inspection ✓
@@ -2337,23 +2355,12 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
               Next Section →
             </button>
           ) : (
-            <>
-              {visitedSections.size >= visibleSections.length ? (
-                <button
-                  onClick={completeInspection}
-                  className="flex-1 py-2 bg-green-600 text-white rounded-sm font-semibold uppercase tracking-wide text-sm"
-                >
-                  Complete Inspection ✓
-                </button>
-              ) : (
-                <button
-                  disabled
-                  className="flex-1 py-2 bg-green-600/30 text-white/40 rounded-sm font-semibold uppercase tracking-wide text-sm cursor-not-allowed"
-                >
-                  Complete Inspection ✓
-                </button>
-              )}
-            </>
+            <button
+              onClick={handleComplete}
+              className="flex-1 py-2 bg-green-600 text-white rounded-sm font-semibold uppercase tracking-wide text-sm"
+            >
+              Complete Inspection ✓
+            </button>
           )}
         </div>
         </>)}
