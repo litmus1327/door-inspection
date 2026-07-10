@@ -392,7 +392,7 @@ export default function PDFViewer({
   useEffect(() => {
     drawOverlay();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pins, selectedPinIds, floorNames, activePage]);
+  }, [pins, selectedPinIds, floorNames, activePage, hoveredPinId]);
 
   const drawGrid = (
     context: CanvasRenderingContext2D,
@@ -455,7 +455,8 @@ export default function PDFViewer({
     context: CanvasRenderingContext2D,
     pin: DoorPin,
     viewport: any,
-    isSelected: boolean = false
+    isSelected: boolean = false,
+    isHovered: boolean = false
   ) => {
     const x = (pin.x / 100) * viewport.width;
     const y = (pin.y / 100) * viewport.height;
@@ -474,6 +475,14 @@ export default function PDFViewer({
     const cy = y - r * 1.6; // reduced height
 
     context.save();
+
+    // Hover highlight ring (behind the balloon) — visual feedback on desktop.
+    if (isHovered && !isSelected) {
+      context.fillStyle = 'rgba(59, 130, 246, 0.18)';
+      context.beginPath();
+      context.arc(cx, cy, r + 10, 0, Math.PI * 2);
+      context.fill();
+    }
 
     // Draw selection highlight ring FIRST (behind the balloon)
     if (isSelected) {
@@ -536,7 +545,7 @@ export default function PDFViewer({
     ctx.clearRect(0, 0, overlay.width, overlay.height);
     pins
       .filter((p) => !p.pageNumber || p.pageNumber === activePage)
-      .forEach((pin) => drawBalloonPin(ctx, pin, viewport, selectedPinIds.has(pin.id)));
+      .forEach((pin) => drawBalloonPin(ctx, pin, viewport, selectedPinIds.has(pin.id), pin.id === hoveredPinId));
     drawGrid(ctx, viewport, floorNames[activePage] || '');
   };
 
@@ -827,7 +836,8 @@ export default function PDFViewer({
         onMouseDown={handleMouseDown}
         onClick={handleCanvasClick}
         onMouseMove={(e) => {
-          if (!isSelectMode || !containerRef.current || !baseViewportRef.current) return;
+          // Detect pin hover in view + select modes (not while dropping).
+          if (isDropMode || !containerRef.current || !baseViewportRef.current) return;
           const containerRect = containerRef.current.getBoundingClientRect();
           const cursorX = e.clientX - containerRect.left;
           const cursorY = e.clientY - containerRect.top;

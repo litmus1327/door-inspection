@@ -11,6 +11,7 @@ if (typeof pdfjsLib.GlobalWorkerOptions !== 'undefined') {
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import ErrorBoundary from './components/ErrorBoundary';
+import ReloadPrompt from './components/ReloadPrompt';
 import { ThemeProvider } from './contexts/ThemeContext';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
@@ -473,6 +474,7 @@ function App() {
         <ThemeProvider defaultTheme="light" switchable>
           <TooltipProvider>
             <Toaster />
+            <ReloadPrompt />
             <ProjectsPage
               onSelectProject={(name) => setActiveProject(name)}
               onCreateProject={handleCreateProject}
@@ -488,6 +490,7 @@ function App() {
       <ThemeProvider defaultTheme="light" switchable>
         <TooltipProvider>
           <Toaster />
+          <ReloadPrompt />
           <div className="flex bg-background text-foreground" style={{ height: '100dvh' }}>
             {/* Sidebar */}
             <Sidebar

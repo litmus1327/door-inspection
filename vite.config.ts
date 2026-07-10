@@ -160,8 +160,11 @@ const plugins = [
   // Offline-first: precache the app shell, fonts, hardware photos, and the
   // pdf.js worker so the app loads and runs on-site with no signal.
   VitePWA({
-    registerType: "autoUpdate",
-    injectRegister: "auto",
+    // 'prompt' so a new deploy surfaces a "refresh" banner instead of silently
+    // (and confusingly) serving the old cached version. The ReloadPrompt
+    // component (virtual:pwa-register/react) drives the banner + registration.
+    registerType: "prompt",
+    injectRegister: false,
     includeAssets: ["favicon-64.png", "apple-touch-icon.png", "pdf.worker.min.js", "pdf.worker.min.mjs"],
     manifest: {
       name: "CODIFY Door Inspection",
