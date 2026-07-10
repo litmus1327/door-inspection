@@ -692,9 +692,10 @@ interface DeficiencyItemProps {
   onToggle: (item: ChecklistItem) => void;
   onNoteChange: (id: string, note: string) => void;
   onBranchAnswer: (itemId: string, qid: string, value: string, branchId?: string) => void;
+  onRemove?: () => void;
 }
 
-function DeficiencyItem({ item, defState, atype, swing, sprinklered, gapStd, onToggle, onNoteChange, onBranchAnswer }: DeficiencyItemProps) {
+function DeficiencyItem({ item, defState, atype, swing, sprinklered, gapStd, onToggle, onNoteChange, onBranchAnswer, onRemove }: DeficiencyItemProps) {
   const isFlagged = defState?.status === 'deficient';
   const isAdvisory = defState?.status === 'advisory';
   const isExpanded = isFlagged || isAdvisory;
@@ -724,6 +725,16 @@ function DeficiencyItem({ item, defState, atype, swing, sprinklered, gapStd, onT
         >
           {isFlagged ? '✓ Deficient' : isAdvisory ? 'Evaluating' : 'Flag'}
         </button>
+        {onRemove && (
+          <button
+            onClick={onRemove}
+            className="shrink-0 px-2 py-1.5 rounded-sm text-muted-foreground hover:text-red-500 transition-all"
+            title="Remove custom item"
+            aria-label="Remove custom item"
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       {isExpanded && (
@@ -838,6 +849,11 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
   // Inspection state
   const [currentSectionIdx, setCurrentSectionIdx] = useState(0);
   const [deficiencies, setDeficiencies] = useState<Record<string, DeficiencyState>>({});
+  // Inspector-added checklist items (not in the standard list), by category.
+  const [customItems, setCustomItems] = useState<ChecklistItem[]>([]);
+  const [showAddCustom, setShowAddCustom] = useState(false);
+  const [customCategory, setCustomCategory] = useState('');
+  const [customText, setCustomText] = useState('');
   const [currentDoor, setCurrentDoor] = useState<CurrentDoor | null>(null);
   const [inspectView, setInspectView] = useState<'checklist' | 'diagram'>(assistedMode ? 'diagram' : 'checklist');
   const [diagramZone, setDiagramZone] = useState<Zone | null>(null);
@@ -1184,12 +1200,19 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
     ? getApplicableItems(currentDoor.assemblyType, currentDoor.hwState, currentDoor.doorSwingType, currentDoor.projectVars, currentDoor.isCrossCorridor === true, currentDoor.doorRating, currentDoor.frameRating, currentDoor.isHealthCareOccupancy, x14Compliant, currentDoor.isStairDoor === true, currentDoor.isCorridorDoor === true)
     : [], [currentDoor, x14Compliant]);
 
+  // Standard items for a section, plus any inspector-added custom items.
+  const itemsForSection = (sec: string) => [
+    ...applicableItems.filter(item => item.section === sec),
+    ...customItems.filter(item => item.section === sec),
+  ];
+
   const visibleSections = SECTIONS.filter(sec =>
-    applicableItems.some(item => item.section === sec)
+    applicableItems.some(item => item.section === sec) ||
+    customItems.some(item => item.section === sec)
   );
 
   const currentSection = visibleSections[currentSectionIdx] || '';
-  const sectionItems = applicableItems.filter(item => item.section === currentSection);
+  const sectionItems = itemsForSection(currentSection);
   const isLastSection = currentSectionIdx >= visibleSections.length - 1;
 
   // Diagram: per-zone color state derived from current deficiencies.
@@ -1215,12 +1238,36 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
   if (dhw.hw_lockset_cylindrical || dhw.hw_lockset_mortise) diagramZones.push('latch_hw');
   const diagramItems = diagramZone
     ? applicableItems.filter(item => ZONE_TO_ITEM_IDS[diagramZone].includes(item.id))
-    : applicableItems;
+    : [...applicableItems, ...customItems];
 
-  // Deficiency counts per section for nav
+  // Deficiency counts per section for nav (includes custom items)
   const sectionDefCounts = (sec: string) => {
-    const items = applicableItems.filter(i => i.section === sec);
-    return items.filter(i => deficiencies[i.id]?.status === 'deficient').length;
+    return itemsForSection(sec).filter(i => deficiencies[i.id]?.status === 'deficient').length;
+  };
+
+  // Add / remove inspector-defined custom checklist items.
+  const addCustomItem = () => {
+    const section = customCategory || currentSection || SECTIONS[0];
+    const text = customText.trim();
+    if (!text) return;
+    const id = `custom_${Date.now().toString(36)}`;
+    const label = text.startsWith(section) ? text : `${section}: ${text}`;
+    setCustomItems(prev => [...prev, { section, id, text: label, show: true }]);
+    // Custom items are added because the inspector found an issue → flag it.
+    setDeficiencies(prev => ({
+      ...prev,
+      [id]: { status: 'deficient', text: label, category: section, note: '', branchAnswers: {} },
+    }));
+    setCustomText('');
+    setCustomCategory('');
+    setShowAddCustom(false);
+  };
+  const removeCustomItem = (id: string) => {
+    setCustomItems(prev => prev.filter(i => i.id !== id));
+    setDeficiencies(prev => {
+      const { [id]: _, ...rest } = prev;
+      return rest;
+    });
   };
 
   const toggleDeficiency = useCallback((item: ChecklistItem) => {
@@ -1388,6 +1435,10 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
     setIsHealthCareOccupancy(true);
     setHwState({ ...DEFAULT_HW_STATE });
     setDeficiencies({});
+    setCustomItems([]);
+    setShowAddCustom(false);
+    setCustomText('');
+    setCustomCategory('');
     setCurrentDoor(null);
     setCurrentSectionIdx(0);
     setAdditionalComments('');
@@ -2239,8 +2290,48 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
                   onToggle={toggleDeficiency}
                   onNoteChange={updateNote}
                   onBranchAnswer={updateBranchAnswer}
+                  onRemove={item.id.startsWith('custom_') ? () => removeCustomItem(item.id) : undefined}
                 />
               ))}
+
+              {/* Add a custom checklist item (not in the standard list) */}
+              {showAddCustom ? (
+                <div className="border border-primary/40 rounded-sm p-3 space-y-2 bg-primary/5">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">New custom item</p>
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">Category</label>
+                    <select
+                      value={customCategory || currentSection}
+                      onChange={e => setCustomCategory(e.target.value)}
+                      className="codify-input w-full"
+                    >
+                      {SECTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">Describe the issue</label>
+                    <input
+                      value={customText}
+                      onChange={e => setCustomText(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && addCustomItem()}
+                      placeholder="e.g. Gasket detaching at top corner"
+                      className="codify-input w-full"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={() => { setShowAddCustom(false); setCustomText(''); setCustomCategory(''); }} className="flex-1 py-2 border border-border rounded-sm text-sm text-muted-foreground hover:text-foreground">Cancel</button>
+                    <button onClick={addCustomItem} disabled={!customText.trim()} className="flex-1 py-2 bg-primary text-primary-foreground rounded-sm text-sm font-semibold disabled:opacity-50">Add item</button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setShowAddCustom(true); setCustomCategory(currentSection); }}
+                  className="w-full py-2.5 border border-dashed border-border rounded-sm text-sm text-muted-foreground hover:border-primary/50 hover:text-primary transition-all"
+                >
+                  ＋ Add custom item
+                </button>
+              )}
             </div>
           );
         })()}
