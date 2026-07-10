@@ -563,6 +563,7 @@ function App() {
                         <InspectionWizard
                           selectedDoor={selectedDoor}
                           onClear={() => setSelectedDoor(null)}
+                          onPinInspected={(pinId, status) => handlePinStatusChanged(pinId, status as DoorPin['status'])}
                         />
                       </div>
                     </div>

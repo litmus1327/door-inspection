@@ -31,6 +31,9 @@ interface SelectedDoor {
 interface InspectionWizardProps {
   selectedDoor?: SelectedDoor | null;
   onClear?: () => void;
+  // Called on completion with the inspected pin's new status. A direct callback
+  // (vs the old window event) so the pin reliably updates and stays on the plan.
+  onPinInspected?: (pinId: string, status: string) => void;
 }
 
 interface HwState {
@@ -787,7 +790,7 @@ async function compressImage(file: File, maxDim = 1280, quality = 0.7): Promise<
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
-export default function InspectionWizard({ selectedDoor, onClear }: InspectionWizardProps) {
+export default function InspectionWizard({ selectedDoor, onClear, onPinInspected }: InspectionWizardProps) {
   // Phase: 'setup' | 'inspect' | 'complete'
   const [phase, setPhase] = useState<'setup' | 'inspect' | 'complete'>('setup');
 
@@ -955,6 +958,7 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
     deduped.push(record);
     localStorage.setItem('doorInspections', JSON.stringify(deduped));
     if (selectedDoor?.pinId) {
+      onPinInspected?.(selectedDoor.pinId, 'inaccessible');
       window.dispatchEvent(new CustomEvent('pinStatusUpdate', {
         detail: { pinId: selectedDoor.pinId, status: 'inaccessible' }
       }));
@@ -1336,6 +1340,8 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
 
     const pinStatus = hasDeficiencies ? 'fail' : 'pass';
     if (selectedDoor?.pinId) {
+      onPinInspected?.(selectedDoor.pinId, pinStatus);
+      // Legacy event kept as a fallback for any other listeners.
       window.dispatchEvent(new CustomEvent('pinStatusUpdate', {
         detail: { pinId: selectedDoor.pinId, status: pinStatus }
       }));
@@ -1351,13 +1357,6 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
     if (!currentDoor?.assetId?.trim()) {
       alert('Asset ID is missing — please finish door setup before completing.');
       return;
-    }
-    if (visitedSections.size < visibleSections.length) {
-      const unreviewed = visibleSections.length - visitedSections.size;
-      const msg = inspectView === 'diagram'
-        ? 'Have you reviewed every part of the door? Any parts you didn’t open are recorded as compliant. Complete the inspection?'
-        : `You haven’t opened ${unreviewed} checklist section${unreviewed !== 1 ? 's' : ''} yet. Complete the inspection anyway?`;
-      if (!window.confirm(msg)) return;
     }
     completeInspection();
   };
@@ -1953,7 +1952,14 @@ export default function InspectionWizard({ selectedDoor, onClear }: InspectionWi
   return (
     <div className="flex flex-col h-full">
       {/* Door header strip */}
-      <div className="bg-card border-b border-border px-4 py-2 flex gap-4 flex-wrap text-xs font-mono">
+      <div className="bg-card border-b border-border px-4 py-2 flex gap-4 flex-wrap items-center text-xs font-mono">
+        <button
+          onClick={() => setPhase('setup')}
+          className="flex items-center gap-1 px-2 py-1 rounded-sm border border-border text-muted-foreground hover:border-primary/50 hover:text-foreground transition-all shrink-0"
+          title="Back to door setup"
+        >
+          ← Back
+        </button>
         <span className="text-muted-foreground">ICON <span className="text-foreground font-semibold">{currentDoor?.iconNo || '—'}</span></span>
         <span className="text-muted-foreground">ASSET <span className="text-foreground font-semibold">{currentDoor?.assetId || '—'}</span></span>
         <span className="text-muted-foreground">FLOOR <span className="text-foreground font-semibold">{currentDoor?.floorNo || '—'}</span></span>

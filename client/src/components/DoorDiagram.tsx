@@ -30,26 +30,26 @@ export interface DoorDiagramProps {
   onZoneHover?: (zone: Zone | null) => void;
 }
 
-// Industrial Blueprint palette (static in this phase).
+// Light palette to match the app's light theme.
 const C = {
-  bg: '#0d0f12',
-  frame: '#2b3350',
-  base: '#1c2030',
-  hover: '#2c3350',
-  stroke: '#4a5570',
-  metal: '#6b7590',
-  glass: '#10131a',
-  amber: '#e8a020',
-  textPrimary: '#dce3f0',
-  textMuted: '#8892aa',
+  bg: '#f7f5f1',
+  frame: '#cfc7b6',
+  base: '#eae5db',
+  hover: '#ded8ca',
+  stroke: '#8b8575',
+  metal: '#a7a091',
+  glass: '#d8e6ef',
+  amber: '#a8651a',
+  textPrimary: '#1b1d21',
+  textMuted: '#6d6a62',
 };
 
 // Fill + stroke per result state. untouched falls back to the neutral base.
 const STATE_COLORS: Record<ZoneState, { fill: string; stroke: string }> = {
   untouched: { fill: C.base, stroke: C.stroke },
-  pass: { fill: '#16382a', stroke: '#28c76f' },
-  advisory: { fill: '#3a2f14', stroke: '#e8a020' },
-  deficient: { fill: '#3d1a1c', stroke: '#ea5455' },
+  pass: { fill: '#dff0e6', stroke: '#2f8a55' },
+  advisory: { fill: '#f6ead2', stroke: '#b9791a' },
+  deficient: { fill: '#f7dcdc', stroke: '#c0271f' },
 };
 
 const LEGEND: [ZoneState, string][] = [
