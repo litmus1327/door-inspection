@@ -703,7 +703,7 @@ function DeficiencyItem({ item, defState, atype, swing, sprinklered, gapStd, onT
     <div className={`rounded-sm border transition-all ${
       isFlagged ? 'border-red-500/60 bg-red-500/5' :
       isAdvisory ? 'border-yellow-500/40 bg-yellow-500/5' :
-      'border-border'
+      'border-border hover:border-primary/40 hover:bg-muted/40'
     }`}>
       <div className="flex items-center justify-between gap-3 p-3">
         <div className="flex-1 min-w-0">
@@ -716,10 +716,10 @@ function DeficiencyItem({ item, defState, atype, swing, sprinklered, gapStd, onT
         </div>
         <button
           onClick={() => onToggle(item)}
-          className={`shrink-0 px-3 py-1.5 rounded-sm text-xs font-semibold tracking-wide uppercase transition-all ${
+          className={`shrink-0 px-3 py-1.5 rounded-sm text-xs font-semibold tracking-wide uppercase transition-all active:scale-95 ${
             isFlagged
-              ? 'bg-red-500 text-white border border-red-500'
-              : 'border border-border text-muted-foreground hover:border-red-400 hover:text-red-400'
+              ? 'bg-red-500 text-white border border-red-500 hover:bg-red-600'
+              : 'border border-border text-muted-foreground hover:border-red-400 hover:text-red-400 hover:bg-red-500/5'
           }`}
         >
           {isFlagged ? '✓ Deficient' : isAdvisory ? 'Evaluating' : 'Flag'}

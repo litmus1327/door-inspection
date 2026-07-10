@@ -333,31 +333,10 @@ function App() {
     return null;
   };
 
-  // Remove pins from Title Sheet pages
-  useEffect(() => {
-    if (totalPages === 0 || Object.keys(floorNames).length === 0) return;
-
-    // Remove pins from any page labeled "Title Sheet"
-    const titleSheetPages = Object.entries(floorNames)
-      .filter(([, name]) => name === 'Title Sheet')
-      .map(([page]) => Number(page));
-
-    if (titleSheetPages.length === 0) return;
-
-    const hasTitleSheetPins = titleSheetPages.some(
-      (page) => (pins[page] || []).length > 0
-    );
-
-    if (!hasTitleSheetPins) return;
-
-    setPins((prev) => {
-      const next = { ...prev };
-      titleSheetPages.forEach((page) => {
-        next[page] = [];
-      });
-      return next;
-    });
-  }, [floorNames]);
+  // NOTE: we intentionally do NOT auto-delete pins on "Title Sheet" pages.
+  // That silently removed the user's just-placed pin (and its inspection record
+  // then vanished from Records, which only shows records whose pin still exists).
+  // The grid is already suppressed on title sheets; leave the user's pins alone.
 
   const cloudUpsertPin = (pin: DoorPin) => {
     const cfg = getSupabaseConfig();

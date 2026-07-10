@@ -399,7 +399,9 @@ export default function PDFViewer({
     viewport: any,
     floorName: string
   ) => {
-    if (floorName === 'Title Sheet' || activePage === 1) return;
+    // Only skip the grid on a real title sheet — not just "page 1", since some
+    // plans have a floor (e.g. Basement) as the first page with no title sheet.
+    if (floorName === 'Title Sheet') return;
 
     const w = viewport.width;
     const h = viewport.height;
@@ -902,9 +904,10 @@ export default function PDFViewer({
             <ChevronLeft size={20} className="text-foreground" />
           </button>
 
-          {/* Floor Name and Page Counter */}
-          <div className="text-foreground text-sm font-medium px-2 min-w-fit text-center">
-            <div>{floorNames[activePage] || `Page ${activePage}`}</div>
+          {/* Floor Name and Page Counter — fixed width so the arrows don't shift
+              as the floor name length changes. */}
+          <div className="text-foreground text-sm font-medium px-2 w-32 text-center">
+            <div className="truncate" title={floorNames[activePage] || `Page ${activePage}`}>{floorNames[activePage] || `Page ${activePage}`}</div>
             <div className="text-xs text-muted-foreground">{activePage}/{totalPages}</div>
           </div>
 
