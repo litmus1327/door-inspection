@@ -67,6 +67,26 @@ function distSqToSeg(px: number, py: number, ax: number, ay: number, bx: number,
   const cx = ax + t * dx, cy = ay + t * dy;
   return (px - cx) ** 2 + (py - cy) ** 2;
 }
+function ccw(ax: number, ay: number, bx: number, by: number, cx: number, cy: number): number {
+  return (cy - ay) * (bx - ax) - (by - ay) * (cx - ax);
+}
+// Do segments AB and CD intersect?
+function segsIntersect(a: number[], b: number[]): boolean {
+  const [ax, ay, bx, by] = a, [cx, cy, dx, dy] = b;
+  const d1 = ccw(cx, cy, dx, dy, ax, ay), d2 = ccw(cx, cy, dx, dy, bx, by);
+  const d3 = ccw(ax, ay, bx, by, cx, cy), d4 = ccw(ax, ay, bx, by, dx, dy);
+  return ((d1 > 0) !== (d2 > 0)) && ((d3 > 0) !== (d4 > 0));
+}
+// min distance² between two segments (0 if they cross).
+function segSegMinDistSq(a: number[], b: number[]): number {
+  if (segsIntersect(a, b)) return 0;
+  return Math.min(
+    distSqToSeg(a[0], a[1], b[0], b[1], b[2], b[3]),
+    distSqToSeg(a[2], a[3], b[0], b[1], b[2], b[3]),
+    distSqToSeg(b[0], b[1], a[0], a[1], a[2], a[3]),
+    distSqToSeg(b[2], b[3], a[0], a[1], a[2], a[3]),
+  );
+}
 
 /**
  * Extract saturated (assembly-type) wall strokes from one PDF page, in percent
@@ -296,35 +316,53 @@ const PRECEDENCE_INDEX: Record<string, number> =
   Object.fromEntries(ASSEMBLY_PRECEDENCE.map((t, i) => [t, i]));
 
 /**
- * Auto-detect the assembly type for a dropped pin. Looks at every calibrated
- * wall line within radius; resolves each to a type by color, disambiguating a
- * shared color by line style; of the types found, returns the highest-precedence
- * (fire beats smoke). null when nothing calibrated is close enough, or a shared
- * color's style can't be read — the inspector then picks manually.
+ * Auto-detect the assembly type for a dropped pin. A door icon is a balloon
+ * whose tip is at (xPct, yPct) and whose body sits ABOVE the tip — and doors
+ * sit in the GAP of a wall, so the tip often lands in the opening while the
+ * balloon body covers the wall line. So detection considers every calibrated
+ * line touching the whole balloon footprint (the capsule from the tip up to the
+ * head, when headOffsetPct is given), not just the tip point. Each line resolves
+ * to a type by color (a shared color disambiguated by line style); of the types
+ * touched, the highest-precedence wins (fire beats smoke). null when nothing
+ * calibrated is close enough, or a shared color's style can't be read.
  */
 export function detectAssemblyType(
   strokes: WallStroke[],
   xPct: number, yPct: number,
   cal: ProjectCalibration,
-  opts: { radiusPct: number; tolerance: number }
+  opts: { radiusPct: number; tolerance: number; headOffsetPct?: number }
 ): string | null {
   if (!cal.calibrated) return null;
-  const r2 = opts.radiusPct * opts.radiusPct;
+  const r = opts.radiusPct, r2 = r * r;
+  const useCapsule = !!opts.headOffsetPct && opts.headOffsetPct > 0;
+  const headY = yPct - (opts.headOffsetPct || 0);
+  const axis = [xPct, yPct, xPct, headY]; // balloon centerline (tip → head)
+  // Style is read where the wall sits under the balloon (its head, if capsule).
+  const styleY = useCapsule ? headY : yPct;
+  // bbox window covering the whole balloon.
+  const boxTop = Math.min(yPct, headY) - r, boxBot = Math.max(yPct, headY) + r;
+
   const found = new Set<string>();
   for (const s of strokes) {
     if (saturation(s.rgb) < SATURATION_MIN) continue;
-    if (xPct < s.bbox[0] - opts.radiusPct || xPct > s.bbox[2] + opts.radiusPct ||
-        yPct < s.bbox[1] - opts.radiusPct || yPct > s.bbox[3] + opts.radiusPct) continue;
+    if (xPct < s.bbox[0] - r || xPct > s.bbox[2] + r || boxBot < s.bbox[1] || boxTop > s.bbox[3]) continue;
     let near = false;
     for (const g of s.segments) {
-      if (distSqToSeg(xPct, yPct, g[0], g[1], g[2], g[3]) <= r2) { near = true; break; }
+      const d2 = useCapsule ? segSegMinDistSq(g, axis) : distSqToSeg(xPct, yPct, g[0], g[1], g[2], g[3]);
+      if (d2 <= r2) { near = true; break; }
     }
     if (!near) continue;
     const matches = calibratedTypesForColor(s.rgb, cal, opts.tolerance);
     if (matches.length === 0) continue;
     if (matches.length === 1) { found.add(matches[0]); continue; }
-    // Same color → disambiguate by line style.
-    const st = styleAt(strokes, s.rgb, xPct, yPct, opts.tolerance);
+    // Same color → disambiguate by line style. Read at both the head and the tip
+    // (the wall may sit under either part of the balloon) and combine.
+    const sHead = styleAt(strokes, s.rgb, xPct, styleY, opts.tolerance);
+    const sTip = useCapsule ? styleAt(strokes, s.rgb, xPct, yPct, opts.tolerance) : sHead;
+    const st = sHead === sTip ? sHead
+      : sHead === 'unknown' ? sTip
+      : sTip === 'unknown' ? sHead
+      : 'unknown'; // the two reads conflict
     if (st === 'unknown') continue; // don't guess
     const pick = matches.find((t) => {
       const e = cal.types[t];

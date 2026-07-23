@@ -5,8 +5,15 @@ import { DoorPin } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import {
   extractWallStrokes, nearestWallColorAt, detectAssemblyType, styleAt,
-  WallStroke, ProjectCalibration, WallPick, DEFAULT_RADIUS_PCT, DEFAULT_TOLERANCE,
+  WallStroke, ProjectCalibration, WallPick, DEFAULT_TOLERANCE,
 } from '@/lib/wallDetect';
+
+// Balloon geometry from drawBalloonPin (canvas px in the scale:2 viewport): the
+// teardrop's circle has radius 20 with its center 32px above the tip. Detection
+// tests this whole footprint so a pin dropped in a door opening still reads the
+// wall its balloon covers.
+const BALLOON_RADIUS_PX = 20;
+const BALLOON_CENTER_OFFSET_PX = 32;
 
 // Tap radius (percent of page) when picking a wall color during calibration —
 // a bit larger than the drop-detection radius since the user aims by hand.
@@ -776,14 +783,20 @@ export default function PDFViewer({
       // Auto-assign next icon number from all pins across all pages
       const nextIconNo = String(pins.length + 1);
 
-      // Auto-detect the assembly type from the calibrated wall color under the
-      // drop. null when nothing calibrated is close enough → left blank for the
-      // inspector to pick manually (never a wrong guess).
-      const detected = calibration
-        ? detectAssemblyType(wallStrokesRef.current, clickPctX, clickPctY, calibration, {
-            radiusPct: DEFAULT_RADIUS_PCT, tolerance: DEFAULT_TOLERANCE,
-          })
-        : null;
+      // Auto-detect the assembly type from the calibrated wall line under the
+      // balloon (its whole footprint, since the tip often lands in the door
+      // opening). null when nothing calibrated is close enough → left blank for
+      // the inspector to pick manually (never a wrong guess).
+      let detected: string | null = null;
+      if (calibration) {
+        const vw = baseViewportRef.current.width;   // scale:2 viewport
+        const vh = baseViewportRef.current.height;
+        const headOffsetPct = (BALLOON_CENTER_OFFSET_PX / vh) * 100;
+        const radiusPct = (BALLOON_RADIUS_PX / Math.min(vw, vh)) * 100;
+        detected = detectAssemblyType(wallStrokesRef.current, clickPctX, clickPctY, calibration, {
+          radiusPct, tolerance: DEFAULT_TOLERANCE, headOffsetPct,
+        });
+      }
 
       const newPin: DoorPin = {
         id: uuidv4(),

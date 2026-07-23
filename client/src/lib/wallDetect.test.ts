@@ -21,6 +21,11 @@ function dashed(col: number, rgb: RGB): WallStroke {
   };
 }
 
+// A horizontal wall at height y, x 45..55.
+function hline(y: number, rgb: RGB): WallStroke {
+  return { rgb, width: 30, segments: [[45, y, 55, y]], bbox: [45, y, 55, y] };
+}
+
 const RED: RGB = [255, 0, 0];
 const GREEN: RGB = [0, 255, 0];
 const BLUE: RGB = [110, 138, 221];
@@ -98,5 +103,14 @@ describe('detectAssemblyType', () => {
 
   it('same blue color: DASHED line resolves to Smoke Barrier', () => {
     expect(detectAssemblyType([dashed(50, BLUE)], 50, 55, styleCal, { radiusPct: 1.2, tolerance: 60 })).toBe('smoke_barrier');
+  });
+
+  it('balloon footprint catches a wall above the tip (door-opening case)', () => {
+    const smokeCal: ProjectCalibration = { calibrated: true, types: { smoke_barrier: { rgb: BLUE, width: 30 } } };
+    const strokes = [hline(55, BLUE)]; // wall 1% above the tip
+    // Tip alone (in the door opening), tight radius: misses the wall.
+    expect(detectAssemblyType(strokes, 50, 56, smokeCal, { radiusPct: 0.4, tolerance: 60 })).toBeNull();
+    // Balloon reaches up to its head and catches the wall it covers.
+    expect(detectAssemblyType(strokes, 50, 56, smokeCal, { radiusPct: 0.4, tolerance: 60, headOffsetPct: 1.2 })).toBe('smoke_barrier');
   });
 });
