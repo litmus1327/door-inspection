@@ -23,6 +23,7 @@ interface PlansProps {
   onPinAdded: (pin: DoorPin) => void;
   onPinRemoved: (pinId: string) => void;
   onPinsRemoved: (pinIds: Set<string>) => void;
+  onPinUpdated: (pin: DoorPin) => void;
   onPinStatusChanged: (pinId: string, status: DoorPin['status']) => void;
   onPinSelected: (pin: DoorPin) => void;
   onFloorNameExtracted?: (pageNum: number, name: string) => void;
@@ -40,6 +41,7 @@ export default function Plans({
   onPinAdded,
   onPinRemoved,
   onPinsRemoved,
+  onPinUpdated,
   onPinStatusChanged,
   onPinSelected,
   onFloorNameExtracted,
@@ -249,6 +251,7 @@ export default function Plans({
             onPinAdded={onPinAdded}
             onPinRemoved={onPinRemoved}
             onPinsRemoved={onPinsRemoved}
+            onPinUpdated={onPinUpdated}
             onPinStatusChanged={onPinStatusChanged}
             onPinSelected={onPinSelected}
             onTotalPagesChange={() => {}}

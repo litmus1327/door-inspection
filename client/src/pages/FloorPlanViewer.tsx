@@ -28,6 +28,7 @@ interface FloorPlanViewerProps {
   onPinAdded: (pin: DoorPin) => void;
   onPinRemoved: (pinId: string) => void;
   onPinsRemoved: (pinIds: Set<string>) => void;
+  onPinUpdated: (pin: DoorPin) => void;
   onPinStatusChanged: (pinId: string, status: DoorPin['status']) => void;
   onPinSelected: (pin: DoorPin) => void;
   onTotalPagesChange: (pages: number) => void;
@@ -47,6 +48,7 @@ export default function FloorPlanViewer({
   onPinAdded,
   onPinRemoved,
   onPinsRemoved,
+  onPinUpdated,
   onPinStatusChanged,
   onPinSelected,
   onTotalPagesChange,
@@ -184,6 +186,7 @@ export default function FloorPlanViewer({
         pins={pins[currentPage] || []}
         onPinAdded={onPinAdded}
         onPinRemoved={onPinRemoved}
+        onPinUpdated={onPinUpdated}
         onPinStatusChanged={onPinStatusChanged}
         onPageChange={handlePageChange}
         onPinSelected={handlePinSelected}

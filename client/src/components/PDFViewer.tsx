@@ -37,6 +37,7 @@ interface PDFViewerProps {
   pins: DoorPin[];
   onPinAdded: (pin: DoorPin) => void;
   onPinRemoved: (pinId: string) => void;
+  onPinUpdated?: (pin: DoorPin) => void; // move a pin: re-upsert with new x/y
   onPinStatusChanged: (pinId: string, status: DoorPin['status']) => void;
   onPageChange: (newPage: number) => void;
   onPinSelected: (pin: DoorPin) => void;
@@ -60,6 +61,7 @@ export default function PDFViewer({
   pins,
   onPinAdded,
   onPinRemoved,
+  onPinUpdated,
   onPinStatusChanged,
   onPageChange,
   onPinSelected,
@@ -83,11 +85,24 @@ export default function PDFViewer({
   // Latest page the viewer is showing — lets a slow stroke-extract discard its
   // result if the user has since flipped to another page.
   const latestPageRef = useRef<number>(initialPage);
+
+  // Pin move / delete. Current-value refs so the native touch listeners (which
+  // only re-subscribe on mode change) always see fresh pins/callbacks.
+  const pinsRef = useRef<DoorPin[]>(pins);
+  pinsRef.current = pins;
+  const activePageForPinsRef = useRef<number>(initialPage);
+  const cbRef = useRef({ onPinUpdated, onPinRemoved });
+  cbRef.current = { onPinUpdated, onPinRemoved };
+  const dragPinRef = useRef<{ id: string; moved: boolean } | null>(null); // mouse/touch drag in progress
+  const dragPosRef = useRef<{ id: string; x: number; y: number } | null>(null); // live dragged position (percent)
+  const touchLongPressRef = useRef<number | null>(null);
+  const suppressClickRef = useRef(false); // don't select a pin on the click that ends a drag
   // Transparent layer above the PDF for pins + grid, so pin changes never
   // re-render the PDF (previously caused the flash and dropped/renumbered pins).
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const [pdf, setPdf] = useState<any>(null);
   const [activePage, setActivePage] = useState(initialPage);
+  activePageForPinsRef.current = activePage; // keep the pin hit-test's page current
   const [totalPages, setTotalPages] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const renderTaskRef = useRef<any>(null);
@@ -150,11 +165,30 @@ export default function PDFViewer({
         e.preventDefault();
         touchDistanceRef.current = getTouchDistance(e.touches);
         touchStartScaleRef.current = scaleRef.current;
-      } else if (e.touches.length === 1 && !isDropMode && !isSelectMode) {
+      } else if (e.touches.length === 1 && !isDropMode && !isSelectMode && !isCalibrateMode) {
         // Record start position but DON'T preventDefault yet
         touchStartPosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
         lastTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
         touchMovedRef.current = false;
+        // Pin under the finger? Prepare to drag it, and arm long-press-to-delete.
+        const c = toCanvasPoint(e.touches[0].clientX, e.touches[0].clientY);
+        const hit = hitTestPin(c.canvasX, c.canvasY);
+        if (hit) {
+          dragPinRef.current = { id: hit.id, moved: false };
+          dragPosRef.current = { id: hit.id, x: hit.x, y: hit.y };
+          if (touchLongPressRef.current) clearTimeout(touchLongPressRef.current);
+          touchLongPressRef.current = window.setTimeout(() => {
+            touchLongPressRef.current = null;
+            if (dragPinRef.current && !dragPinRef.current.moved) {
+              const p = pinsRef.current.find((pp) => pp.id === hit.id);
+              dragPinRef.current = null;
+              dragPosRef.current = null;
+              suppressClickRef.current = true;
+              if (p && window.confirm(`Delete pin #${p.iconNo}?`)) cbRef.current.onPinRemoved(p.id);
+              drawOverlay();
+            }
+          }, 550);
+        }
       }
     };
 
@@ -201,6 +235,27 @@ export default function PDFViewer({
         const dy = e.touches[0].clientY - (touchStartPosRef.current?.y || 0);
         const dist = Math.sqrt(dx * dx + dy * dy);
 
+        // Dragging a grabbed pin (finger landed on a pin at touchstart).
+        if (dragPinRef.current) {
+          if (dist > 8) {
+            dragPinRef.current.moved = true;
+            if (touchLongPressRef.current) { clearTimeout(touchLongPressRef.current); touchLongPressRef.current = null; }
+            e.preventDefault();
+            const vp = baseViewportRef.current;
+            if (vp) {
+              const c = toCanvasPoint(e.touches[0].clientX, e.touches[0].clientY);
+              dragPosRef.current = {
+                id: dragPinRef.current.id,
+                x: clampPct((c.canvasX / vp.width) * 100),
+                y: clampPct((c.canvasY / vp.height) * 100),
+              };
+              drawOverlay();
+            }
+          }
+          lastTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          return;
+        }
+
         // Only start panning if moved more than 8px (distinguishes tap from drag)
         if (dist > 8) {
           touchMovedRef.current = true;
@@ -218,6 +273,19 @@ export default function PDFViewer({
     };
 
     const handleTouchEnd = () => {
+      if (touchLongPressRef.current) { clearTimeout(touchLongPressRef.current); touchLongPressRef.current = null; }
+      if (dragPinRef.current) {
+        const moved = dragPinRef.current.moved;
+        const pos = dragPosRef.current;
+        dragPinRef.current = null;
+        dragPosRef.current = null;
+        if (moved && pos && cbRef.current.onPinUpdated) {
+          const p = pinsRef.current.find((pp) => pp.id === pos.id);
+          if (p) cbRef.current.onPinUpdated({ ...p, x: pos.x, y: pos.y });
+          suppressClickRef.current = true; // don't also open the wizard
+        }
+        drawOverlay();
+      }
       touchDistanceRef.current = null;
       lastTouchRef.current = null;
       touchStartPosRef.current = null;
@@ -235,7 +303,7 @@ export default function PDFViewer({
       container.removeEventListener('touchend', handleTouchEnd);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isDropMode, isSelectMode]);
+  }, [isDropMode, isSelectMode, isCalibrateMode]);
 
 
 
@@ -590,9 +658,13 @@ export default function PDFViewer({
     if (overlay.width !== viewport.width) overlay.width = viewport.width;
     if (overlay.height !== viewport.height) overlay.height = viewport.height;
     ctx.clearRect(0, 0, overlay.width, overlay.height);
-    pins
+    pinsRef.current
       .filter((p) => !p.pageNumber || p.pageNumber === activePage)
-      .forEach((pin) => drawBalloonPin(ctx, pin, viewport, selectedPinIds.has(pin.id), pin.id === hoveredPinId));
+      .forEach((pin) => {
+        const dp = dragPosRef.current;
+        const draw = dp && dp.id === pin.id ? { ...pin, x: dp.x, y: dp.y } : pin;
+        drawBalloonPin(ctx, draw, viewport, selectedPinIds.has(pin.id), pin.id === hoveredPinId);
+      });
     drawGrid(ctx, viewport, floorNames[activePage] || '');
   };
 
@@ -689,7 +761,70 @@ export default function PDFViewer({
     setPanY(newPanY);
   };
 
+  // Screen point → canvas (scale:2 draw) space.
+  const toCanvasPoint = (clientX: number, clientY: number) => {
+    const rect = containerRef.current!.getBoundingClientRect();
+    return {
+      canvasX: (clientX - rect.left - panXRef.current) / (scaleRef.current / 2),
+      canvasY: (clientY - rect.top - panYRef.current) / (scaleRef.current / 2),
+    };
+  };
+  // Pin whose balloon is under a canvas point (unified 32px head offset, 28px radius).
+  const hitTestPin = (canvasX: number, canvasY: number): DoorPin | undefined => {
+    const vp = baseViewportRef.current;
+    if (!vp) return undefined;
+    const page = activePageForPinsRef.current;
+    return pinsRef.current
+      .filter((p) => !p.pageNumber || p.pageNumber === page)
+      .find((pin) => {
+        const px = (pin.x / 100) * vp.width;
+        const py = (pin.y / 100) * vp.height - BALLOON_CENTER_OFFSET_PX;
+        const dx = canvasX - px, dy = canvasY - py;
+        return Math.sqrt(dx * dx + dy * dy) < 28;
+      });
+  };
+  const clampPct = (v: number) => Math.max(0, Math.min(100, v));
+
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (isDropMode || isCalibrateMode) return;
+
+    // View mode: if the press lands on a pin, drag it instead of panning.
+    if (!isSelectMode && containerRef.current && baseViewportRef.current) {
+      const { canvasX, canvasY } = toCanvasPoint(e.clientX, e.clientY);
+      const hit = hitTestPin(canvasX, canvasY);
+      if (hit) {
+        dragPinRef.current = { id: hit.id, moved: false };
+        dragPosRef.current = { id: hit.id, x: hit.x, y: hit.y };
+        const vp = baseViewportRef.current;
+        const onMove = (mv: MouseEvent) => {
+          const c = toCanvasPoint(mv.clientX, mv.clientY);
+          dragPosRef.current = {
+            id: hit.id,
+            x: clampPct((c.canvasX / vp.width) * 100),
+            y: clampPct((c.canvasY / vp.height) * 100),
+          };
+          if (dragPinRef.current) dragPinRef.current.moved = true;
+          drawOverlay();
+        };
+        const onUp = () => {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          const moved = dragPinRef.current?.moved;
+          const pos = dragPosRef.current;
+          dragPinRef.current = null;
+          dragPosRef.current = null;
+          if (moved && pos && onPinUpdated) {
+            const p = pinsRef.current.find((pp) => pp.id === pos.id);
+            if (p) onPinUpdated({ ...p, x: pos.x, y: pos.y });
+            suppressClickRef.current = true; // don't also open the wizard
+          }
+          drawOverlay();
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        return; // grabbed a pin — no pan
+      }
+    }
     if (isDropMode) return;
 
     if (!containerRef.current) return;
@@ -853,18 +988,12 @@ export default function PDFViewer({
       return;
     }
 
-    // In view mode, check if click hit an existing pin
-    const hitPin = pins.find((pin) => {
-      const pinCanvasX = (pin.x / 100) * baseViewportRef.current.width;
-      const pinCanvasY = (pin.y / 100) * baseViewportRef.current.height;
-      const dx = canvasX - pinCanvasX;
-      const dy = canvasY - (pinCanvasY - 12 * 1.6); // balloon center is above tip (shorter balloon)
-      return Math.sqrt(dx * dx + dy * dy) < 28; // 28px hit radius in canvas space
-    });
+    // Suppress the click that ends a pin drag (don't also open the wizard).
+    if (suppressClickRef.current) { suppressClickRef.current = false; return; }
 
-    if (hitPin) {
-      onPinSelected(hitPin);
-    }
+    // In view mode, check if click hit an existing pin
+    const hitPin = hitTestPin(canvasX, canvasY);
+    if (hitPin) onPinSelected(hitPin);
   };
 
   if (error) {
@@ -911,23 +1040,20 @@ export default function PDFViewer({
         onMouseDown={handleMouseDown}
         onClick={handleCanvasClick}
         onMouseMove={(e) => {
-          // Detect pin hover in view + select modes (not while dropping).
-          if (isDropMode || !containerRef.current || !baseViewportRef.current) return;
-          const containerRect = containerRef.current.getBoundingClientRect();
-          const cursorX = e.clientX - containerRect.left;
-          const cursorY = e.clientY - containerRect.top;
-          const canvasX = (cursorX - panXRef.current) / (scaleRef.current / 2);
-          const canvasY = (cursorY - panYRef.current) / (scaleRef.current / 2);
-          const clickPctX = (canvasX / baseViewportRef.current.width) * 100;
-          const clickPctY = (canvasY / baseViewportRef.current.height) * 100;
-          const hitPin = pins.find((pin) => {
-            const pinCanvasX = (pin.x / 100) * baseViewportRef.current.width;
-            const pinCanvasY = (pin.y / 100) * baseViewportRef.current.height;
-            const dx = canvasX - pinCanvasX;
-            const dy = canvasY - (pinCanvasY - 12 * 1.6);
-            return Math.sqrt(dx * dx + dy * dy) < 28;
-          });
-          setHoveredPinId(hitPin?.id || null);
+          // Detect pin hover in view + select modes (not while dropping/calibrating).
+          if (isDropMode || isCalibrateMode || dragPinRef.current || !containerRef.current || !baseViewportRef.current) return;
+          const { canvasX, canvasY } = toCanvasPoint(e.clientX, e.clientY);
+          setHoveredPinId(hitTestPin(canvasX, canvasY)?.id || null);
+        }}
+        onContextMenu={(e) => {
+          // Right-click a pin to delete it (desktop).
+          if (isDropMode || isCalibrateMode || !containerRef.current || !baseViewportRef.current) return;
+          const { canvasX, canvasY } = toCanvasPoint(e.clientX, e.clientY);
+          const hit = hitTestPin(canvasX, canvasY);
+          if (hit) {
+            e.preventDefault();
+            if (window.confirm(`Delete pin #${hit.iconNo}?`)) onPinRemoved(hit.id);
+          }
         }}
       >
         <canvas

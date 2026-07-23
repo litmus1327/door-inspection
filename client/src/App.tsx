@@ -465,6 +465,19 @@ function App() {
     if (found) cloudUpsertPin({ ...found, status });
   };
 
+  // Move a pin (drag): replace it in state and re-upsert to the cloud.
+  const handlePinUpdated = (pin: DoorPin) => {
+    setPins((prev) => {
+      const next: Record<number, DoorPin[]> = {};
+      Object.keys(prev).forEach((k) => {
+        const page = Number(k);
+        next[page] = (prev[page] || []).map((p) => (p.id === pin.id ? pin : p));
+      });
+      return next;
+    });
+    cloudUpsertPin(pin);
+  };
+
   const handlePinSelected = (pin: DoorPin) => {
     const currentPagePins = pins[currentPage] || [];
     const updatedPin = currentPagePins.find((p) => p.id === pin.id) || pin;
@@ -541,6 +554,7 @@ function App() {
                   onPinAdded={handlePinAdded}
                   onPinRemoved={handlePinRemoved}
                   onPinsRemoved={handlePinsRemoved}
+                  onPinUpdated={handlePinUpdated}
                   onPinStatusChanged={handlePinStatusChanged}
                   onPinSelected={handlePinSelected}
                   onFloorNameExtracted={handleFloorNameExtracted}

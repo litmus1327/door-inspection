@@ -199,28 +199,32 @@ export default function RecordsTab({ projectName }: RecordsTabProps) {
           </div>
           <button
             onClick={exportCSV}
+            title="Download a plain spreadsheet (.csv) of these records to open in Excel."
             className="px-3 py-1.5 border border-border rounded-sm text-xs font-mono uppercase tracking-wide text-muted-foreground hover:border-primary/50 transition-all"
           >
-            Export CSV
-          </button>
-          <button
-            onClick={exportBackup}
-            className="px-3 py-1.5 border border-border rounded-sm text-xs font-mono uppercase tracking-wide text-muted-foreground hover:border-primary/50 transition-all"
-          >
-            Backup
+            Export Spreadsheet
           </button>
           <button
             onClick={exportFieldwireCsv}
+            title="Export the Fieldwire-format file that the Codify Reporting Tool ingests to build the report."
             className="px-3 py-1.5 border border-border rounded-sm text-xs font-mono uppercase tracking-wide text-muted-foreground hover:border-primary/50 transition-all"
           >
-            Export for Report
+            Export to Reporting Tool
+          </button>
+          <button
+            onClick={exportBackup}
+            title="Save a local backup file (.json) of all inspections and pins on this device. Does not touch the cloud."
+            className="px-3 py-1.5 border border-border rounded-sm text-xs font-mono uppercase tracking-wide text-muted-foreground hover:border-primary/50 transition-all"
+          >
+            Download Backup
           </button>
           <button
             onClick={handleSync}
             disabled={syncing}
+            title="Two-way sync with the cloud database: pushes your new records up and pulls teammates' down. Runs automatically when this tab opens."
             className="px-3 py-1.5 border border-primary/50 rounded-sm text-xs font-mono uppercase tracking-wide text-primary hover:bg-primary/10 transition-all disabled:opacity-50"
           >
-            {syncing ? 'Syncing…' : 'Sync'}
+            {syncing ? 'Syncing…' : 'Sync to Cloud'}
           </button>
           {syncMsg && (
             <span className="text-xs font-mono text-muted-foreground self-center">{syncMsg}</span>
