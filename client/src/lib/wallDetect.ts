@@ -379,6 +379,48 @@ export function detectAssemblyType(
   return winner;
 }
 
+/**
+ * Diagnostic: what did the balloon touch, and what did we choose? Enable on
+ * device with `localStorage.detectDebug = '1'` and watch the console on drop.
+ * Helps tune adjacency cases (e.g. a pin that reads Smoke Partition when the
+ * nearby Smoke Barrier was intended).
+ */
+export function explainDetection(
+  strokes: WallStroke[],
+  xPct: number, yPct: number,
+  cal: ProjectCalibration,
+  opts: { radiusPct: number; tolerance: number; headOffsetPct?: number }
+): { chosen: string | null; touched: { rgb: RGB; type: string | null; style?: LineStyle | 'unknown' }[] } {
+  const chosen = detectAssemblyType(strokes, xPct, yPct, cal, opts);
+  const r2 = opts.radiusPct * opts.radiusPct;
+  const useCapsule = !!opts.headOffsetPct && opts.headOffsetPct > 0;
+  const headY = yPct - (opts.headOffsetPct || 0);
+  const axis = [xPct, yPct, xPct, headY];
+  const touched: { rgb: RGB; type: string | null; style?: LineStyle | 'unknown' }[] = [];
+  const seen = new Set<string>();
+  for (const s of strokes) {
+    if (saturation(s.rgb) < SATURATION_MIN) continue;
+    let near = false;
+    for (const g of s.segments) {
+      const d2 = useCapsule ? segSegMinDistSq(g, axis) : distSqToSeg(xPct, yPct, g[0], g[1], g[2], g[3]);
+      if (d2 <= r2) { near = true; break; }
+    }
+    if (!near) continue;
+    const key = s.rgb.join(',');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const matches = calibratedTypesForColor(s.rgb, cal, opts.tolerance);
+    let type: string | null = matches.length === 1 ? matches[0] : null;
+    let style: LineStyle | 'unknown' | undefined;
+    if (matches.length > 1) {
+      style = styleAt(strokes, s.rgb, xPct, useCapsule ? headY : yPct, opts.tolerance);
+      type = matches.find((t) => { const e = cal.types[t]; return e !== 'na' && e.style === style; }) || null;
+    }
+    touched.push({ rgb: s.rgb, type, style });
+  }
+  return { chosen, touched };
+}
+
 // Default tuning (overridable from ConfigTab later).
 export const DEFAULT_RADIUS_PCT = 1.2;
 export const DEFAULT_TOLERANCE = 60;

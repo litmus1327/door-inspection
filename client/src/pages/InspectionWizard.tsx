@@ -824,6 +824,9 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
   const [blockingPromptsDone, setBlockingPromptsDone] = useState<Record<string, boolean>>({});
   const [x14Compliant, setX14Compliant] = useState(false);
   const [visitedSections, setVisitedSections] = useState<Set<number>>(new Set([0]));
+  // Completeness: sections the inspector explicitly cleared ("no issues"). A
+  // section with a flagged item is auto-resolved. See the completeness strip.
+  const [sectionReview, setSectionReview] = useState<Record<string, boolean>>({});
 
   // Setup page navigation
   const [setupPage, setSetupPage] = useState(1);
@@ -1214,6 +1217,7 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
 
     setCurrentDoor(door);
     setDeficiencies(initDefs);
+    setSectionReview({});
     setCurrentSectionIdx(0);
     setPhase('inspect');
   };
@@ -1268,6 +1272,67 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
   const sectionDefCounts = (sec: string) => {
     return itemsForSection(sec).filter(i => deficiencies[i.id]?.status === 'deficient').length;
   };
+
+  // ── Completeness gate ──────────────────────────────────────────────────────
+  // A door can't be finished until every applicable area is "resolved": it has a
+  // flagged item, or the inspector explicitly marked it "no issues". Assisted
+  // Mode (new inspectors) must clear each area by hand; seasoned inspectors get a
+  // one-tap "mark all remaining" shortcut. The strip below is the shared map that
+  // works in both the checklist and diagram views.
+  const sectionHasFlag = (sec: string) =>
+    itemsForSection(sec).some((i) => {
+      const st = deficiencies[i.id]?.status;
+      return st === 'deficient' || st === 'advisory';
+    });
+  const sectionResolved = (sec: string) => sectionHasFlag(sec) || sectionReview[sec] === true;
+  const unresolvedSections = visibleSections.filter((sec) => !sectionResolved(sec));
+  const allResolved = unresolvedSections.length === 0;
+  const markSectionNoIssues = (sec: string) => setSectionReview((prev) => ({ ...prev, [sec]: true }));
+  const markAllRemaining = () =>
+    setSectionReview((prev) => {
+      const next = { ...prev };
+      for (const sec of visibleSections) if (!sectionHasFlag(sec)) next[sec] = true;
+      return next;
+    });
+
+  const completenessStrip = (
+    <div className="rounded-md border border-border bg-card/60 p-2.5 mb-3">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs font-mono uppercase tracking-wide text-muted-foreground">
+          Areas reviewed: {visibleSections.length - unresolvedSections.length}/{visibleSections.length}
+        </span>
+        {!assistedMode && unresolvedSections.length > 0 && (
+          <button onClick={markAllRemaining} className="text-xs font-semibold text-primary hover:underline">
+            Mark all remaining: No issues
+          </button>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {visibleSections.map((sec) => {
+          const flagged = sectionHasFlag(sec);
+          const resolved = sectionResolved(sec);
+          return (
+            <button
+              key={sec}
+              onClick={() => { if (!flagged) markSectionNoIssues(sec); }}
+              disabled={flagged}
+              title={flagged ? 'Has findings' : resolved ? 'Marked: no issues' : 'Tap to confirm no issues here'}
+              className={`px-2 py-1 rounded-full text-[11px] border transition-colors ${
+                flagged ? 'border-red-500/50 bg-red-500/10 text-red-500'
+                  : resolved ? 'border-green-500/50 bg-green-500/10 text-green-600'
+                    : 'border-border bg-secondary text-muted-foreground hover:border-primary/50'
+              }`}
+            >
+              {flagged ? '● ' : resolved ? '✓ ' : '○ '}{sec}
+            </button>
+          );
+        })}
+      </div>
+      {!allResolved && assistedMode && (
+        <p className="text-[11px] text-amber-600 mt-1.5">Confirm each remaining area before finishing (Assisted Mode).</p>
+      )}
+    </div>
+  );
 
   // Add / remove inspector-defined custom checklist items.
   const addCustomItem = () => {
@@ -1397,6 +1462,7 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
       postInspectionStatus: hasDeficiencies ? 'fail' : defList.length > 0 ? 'conditional' : 'pass',
       deficiencies: defList,
       findings: deficiencies,
+      reviewedSections: visibleSections.filter((s) => sectionReview[s] && !sectionHasFlag(s)),
       additionalComments: additionalComments,
       photos: photos,
       synced: false,
@@ -1429,6 +1495,10 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
       alert('Asset ID is missing — please finish door setup before completing.');
       return;
     }
+    if (unresolvedSections.length > 0) {
+      alert(`Review every area before finishing. Still to review: ${unresolvedSections.join(', ')}.`);
+      return;
+    }
     completeInspection();
   };
 
@@ -1444,6 +1514,7 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
   const resetWizard = () => {
     setPhase('setup');
     setSetupPage(1);
+    setSectionReview({});
     setAssetId('');
     setAssetIdError('');
     setIconNo('');
@@ -2167,6 +2238,7 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
                 </p>
               )}
             </div>
+            {completenessStrip}
             <button
               onClick={handleComplete}
               className="w-full py-2 bg-green-600 text-white rounded-sm font-semibold uppercase tracking-wide text-sm"
@@ -2419,6 +2491,8 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
           </div>
         )}
 
+        {completenessStrip}
+
         {/* Navigation */}
         <div className="flex gap-3 mt-6">
           {currentSectionIdx === 0 && (
@@ -2427,6 +2501,7 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
                 setPhase('setup');
                 setSetupPage(1);
                 setDeficiencies({});
+                setSectionReview({});
                 setCurrentDoor(null);
                 setCurrentSectionIdx(0);
               }}

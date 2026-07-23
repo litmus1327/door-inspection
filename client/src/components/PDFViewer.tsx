@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { DoorPin } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import {
-  extractWallStrokes, nearestWallColorAt, detectAssemblyType, styleAt,
+  extractWallStrokes, nearestWallColorAt, detectAssemblyType, styleAt, explainDetection,
   WallStroke, ProjectCalibration, WallPick, DEFAULT_TOLERANCE,
 } from '@/lib/wallDetect';
 
@@ -928,9 +928,16 @@ export default function PDFViewer({
         const vh = baseViewportRef.current.height;
         const headOffsetPct = (BALLOON_CENTER_OFFSET_PX / vh) * 100;
         const radiusPct = (BALLOON_RADIUS_PX / Math.min(vw, vh)) * 100;
-        detected = detectAssemblyType(wallStrokesRef.current, clickPctX, clickPctY, calibration, {
-          radiusPct, tolerance: DEFAULT_TOLERANCE, headOffsetPct,
-        });
+        const detectOpts = { radiusPct, tolerance: DEFAULT_TOLERANCE, headOffsetPct };
+        detected = detectAssemblyType(wallStrokesRef.current, clickPctX, clickPctY, calibration, detectOpts);
+        // Optional on-device diagnostic: localStorage.detectDebug = '1'
+        try {
+          if (localStorage.getItem('detectDebug')) {
+            const ex = explainDetection(wallStrokesRef.current, clickPctX, clickPctY, calibration, detectOpts);
+            console.log('[assembly-detect] chose:', ex.chosen ?? '(blank)', '| touched:',
+              ex.touched.map((t) => `rgb(${t.rgb.join(',')})${t.style ? '/' + t.style : ''}→${t.type ?? '—'}`).join('  '));
+          }
+        } catch { /* ignore */ }
       }
 
       const newPin: DoorPin = {
