@@ -97,6 +97,8 @@ export default function PDFViewer({
   const dragPosRef = useRef<{ id: string; x: number; y: number } | null>(null); // live dragged position (percent)
   const touchLongPressRef = useRef<number | null>(null);
   const suppressClickRef = useRef(false); // don't select a pin on the click that ends a drag
+  // Right-click / long-press pin menu (at the cursor).
+  const [pinMenu, setPinMenu] = useState<{ x: number; y: number; id: string; iconNo: string } | null>(null);
   // Transparent layer above the PDF for pins + grid, so pin changes never
   // re-render the PDF (previously caused the flash and dropped/renumbered pins).
   const overlayRef = useRef<HTMLCanvasElement>(null);
@@ -171,7 +173,8 @@ export default function PDFViewer({
         lastTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
         touchMovedRef.current = false;
         // Pin under the finger? Prepare to drag it, and arm long-press-to-delete.
-        const c = toCanvasPoint(e.touches[0].clientX, e.touches[0].clientY);
+        const tx = e.touches[0].clientX, ty = e.touches[0].clientY;
+        const c = toCanvasPoint(tx, ty);
         const hit = hitTestPin(c.canvasX, c.canvasY);
         if (hit) {
           dragPinRef.current = { id: hit.id, moved: false };
@@ -184,7 +187,7 @@ export default function PDFViewer({
               dragPinRef.current = null;
               dragPosRef.current = null;
               suppressClickRef.current = true;
-              if (p && window.confirm(`Delete pin #${p.iconNo}?`)) cbRef.current.onPinRemoved(p.id);
+              if (p) setPinMenu({ x: tx, y: ty, id: p.id, iconNo: p.iconNo });
               drawOverlay();
             }
           }, 550);
@@ -1053,13 +1056,13 @@ export default function PDFViewer({
           setHoveredPinId(hitTestPin(canvasX, canvasY)?.id || null);
         }}
         onContextMenu={(e) => {
-          // Right-click a pin to delete it (desktop).
+          // Right-click a pin → menu at the cursor (desktop).
           if (isDropMode || isCalibrateMode || !containerRef.current || !baseViewportRef.current) return;
           const { canvasX, canvasY } = toCanvasPoint(e.clientX, e.clientY);
           const hit = hitTestPin(canvasX, canvasY);
           if (hit) {
             e.preventDefault();
-            if (window.confirm(`Delete pin #${hit.iconNo}?`)) onPinRemoved(hit.id);
+            setPinMenu({ x: e.clientX, y: e.clientY, id: hit.id, iconNo: hit.iconNo });
           }
         }}
       >
@@ -1172,6 +1175,29 @@ export default function PDFViewer({
           </button>
         </div>
       </div>
+
+      {/* Right-click / long-press pin menu at the cursor */}
+      {pinMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-50"
+            onClick={() => setPinMenu(null)}
+            onContextMenu={(e) => { e.preventDefault(); setPinMenu(null); }}
+          />
+          <div
+            className="fixed z-50 min-w-32 bg-card border border-border rounded-md shadow-lg py-1 text-sm"
+            style={{ left: Math.min(pinMenu.x, (typeof window !== 'undefined' ? window.innerWidth : 9999) - 160), top: pinMenu.y }}
+          >
+            <div className="px-3 py-1 text-xs text-muted-foreground border-b border-border">Pin #{pinMenu.iconNo}</div>
+            <button
+              onClick={() => { onPinRemoved(pinMenu.id); setPinMenu(null); }}
+              className="block w-full text-left px-3 py-2 text-red-500 hover:bg-secondary"
+            >
+              Delete pin
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

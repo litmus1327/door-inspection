@@ -337,12 +337,15 @@ export function detectAssemblyType(
   const useCapsule = !!opts.headOffsetPct && opts.headOffsetPct > 0;
   const headY = yPct - (opts.headOffsetPct || 0);
   const axis = [xPct, yPct, xPct, headY]; // balloon centerline (tip → head)
-  // Style is read where the wall sits under the balloon (its head, if capsule).
-  const styleY = useCapsule ? headY : yPct;
+  const midY = (yPct + headY) / 2;
   // bbox window covering the whole balloon.
   const boxTop = Math.min(yPct, headY) - r, boxBot = Math.max(yPct, headY) + r;
 
   const found = new Set<string>();
+  // Best (lowest) precedence index among touched same-color lines we could NOT
+  // resolve (style unreadable). Used as a safeguard below.
+  let bestUnresolvedIdx = Infinity;
+
   for (const s of strokes) {
     if (saturation(s.rgb) < SATURATION_MIN) continue;
     if (xPct < s.bbox[0] - r || xPct > s.bbox[2] + r || boxBot < s.bbox[1] || boxTop > s.bbox[3]) continue;
@@ -355,15 +358,24 @@ export function detectAssemblyType(
     const matches = calibratedTypesForColor(s.rgb, cal, opts.tolerance);
     if (matches.length === 0) continue;
     if (matches.length === 1) { found.add(matches[0]); continue; }
-    // Same color → disambiguate by line style. Read at both the head and the tip
-    // (the wall may sit under either part of the balloon) and combine.
-    const sHead = styleAt(strokes, s.rgb, xPct, styleY, opts.tolerance);
-    const sTip = useCapsule ? styleAt(strokes, s.rgb, xPct, yPct, opts.tolerance) : sHead;
-    const st = sHead === sTip ? sHead
-      : sHead === 'unknown' ? sTip
-      : sTip === 'unknown' ? sHead
-      : 'unknown'; // the two reads conflict
-    if (st === 'unknown') continue; // don't guess
+    // Same color → disambiguate by line style. Read at a few points across the
+    // balloon (head, tip, middle) and take the majority — more robust at door
+    // openings where the line is broken.
+    const reads = useCapsule
+      ? [styleAt(strokes, s.rgb, xPct, headY, opts.tolerance),
+         styleAt(strokes, s.rgb, xPct, yPct, opts.tolerance),
+         styleAt(strokes, s.rgb, xPct, midY, opts.tolerance)]
+      : [styleAt(strokes, s.rgb, xPct, yPct, opts.tolerance)];
+    const dashed = reads.filter((v) => v === 'dashed').length;
+    const solid = reads.filter((v) => v === 'solid').length;
+    const st = dashed > solid ? 'dashed' : solid > dashed ? 'solid' : 'unknown';
+    if (st === 'unknown') {
+      // Couldn't tell which of the same-color types — remember its best possible
+      // precedence so we don't hand the pin to a strictly lower-priority line.
+      const bi = Math.min(...matches.map((t) => PRECEDENCE_INDEX[t] ?? Infinity));
+      if (bi < bestUnresolvedIdx) bestUnresolvedIdx = bi;
+      continue;
+    }
     const pick = matches.find((t) => {
       const e = cal.types[t];
       return e !== 'na' && e.style === st;
@@ -376,6 +388,10 @@ export function detectAssemblyType(
     const idx = PRECEDENCE_INDEX[t] ?? Infinity;
     if (idx < bestIdx) { bestIdx = idx; winner = t; }
   });
+  // Safeguard: a touched same-color line we couldn't resolve could outrank the
+  // winner (e.g. a Smoke Barrier we read as "unknown" vs a Suite Perimeter we
+  // did resolve). Rather than assign the lower-priority type, leave it blank.
+  if (bestUnresolvedIdx < bestIdx) return null;
   return winner;
 }
 

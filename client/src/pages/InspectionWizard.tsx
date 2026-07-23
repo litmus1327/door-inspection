@@ -881,6 +881,18 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
     let nextAsset = selectedDoor.assetId || '';
     let nextAssembly = selectedDoor.assemblyType || '';
     let nextRating = selectedDoor.doorRating || '';
+    // In-progress edits saved as a draft (e.g. typed an Asset ID / rating then
+    // closed the wizard without completing) restore here; a completed record, if
+    // any, overrides them below.
+    try {
+      const drafts = JSON.parse(localStorage.getItem('doorDrafts') || '{}');
+      const d = selectedDoor.pinId ? drafts[selectedDoor.pinId] : null;
+      if (d) {
+        if (d.assetId) nextAsset = d.assetId;
+        if (d.assemblyType) nextAssembly = d.assemblyType;
+        if (d.doorRating) nextRating = d.doorRating;
+      }
+    } catch { /* ignore */ }
     try {
       const recs = (JSON.parse(localStorage.getItem('doorInspections') || '[]') as any[])
         .filter((r) => r.pinId && r.pinId === selectedDoor.pinId);
@@ -901,6 +913,17 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
     setAssetIdError('');
     setSetupPage(1);
   }, [selectedDoor]);
+
+  // Persist in-progress setup edits as a draft so closing the wizard without
+  // completing doesn't lose the Asset ID / rating / assembly type.
+  useEffect(() => {
+    if (phase !== 'setup' || !selectedDoor?.pinId) return;
+    try {
+      const drafts = JSON.parse(localStorage.getItem('doorDrafts') || '{}');
+      drafts[selectedDoor.pinId] = { assetId, assemblyType, doorRating };
+      localStorage.setItem('doorDrafts', JSON.stringify(drafts));
+    } catch { /* ignore */ }
+  }, [assetId, assemblyType, doorRating, phase, selectedDoor?.pinId]);
 
 
 
@@ -1474,6 +1497,15 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
       : existing;
     deduped.push(record);
     localStorage.setItem('doorInspections', JSON.stringify(deduped));
+
+    // The finalized record supersedes any in-progress draft for this pin.
+    try {
+      if (record.pinId) {
+        const drafts = JSON.parse(localStorage.getItem('doorDrafts') || '{}');
+        delete drafts[record.pinId];
+        localStorage.setItem('doorDrafts', JSON.stringify(drafts));
+      }
+    } catch { /* ignore */ }
 
     const pinStatus = hasDeficiencies ? 'fail' : 'pass';
     if (selectedDoor?.pinId) {
