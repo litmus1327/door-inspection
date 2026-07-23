@@ -3,6 +3,14 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { DoorPin } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  extractWallStrokes, nearestWallColorAt, detectAssemblyType,
+  WallStroke, ProjectCalibration, RGB, DEFAULT_RADIUS_PCT, DEFAULT_TOLERANCE,
+} from '@/lib/wallDetect';
+
+// Tap radius (percent of page) when picking a wall color during calibration —
+// a bit larger than the drop-detection radius since the user aims by hand.
+const CALIBRATE_RADIUS_PCT = 2.5;
 
 if (typeof pdfjsLib.GlobalWorkerOptions !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
@@ -32,6 +40,10 @@ interface PDFViewerProps {
   onTotalPagesChange?: (total: number) => void;
   onFloorNameExtracted?: (pageNum: number, name: string) => void;
   initialPage?: number;
+  // Wall-color calibration + assembly-type auto-detect (Milestone 2)
+  isCalibrateMode?: boolean;
+  calibration?: ProjectCalibration;
+  onWallColorPicked?: (rgb: RGB | null) => void;
 }
 
 export default function PDFViewer({
@@ -51,9 +63,19 @@ export default function PDFViewer({
   onTotalPagesChange,
   onFloorNameExtracted,
   initialPage = 1,
+  isCalibrateMode = false,
+  calibration,
+  onWallColorPicked,
 }: PDFViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Saturated wall strokes for the current page (percent coords), used by
+  // calibration color-picking and on-drop assembly-type detection. Extracted
+  // after each page render; empty for non-vector pages (→ manual fallback).
+  const wallStrokesRef = useRef<WallStroke[]>([]);
+  // Latest page the viewer is showing — lets a slow stroke-extract discard its
+  // result if the user has since flipped to another page.
+  const latestPageRef = useRef<number>(initialPage);
   // Transparent layer above the PDF for pins + grid, so pin changes never
   // re-render the PDF (previously caused the flash and dropped/renumbered pins).
   const overlayRef = useRef<HTMLCanvasElement>(null);
@@ -250,6 +272,11 @@ export default function PDFViewer({
       renderTaskRef.current = null;
     }
 
+    // Stale strokes from the previous page must not be used for detection on
+    // the new page until re-extracted below.
+    wallStrokesRef.current = [];
+    latestPageRef.current = activePage;
+
     const renderPage = async () => {
       isRenderingRef.current = true;
       try {
@@ -259,7 +286,7 @@ export default function PDFViewer({
                   activePage <= e.pageOffset + e.pageCount
         ) || pdfEntries[0];
         const localPage = activePage - (entry?.pageOffset || 0);
-        
+
         const page = await pdf.getPage(localPage);
         const viewport = page.getViewport({ scale: 2 });
         baseViewportRef.current = viewport;
@@ -313,6 +340,19 @@ export default function PDFViewer({
 
         // Paint pins + grid on the separate overlay layer (not on the PDF canvas).
         drawOverlay();
+
+        // Extract the saturated wall strokes for this page (for calibration
+        // color-picking + assembly-type auto-detect). Non-blocking; detection
+        // only reads the ref on a later user click. Guard against races where
+        // the user flips pages mid-extract.
+        const pageForStrokes = activePage;
+        extractWallStrokes(page)
+          .then((strokes) => {
+            if (isMountedRef.current && latestPageRef.current === pageForStrokes) {
+              wallStrokesRef.current = strokes;
+            }
+          })
+          .catch(() => { /* non-vector or error → manual fallback */ });
 
         // Extract floor name from page text
         try {
@@ -712,18 +752,37 @@ export default function PDFViewer({
     const clickPctX = (canvasX / baseViewportRef.current.width) * 100;
     const clickPctY = (canvasY / baseViewportRef.current.height) * 100;
 
+    // In calibrate mode, a tap reads the color of the nearest wall line and
+    // hands it back — no pin is placed.
+    if (isCalibrateMode) {
+      const hit = nearestWallColorAt(
+        wallStrokesRef.current, clickPctX, clickPctY, CALIBRATE_RADIUS_PCT
+      );
+      onWallColorPicked?.(hit ? hit.rgb : null);
+      return;
+    }
+
     // In drop mode, place pin immediately — no hit test
     if (isDropMode) {
       if (clickPctX < 0 || clickPctX > 100 || clickPctY < 0 || clickPctY > 100) return;
-      
+
       // Calculate grid block from drop position
       const col = Math.min(7, Math.floor(clickPctX / (100/8)));
       const row = Math.min(7, Math.floor(clickPctY / (100/8)));
       const gridBlock = ['A','B','C','D','E','F','G','H'][col] + String(row + 1);
-      
+
       // Auto-assign next icon number from all pins across all pages
       const nextIconNo = String(pins.length + 1);
-      
+
+      // Auto-detect the assembly type from the calibrated wall color under the
+      // drop. null when nothing calibrated is close enough → left blank for the
+      // inspector to pick manually (never a wrong guess).
+      const detected = calibration
+        ? detectAssemblyType(wallStrokesRef.current, clickPctX, clickPctY, calibration, {
+            radiusPct: DEFAULT_RADIUS_PCT, tolerance: DEFAULT_TOLERANCE,
+          })
+        : null;
+
       const newPin: DoorPin = {
         id: uuidv4(),
         x: clickPctX,
@@ -734,6 +793,7 @@ export default function PDFViewer({
         projectName: '',
         pageNumber: activePage,
         gridBlock,
+        ...(detected ? { assemblyType: detected, assemblyAuto: true } : {}),
       };
       onPinAdded(newPin);
       return;

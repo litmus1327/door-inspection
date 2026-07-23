@@ -29,6 +29,21 @@ export const ASSEMBLY_TYPE_DESCRIPTIONS: Record<string, string> = {
 
 export const FIRE_RATED = ['3hr_fire', '2hr_fire', '1hr_fire', '1hr_partition'];
 
+// Assembly-type precedence, highest priority first. Used by the on-drop
+// auto-detect (lib/wallDetect.ts): when an icon lands where two calibrated wall
+// colors run parallel (e.g. a fire barrier beside a smoke barrier), the
+// higher-precedence type wins. Every fire-rated wall outranks every smoke/suite
+// wall; among fire walls the higher hour-rating wins.
+export const ASSEMBLY_PRECEDENCE = [
+  '3hr_fire',
+  '2hr_fire',
+  '1hr_fire',
+  '1hr_partition',
+  'smoke_barrier',
+  'smoke_partition',
+  'suite_perimeter',
+];
+
 export const MIN_RATINGS: Record<string, number | null> = {
   '3hr_fire': 180,
   '2hr_fire': 90,

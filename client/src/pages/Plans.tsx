@@ -18,6 +18,7 @@ interface PlansProps {
   totalPages: number;
   pins: Record<number, DoorPin[]>;
   floorNames: Record<number, string>;
+  projectName: string;
   onPDFUpload: (file: File) => void;
   onPinAdded: (pin: DoorPin) => void;
   onPinRemoved: (pinId: string) => void;
@@ -34,6 +35,7 @@ export default function Plans({
   totalPages,
   pins,
   floorNames,
+  projectName,
   onPDFUpload,
   onPinAdded,
   onPinRemoved,
@@ -242,6 +244,7 @@ export default function Plans({
             floorNames={floorNames}
             currentPage={selectedPage}
             initialPage={selectedPage}
+            projectName={projectName}
             onPageChange={setCurrentPage}
             onPinAdded={onPinAdded}
             onPinRemoved={onPinRemoved}

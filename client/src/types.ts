@@ -41,6 +41,8 @@ export interface DoorPin {
   pageNumber?: number; // Which page/floor this pin is on
   gridBlock?: string; // Grid block (e.g., 'A1', 'B3', 'E5')
   owner?: string; // Inspector who placed the pin (for multi-inspector presence)
+  assemblyType?: string; // Auto-detected assembly-type key (see inspectionRules.ts). Blank = pick manually.
+  assemblyAuto?: boolean; // true when assemblyType came from wall-color auto-detect (vs manual)
 }
 
 export interface InspectionDeficiency {

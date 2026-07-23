@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
-import { MapPin, RotateCcw, Trash, MousePointer } from 'lucide-react';
+import { MapPin, RotateCcw, Trash, MousePointer, Palette } from 'lucide-react';
 import PDFViewer from '@/components/PDFViewer';
+import WallCalibration from '@/components/WallCalibration';
 import { DoorPin } from '@/types';
+import {
+  ProjectCalibration, RGB, loadCalibration, saveCalibration, emptyCalibration,
+} from '@/lib/wallDetect';
 
 interface PdfEntry {
   id: string;
@@ -19,6 +23,7 @@ interface FloorPlanViewerProps {
   floorNames: Record<number, string>;
   currentPage: number;
   initialPage?: number;
+  projectName: string;
   onPageChange: (page: number) => void;
   onPinAdded: (pin: DoorPin) => void;
   onPinRemoved: (pinId: string) => void;
@@ -37,6 +42,7 @@ export default function FloorPlanViewer({
   floorNames,
   currentPage,
   initialPage,
+  projectName,
   onPageChange,
   onPinAdded,
   onPinRemoved,
@@ -49,6 +55,55 @@ export default function FloorPlanViewer({
   const [isDropMode, setIsDropMode] = useState(false);
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedPinIds, setSelectedPinIds] = useState<Set<string>>(new Set());
+
+  // ── Wall-color calibration (assembly-type auto-detect) ──────────────────────
+  // Required once per project before pins can be dropped: the inspector taps a
+  // line for each assembly type (or marks it N/A). See lib/wallDetect.ts.
+  const [calibration, setCalibration] = useState<ProjectCalibration>(emptyCalibration);
+  const [showCalibration, setShowCalibration] = useState(false);
+  const [armedType, setArmedType] = useState<string | null>(null);
+  const [lastPickFailed, setLastPickFailed] = useState(false);
+
+  // Load (or reload) calibration when the project changes.
+  useEffect(() => {
+    const c = loadCalibration(projectName);
+    setCalibration(c);
+    setShowCalibration(!c.calibrated);
+    setArmedType(null);
+    setLastPickFailed(false);
+  }, [projectName]);
+
+  const persistCalibration = (c: ProjectCalibration) => {
+    setCalibration(c);
+    saveCalibration(projectName, c);
+  };
+  const handleWallColorPicked = (rgb: RGB | null) => {
+    if (!armedType) return;
+    if (!rgb) { setLastPickFailed(true); return; }
+    setLastPickFailed(false);
+    persistCalibration({
+      ...calibration,
+      types: { ...calibration.types, [armedType]: { rgb, width: 0 } },
+    });
+    setArmedType(null);
+  };
+  const handleSetNA = (type: string) => {
+    persistCalibration({ ...calibration, types: { ...calibration.types, [type]: 'na' } });
+    if (armedType === type) setArmedType(null);
+  };
+  const handleClearType = (type: string) => {
+    const types = { ...calibration.types };
+    delete types[type];
+    // Clearing an entry re-opens calibration (it's no longer complete).
+    persistCalibration({ ...calibration, types, calibrated: false });
+  };
+  const handleFinishCalibration = () => {
+    persistCalibration({ ...calibration, calibrated: true });
+    setShowCalibration(false);
+    setArmedType(null);
+  };
+  // Calibrate mode intercepts a plan tap only while a type is armed.
+  const isCalibrateMode = showCalibration && armedType !== null;
 
   // Clear selection when switching modes or pages
   useEffect(() => {
@@ -137,22 +192,45 @@ export default function FloorPlanViewer({
         onTotalPagesChange={onTotalPagesChange}
         onFloorNameExtracted={onFloorNameExtracted}
         initialPage={initialPage}
+        isCalibrateMode={isCalibrateMode}
+        calibration={calibration}
+        onWallColorPicked={handleWallColorPicked}
       />
 
       {/* Fieldwire-style Markup Toolbar - Bottom Right */}
       <div className="fixed bottom-4 right-4 z-40 flex flex-col gap-2">
-        {/* Pin Tool - Always visible, highlighted when active */}
+        {/* Calibrate wall colors — required before dropping pins */}
+        <button
+          onClick={() => { setShowCalibration(true); setIsDropMode(false); setIsSelectMode(false); }}
+          className={`p-3 rounded-lg shadow-lg transition-all ${
+            showCalibration
+              ? 'bg-amber-500 text-white hover:bg-amber-600'
+              : calibration.calibrated
+                ? 'bg-gray-700 text-white hover:bg-gray-600'
+                : 'bg-amber-500 text-white hover:bg-amber-600 animate-pulse'
+          }`}
+          title="Set up wall colors"
+        >
+          <Palette size={20} />
+        </button>
+
+        {/* Pin Tool — disabled until wall colors are calibrated */}
         <button
           onClick={() => {
+            if (!calibration.calibrated) { setShowCalibration(true); return; }
             setIsDropMode(!isDropMode);
             if (isSelectMode) setIsSelectMode(false);
           }}
-          className={`p-3 rounded-lg shadow-lg transition-all ${
+          disabled={!calibration.calibrated}
+          className={`p-3 rounded-lg shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
             isDropMode
               ? 'bg-blue-500 text-white hover:bg-blue-600'
               : 'bg-gray-700 text-white hover:bg-gray-600'
           }`}
-          title={isDropMode ? 'Exit drop mode' : 'Drop pins'}
+          title={
+            !calibration.calibrated ? 'Calibrate wall colors first'
+              : isDropMode ? 'Exit drop mode' : 'Drop pins'
+          }
         >
           <MapPin size={20} />
         </button>
@@ -226,6 +304,20 @@ export default function FloorPlanViewer({
         )}
 
       </div>
+
+      {/* Wall-color calibration panel (required before first pin) */}
+      {showCalibration && (
+        <WallCalibration
+          calibration={calibration}
+          armedType={armedType}
+          lastPickFailed={lastPickFailed}
+          onArm={(t) => { setArmedType(t); setLastPickFailed(false); }}
+          onSetNA={handleSetNA}
+          onClear={handleClearType}
+          onFinish={handleFinishCalibration}
+          onCancel={calibration.calibrated ? () => { setShowCalibration(false); setArmedType(null); } : undefined}
+        />
+      )}
     </div>
   );
 }

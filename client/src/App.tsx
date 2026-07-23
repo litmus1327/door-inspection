@@ -473,7 +473,9 @@ function App() {
       iconNo: updatedPin.iconNo,
       floor: floorNames[currentPage] || String(currentPage),
       grid: updatedPin.gridBlock || '',
-      assemblyType: '',
+      // Prefill the auto-detected assembly type so the wizard opens with it
+      // already selected; the inspector can still override it there.
+      assemblyType: updatedPin.assemblyType || '',
       doorRating: '',
     });
   };
@@ -533,6 +535,7 @@ function App() {
                   totalPages={totalPages}
                   pins={pins}
                   floorNames={floorNames}
+                  projectName={activeProject}
                   onPDFUpload={handlePDFUpload}
                   onPinAdded={handlePinAdded}
                   onPinRemoved={handlePinRemoved}
