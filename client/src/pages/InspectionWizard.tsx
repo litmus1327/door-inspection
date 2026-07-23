@@ -925,6 +925,17 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
     } catch { /* ignore */ }
   }, [assetId, assemblyType, doorRating, phase, selectedDoor?.pinId]);
 
+  // Smoke Partition & Suite Perimeter are never fire-rated. Force Non-Rated no
+  // matter how the assembly type got set (manual pick, auto-detect prefill, or a
+  // restored draft) — the manual <select> onChange only covers the pick case.
+  useEffect(() => {
+    if (assemblyType === 'smoke_partition' || assemblyType === 'suite_perimeter') {
+      setDoorRating((r) => (r === '0' ? r : '0'));
+      setFrameRating((r) => (r === '0' ? r : '0'));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assemblyType]);
+
 
 
   const toggleHardware = (id: string) => {
