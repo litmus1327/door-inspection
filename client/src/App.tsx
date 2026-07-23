@@ -16,6 +16,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import ProjectsPage from './pages/ProjectsPage';
+import InspectorGate from './components/InspectorGate';
 import FloorPlanViewer from './pages/FloorPlanViewer';
 import InspectionWizard from './pages/InspectionWizard';
 import RecordsTab from './pages/RecordsTab';
@@ -47,7 +48,7 @@ function App() {
     setActiveProjectState(name);
     try { localStorage.setItem('activeProject', name); } catch { /* ignore */ }
   };
-  const [inspectorName] = useLocalStorage('inspectorName', '');
+  const [inspectorName, setInspectorName] = useLocalStorage('inspectorName', '');
   // Set right before activating a just-created project, so the restore effect
   // keeps the plan we already have in hand instead of re-reading IndexedDB
   // (which fails silently on some mobile browsers, e.g. iOS Safari).
@@ -497,6 +498,20 @@ function App() {
   const handleFloorNameExtracted = (pageNum: number, name: string) => {
     setFloorNames((prev) => ({ ...prev, [pageNum]: name }));
   };
+
+  // No inspector on this device yet → ask once, then it's stamped automatically.
+  if (!inspectorName) {
+    return (
+      <ErrorBoundary>
+        <ThemeProvider defaultTheme="light" switchable>
+          <TooltipProvider>
+            <Toaster />
+            <InspectorGate onDone={(name) => setInspectorName(name)} />
+          </TooltipProvider>
+        </ThemeProvider>
+      </ErrorBoundary>
+    );
+  }
 
   // No project chosen yet → show the Projects page (pick your name, pick or
   // create a project). This replaces the old name/project/Supabase setup wizard.
