@@ -1096,6 +1096,9 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
       let minRequired = minRating;
       if (assemblyType === '1hr_fire' && isStairDoor) minRequired = 60;
       if (assemblyType === 'smoke_barrier' && isDualEgress && isCrossCorridor && isHealthCareOccupancy) minRequired = 0;
+      // Smoke barrier doors need no fire rating in Existing Occupancy; the 20-min
+      // minimum applies only to New Occupancy.
+      if (assemblyType === 'smoke_barrier' && projectVars.construction === 'existing') minRequired = 0;
       if (minRequired !== null && rating < minRequired) {
         initDefs['rating_door'] = {
           status: 'deficient',
@@ -1114,6 +1117,9 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
     let minRequired = minRating;
     if (assemblyType === '1hr_fire' && isStairDoor) minRequired = 60;
     if (assemblyType === 'smoke_barrier' && isDualEgress && isCrossCorridor && isHealthCareOccupancy) minRequired = 0;
+    // Smoke barrier doors need no fire rating in Existing Occupancy; the 20-min
+    // minimum applies only to New Occupancy.
+    if (assemblyType === 'smoke_barrier' && projectVars.construction === 'existing') minRequired = 0;
 
     // Frame label illegible auto-flag
     if (frameRating === 'label_illegible') {
