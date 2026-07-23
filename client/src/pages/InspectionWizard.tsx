@@ -4,6 +4,7 @@ import DoorDiagram from '@/components/DoorDiagram';
 import type { Zone, ZoneState } from '@/types';
 import { ZONE_TO_ITEM_IDS, ZONE_LABELS } from '@/lib/doorZones';
 import { getSupabaseConfig, uploadPhotoToSupabase } from '@/lib/supabase';
+import { loadProjectSetup, saveProjectSetup } from '@/lib/projectSetup';
 import {
   ASSEMBLY_TYPE_LABELS,
   ASSEMBLY_TYPE_DESCRIPTIONS,
@@ -833,18 +834,25 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
   const [isCrossCorridor, setIsCrossCorridor] = useState<boolean | null>(null);
   const [isHealthCareOccupancy, setIsHealthCareOccupancy] = useState<boolean>(true);
 
-  // Project vars
-  const [projectVars] = useLocalStorage<ProjectVars>('projectVars', {
-    construction: 'existing',
-    gapStandard: 'codify',
-    sprinklered: true,
-  });
+  // Per-project setup (construction, gap standard, sprinklered, assisted), set in
+  // the project's setup gate and stored per project. See lib/projectSetup.ts.
+  const activeProject = (typeof localStorage !== 'undefined' && localStorage.getItem('activeProject')) || '';
+  const _setup = loadProjectSetup(activeProject);
+  const projectVars: ProjectVars = {
+    construction: _setup.construction,
+    gapStandard: _setup.gapStandard,
+    sprinklered: _setup.sprinklered,
+  };
 
   // Inspector
   const [inspectorName] = useLocalStorage('inspectorName', '');
 
-  // Assisted mode ("training wheels") — presentation only, never inspection logic.
-  const [assistedMode, setAssistedMode] = useLocalStorage('assistedMode', true);
+  // Assisted mode ("training wheels"). Persisted per project.
+  const [assistedMode, setAssistedModeState] = useState(_setup.assisted);
+  const setAssistedMode = (v: boolean) => {
+    setAssistedModeState(v);
+    saveProjectSetup(activeProject, { ...loadProjectSetup(activeProject), assisted: v });
+  };
 
   // Inspection state
   const [currentSectionIdx, setCurrentSectionIdx] = useState(0);
@@ -861,18 +869,34 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
   const [photoUploading, setPhotoUploading] = useState(false);
   useEffect(() => { setPhotos([]); }, [selectedDoor?.pinId]);
 
-  // Sync selectedDoor prop into form
+  // Sync selectedDoor prop into form. Reopening a door: the Asset ID (and
+  // assembly type / rating) live on the saved RECORD, not the pin, so restore
+  // them from the latest record for this pin — otherwise the field comes back
+  // blank even though the inspection still holds it.
   useEffect(() => {
-    if (selectedDoor) {
-      setAssetId(selectedDoor.assetId || '');
-      setIconNo(selectedDoor.iconNo || '');
-      setFloorNo(selectedDoor.floor || '');
-      setGridBlock(selectedDoor.grid || '');
-      if (selectedDoor.assemblyType) setAssemblyType(selectedDoor.assemblyType);
-      if (selectedDoor.doorRating) setDoorRating(selectedDoor.doorRating);
-      setAssetIdError('');
-      setSetupPage(1);
-    }
+    if (!selectedDoor) return;
+    let nextAsset = selectedDoor.assetId || '';
+    let nextAssembly = selectedDoor.assemblyType || '';
+    let nextRating = selectedDoor.doorRating || '';
+    try {
+      const recs = (JSON.parse(localStorage.getItem('doorInspections') || '[]') as any[])
+        .filter((r) => r.pinId && r.pinId === selectedDoor.pinId);
+      if (recs.length) {
+        const latest = recs.reduce((a, b) =>
+          new Date(b.completedTime || 0).getTime() > new Date(a.completedTime || 0).getTime() ? b : a);
+        if (latest.assetId && latest.assetId !== '—') nextAsset = latest.assetId;
+        if (latest.assemblyType && latest.assemblyType !== '—') nextAssembly = latest.assemblyType;
+        if (latest.doorRating && latest.doorRating !== '—') nextRating = latest.doorRating;
+      }
+    } catch { /* ignore malformed cache */ }
+    setAssetId(nextAsset);
+    setIconNo(selectedDoor.iconNo || '');
+    setFloorNo(selectedDoor.floor || '');
+    setGridBlock(selectedDoor.grid || '');
+    if (nextAssembly) setAssemblyType(nextAssembly);
+    if (nextRating) setDoorRating(nextRating);
+    setAssetIdError('');
+    setSetupPage(1);
   }, [selectedDoor]);
 
 

@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
-import { MapPin, RotateCcw, Trash, MousePointer, Palette } from 'lucide-react';
+import { MapPin, RotateCcw, Trash, MousePointer, Palette, SlidersHorizontal } from 'lucide-react';
 import PDFViewer from '@/components/PDFViewer';
 import WallCalibration from '@/components/WallCalibration';
+import ProjectSetupPanel from '@/components/ProjectSetupPanel';
 import { DoorPin } from '@/types';
 import {
   ProjectCalibration, WallPick, loadCalibration, saveCalibration, emptyCalibration,
 } from '@/lib/wallDetect';
+import { ProjectSetup, loadProjectSetup, saveProjectSetup, emptyProjectSetup } from '@/lib/projectSetup';
 
 interface PdfEntry {
   id: string;
@@ -109,6 +111,22 @@ export default function FloorPlanViewer({
   // Calibrate mode intercepts a plan tap only while a type is armed.
   const isCalibrateMode = showCalibration && armedType !== null;
 
+  // ── Per-project setup gate (construction, gap standard, sprinklered, assisted) ──
+  // Required once per project, before calibration and pins.
+  const [setup, setSetup] = useState<ProjectSetup>(emptyProjectSetup);
+  const [showSetup, setShowSetup] = useState(false);
+  useEffect(() => {
+    const s = loadProjectSetup(projectName);
+    setSetup(s);
+    setShowSetup(!s.configured);
+  }, [projectName]);
+  const handleSaveSetup = (s: ProjectSetup) => {
+    saveProjectSetup(projectName, s);
+    setSetup(s);
+    setShowSetup(false);
+  };
+  const canDropPins = setup.configured && calibration.calibrated;
+
   // Clear selection when switching modes or pages
   useEffect(() => {
     setSelectedPinIds(new Set());
@@ -204,6 +222,17 @@ export default function FloorPlanViewer({
 
       {/* Fieldwire-style Markup Toolbar - Bottom Right */}
       <div className="fixed bottom-4 right-4 z-40 flex flex-col gap-2">
+        {/* Project setup — required before dropping pins */}
+        <button
+          onClick={() => { setShowSetup(true); setIsDropMode(false); setIsSelectMode(false); }}
+          className={`p-3 rounded-lg shadow-lg transition-all ${
+            setup.configured ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-amber-500 text-white hover:bg-amber-600 animate-pulse'
+          }`}
+          title="Project setup"
+        >
+          <SlidersHorizontal size={20} />
+        </button>
+
         {/* Calibrate wall colors — required before dropping pins */}
         <button
           onClick={() => { setShowCalibration(true); setIsDropMode(false); setIsSelectMode(false); }}
@@ -219,22 +248,24 @@ export default function FloorPlanViewer({
           <Palette size={20} />
         </button>
 
-        {/* Pin Tool — disabled until wall colors are calibrated */}
+        {/* Pin Tool — disabled until project setup + wall calibration are done */}
         <button
           onClick={() => {
+            if (!setup.configured) { setShowSetup(true); return; }
             if (!calibration.calibrated) { setShowCalibration(true); return; }
             setIsDropMode(!isDropMode);
             if (isSelectMode) setIsSelectMode(false);
           }}
-          disabled={!calibration.calibrated}
+          disabled={!canDropPins}
           className={`p-3 rounded-lg shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
             isDropMode
               ? 'bg-blue-500 text-white hover:bg-blue-600'
               : 'bg-gray-700 text-white hover:bg-gray-600'
           }`}
           title={
-            !calibration.calibrated ? 'Calibrate wall colors first'
-              : isDropMode ? 'Exit drop mode' : 'Drop pins'
+            !setup.configured ? 'Finish project setup first'
+              : !calibration.calibrated ? 'Calibrate wall colors first'
+                : isDropMode ? 'Exit drop mode' : 'Drop pins'
           }
         >
           <MapPin size={20} />
@@ -310,8 +341,17 @@ export default function FloorPlanViewer({
 
       </div>
 
+      {/* Project setup (required, shown before calibration) */}
+      {showSetup && (
+        <ProjectSetupPanel
+          initial={setup}
+          onSave={handleSaveSetup}
+          onCancel={setup.configured ? () => setShowSetup(false) : undefined}
+        />
+      )}
+
       {/* Wall-color calibration panel (required before first pin) */}
-      {showCalibration && (
+      {showCalibration && !showSetup && (
         <WallCalibration
           calibration={calibration}
           armedType={armedType}

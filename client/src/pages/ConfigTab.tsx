@@ -1,25 +1,21 @@
 import { useState } from 'react';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { getSupabaseConfig, setSupabaseConfig, testSupabaseConnection } from '@/lib/supabase';
-
-interface ProjectVars {
-  construction: 'existing' | 'new';
-  gapStandard: 'codify' | 'nfpa80' | 'preoccupancy' | 'surveyreadiness';
-  sprinklered: boolean;
-}
+import { ProjectSetup, loadProjectSetup, saveProjectSetup } from '@/lib/projectSetup';
 
 export default function ConfigTab() {
-  const [projectVars, setProjectVars] = useLocalStorage<ProjectVars>('projectVars', {
-    construction: 'existing',
-    gapStandard: 'codify',
-    sprinklered: true,
-  });
-
-  const [assistedMode, setAssistedMode] = useLocalStorage('assistedMode', true);
-
-  const updateVar = <K extends keyof ProjectVars>(key: K, value: ProjectVars[K]) => {
-    setProjectVars((prev) => ({ ...prev, [key]: value }));
+  // These settings are per-project (set in the project's setup gate). Editing
+  // them here updates the same per-project record. See lib/projectSetup.ts.
+  const activeProject = (typeof localStorage !== 'undefined' && localStorage.getItem('activeProject')) || '';
+  const [setup, setSetupState] = useState<ProjectSetup>(() => loadProjectSetup(activeProject));
+  const patch = (p: Partial<ProjectSetup>) => {
+    const next = { ...setup, ...p };
+    setSetupState(next);
+    saveProjectSetup(activeProject, next);
   };
+  const assistedMode = setup.assisted;
+  const projectVars = { construction: setup.construction, gapStandard: setup.gapStandard, sprinklered: setup.sprinklered };
+  const setAssistedMode = (on: boolean) => patch({ assisted: on });
+  const updateVar = (key: keyof ProjectSetup, value: ProjectSetup[keyof ProjectSetup]) => patch({ [key]: value } as Partial<ProjectSetup>);
 
   const initialSb = getSupabaseConfig();
   const [sbUrl, setSbUrl] = useState(initialSb.url);
@@ -106,7 +102,7 @@ export default function ConfigTab() {
           </label>
           <select
             value={projectVars.gapStandard}
-            onChange={(e) => updateVar('gapStandard', e.target.value as ProjectVars['gapStandard'])}
+            onChange={(e) => updateVar('gapStandard', e.target.value as ProjectSetup['gapStandard'])}
             className="w-full px-4 py-2 rounded border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           >
             {gapStandardOptions.map((option) => (
