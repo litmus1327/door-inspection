@@ -4,37 +4,90 @@ import {
   getSupabaseConfig,
   listProjects,
   createProject as createProjectRow,
+  archiveProject as archiveProjectRow,
+  unarchiveProject as unarchiveProjectRow,
+  deleteProject as deleteProjectRow,
   listInspectors,
   addInspector as addInspectorRow,
 } from '@/lib/supabase';
 
+// Built-in service-line categories. The user can also type their own in the
+// New Project form; those are remembered in localStorage ('projectCategories').
+const FIXED_CATEGORIES = [
+  'Door Inspection',
+  'Door Repairs',
+  'Above & Below Ceiling Inspection',
+  'Fire & Smoke Damper',
+  'Battery Light Testing',
+];
+
+// A cached project carries its category + archived flag so the list, badges,
+// and Archived view all work offline.
+interface CachedProject {
+  name: string;
+  category?: string;
+  archived?: boolean;
+}
+
 interface ProjectsPageProps {
   onSelectProject: (name: string) => void;
   onCreateProject: (name: string, plan: File) => void;
+  // Local cleanup (IndexedDB plan) when a project is permanently deleted.
+  onDeleteProject?: (name: string) => void;
 }
 
-export default function ProjectsPage({ onSelectProject, onCreateProject }: ProjectsPageProps) {
+export default function ProjectsPage({ onSelectProject, onCreateProject, onDeleteProject }: ProjectsPageProps) {
   const [inspectorName, setInspectorName] = useLocalStorage('inspectorName', '');
   // Cached lists so the picker still works offline after a first online load.
-  const [projects, setProjects] = useLocalStorage<string[]>('cachedProjects', []);
+  // v2 upgrades the old string[] cache to objects (name + category + archived).
+  const [projects, setProjects] = useLocalStorage<CachedProject[]>('cachedProjectsV2', []);
   const [inspectors, setInspectors] = useLocalStorage<string[]>('cachedInspectors', []);
+  const [customCategories, setCustomCategories] = useLocalStorage<string[]>('projectCategories', []);
 
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
+  const [newCategory, setNewCategory] = useState('');
   const [newPlan, setNewPlan] = useState<File | null>(null);
   const [addingInspector, setAddingInspector] = useState(false);
   const [newInspector, setNewInspector] = useState('');
   const [error, setError] = useState('');
+  const [menuFor, setMenuFor] = useState<string | null>(null);   // which card's ⋯ menu is open
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
 
   const cfg = getSupabaseConfig();
   const connected = !!(cfg.url && cfg.key);
+
+  // One-time migration from the old 'cachedProjects' (string[]) cache so
+  // existing devices don't show an empty list before the online load lands.
+  useEffect(() => {
+    if (projects.length === 0) {
+      try {
+        const old = JSON.parse(localStorage.getItem('cachedProjects') || '[]');
+        if (Array.isArray(old) && old.length) {
+          setProjects(
+            old
+              .map((n: any) => (typeof n === 'string' ? { name: n } : n))
+              .filter((x: any) => x && x.name)
+          );
+        }
+      } catch { /* ignore */ }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     (async () => {
       if (connected) {
         const [p, i] = await Promise.all([listProjects(cfg), listInspectors(cfg)]);
-        if (p) setProjects(p.map((r) => r.name).filter(Boolean));
+        if (p) {
+          setProjects(
+            p
+              .map((r) => ({ name: r.name, category: r.category ?? undefined, archived: !!r.archived }))
+              .filter((x) => x.name)
+          );
+        }
         if (i) setInspectors(i);
       }
       setLoading(false);
@@ -56,15 +109,109 @@ export default function ProjectsPage({ onSelectProject, onCreateProject }: Proje
 
   const isPdf = (f: File) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
 
+  // Full category list for the datalist: built-in + anything the user has typed
+  // before + anything already in use on a project.
+  const allCategories = Array.from(
+    new Set([
+      ...FIXED_CATEGORIES,
+      ...customCategories,
+      ...projects.map((p) => p.category).filter(Boolean) as string[],
+    ])
+  );
+
   const submitNewProject = () => {
     const name = newName.trim();
     if (!name) { setError('Give the project a name.'); return; }
     if (!newPlan) { setError('Choose a floor-plan PDF.'); return; }
     if (!isPdf(newPlan)) { setError('That file isn’t a PDF.'); return; }
-    if (!projects.includes(name)) setProjects([name, ...projects]);
-    if (connected) createProjectRow(cfg, name).catch(() => {});
+    const category = newCategory.trim();
+    if (!projects.some((p) => p.name === name)) {
+      setProjects([{ name, category: category || undefined, archived: false }, ...projects]);
+    }
+    // Remember a newly typed category for next time.
+    if (category && !FIXED_CATEGORIES.includes(category) && !customCategories.includes(category)) {
+      setCustomCategories([...customCategories, category]);
+    }
+    if (connected) createProjectRow(cfg, name, category || undefined).catch(() => {});
     onCreateProject(name, newPlan);
   };
+
+  const setArchived = (name: string, archived: boolean) => {
+    setProjects(projects.map((p) => (p.name === name ? { ...p, archived } : p)));
+    if (connected) (archived ? archiveProjectRow : unarchiveProjectRow)(cfg, name).catch(() => {});
+    setMenuFor(null);
+  };
+
+  const doDelete = (name: string) => {
+    setProjects(projects.filter((p) => p.name !== name));
+    if (connected) deleteProjectRow(cfg, name).catch(() => {});
+    onDeleteProject?.(name);          // clear the local IndexedDB plan
+    setConfirmDelete(null);
+    setMenuFor(null);
+  };
+
+  const active = projects.filter((p) => !p.archived);
+  const archived = projects.filter((p) => p.archived);
+
+  const renderCard = (p: CachedProject) => (
+    <div
+      key={p.name}
+      className="relative flex flex-col justify-between min-h-32 rounded-lg border border-border bg-card p-4 hover:border-primary hover:shadow-md transition-all"
+    >
+      <button onClick={() => onSelectProject(p.name)} className="text-left w-full">
+        <span className="block text-base font-semibold text-foreground pr-7">{p.name}</span>
+        {p.category && (
+          <span className="inline-block mt-2 text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-secondary text-muted-foreground border border-border">
+            {p.category}
+          </span>
+        )}
+      </button>
+
+      <div className="mt-3 flex items-center justify-between">
+        <button onClick={() => onSelectProject(p.name)} className="text-xs text-muted-foreground hover:text-primary">
+          {p.archived ? 'Archived' : 'Tap to open →'}
+        </button>
+      </div>
+
+      {/* ⋯ actions menu */}
+      <button
+        onClick={() => setMenuFor(menuFor === p.name ? null : p.name)}
+        className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+        aria-label="Project actions"
+      >
+        <span className="text-lg leading-none">⋯</span>
+      </button>
+      {menuFor === p.name && (
+        <>
+          {/* click-away layer */}
+          <div className="fixed inset-0 z-10" onClick={() => setMenuFor(null)} />
+          <div className="absolute top-9 right-2 z-20 w-36 bg-card border border-border rounded-md shadow-lg py-1 text-sm">
+            {p.archived ? (
+              <button
+                onClick={() => setArchived(p.name, false)}
+                className="block w-full text-left px-3 py-1.5 hover:bg-secondary"
+              >
+                Unarchive
+              </button>
+            ) : (
+              <button
+                onClick={() => setArchived(p.name, true)}
+                className="block w-full text-left px-3 py-1.5 hover:bg-secondary"
+              >
+                Archive
+              </button>
+            )}
+            <button
+              onClick={() => { setConfirmDelete(p.name); setMenuFor(null); }}
+              className="block w-full text-left px-3 py-1.5 text-red-500 hover:bg-secondary"
+            >
+              Delete…
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -130,23 +277,31 @@ export default function ProjectsPage({ onSelectProject, onCreateProject }: Proje
               <span className="text-sm font-medium">New Project</span>
             </button>
 
-            {projects.map((name) => (
-              <button
-                key={name}
-                onClick={() => onSelectProject(name)}
-                className="flex flex-col justify-between min-h-32 rounded-lg border border-border bg-card p-4 text-left hover:border-primary hover:shadow-md transition-all"
-              >
-                <span className="text-base font-semibold text-foreground">{name}</span>
-                <span className="text-xs text-muted-foreground mt-2">Tap to open →</span>
-              </button>
-            ))}
+            {active.map(renderCard)}
           </div>
         )}
 
-        {!loading && projects.length === 0 && (
+        {!loading && active.length === 0 && (
           <p className="text-sm text-muted-foreground mt-4">
             No projects yet. Tap <span className="text-primary font-medium">New Project</span> to add one with its floor plan.
           </p>
+        )}
+
+        {/* Archived section */}
+        {!loading && archived.length > 0 && (
+          <div className="mt-8">
+            <button
+              onClick={() => setShowArchived((v) => !v)}
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              {showArchived ? '▾' : '▸'} Archived ({archived.length})
+            </button>
+            {showArchived && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-3 opacity-80">
+                {archived.map(renderCard)}
+              </div>
+            )}
+          </div>
         )}
       </main>
 
@@ -166,6 +321,21 @@ export default function ProjectsPage({ onSelectProject, onCreateProject }: Proje
               />
             </div>
             <div>
+              <label className="codify-label">Category / Service Line</label>
+              <input
+                list="category-options"
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                placeholder="Pick one or type your own"
+                className="codify-input w-full"
+              />
+              <datalist id="category-options">
+                {allCategories.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            </div>
+            <div>
               <label className="codify-label">Floor Plan (PDF)</label>
               <input
                 type="file"
@@ -179,6 +349,28 @@ export default function ProjectsPage({ onSelectProject, onCreateProject }: Proje
             <div className="flex gap-2 pt-1">
               <button onClick={() => setCreating(false)} className="flex-1 codify-btn-secondary">Cancel</button>
               <button onClick={submitNewProject} className="flex-1 codify-btn-primary">Create & Open</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-4" onClick={() => setConfirmDelete(null)}>
+          <div className="w-full max-w-md bg-card border border-border rounded-lg p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold tracking-tight text-red-500">Delete “{confirmDelete}”?</h2>
+            <p className="text-sm text-muted-foreground">
+              This permanently removes the project and its cloud data — the floor plan, all pins, and all
+              inspection records. This can’t be undone. If you only want to hide it, use Archive instead.
+            </p>
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setConfirmDelete(null)} className="flex-1 codify-btn-secondary">Cancel</button>
+              <button
+                onClick={() => doDelete(confirmDelete)}
+                className="flex-1 rounded-sm bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-3 text-sm"
+              >
+                Delete permanently
+              </button>
             </div>
           </div>
         </div>

@@ -274,13 +274,16 @@ export async function downloadPlanPDF(config: SupabaseConfig, project: string): 
 export interface ProjectRow {
   name: string;
   created_at?: string;
+  category?: string | null;
+  archived?: boolean;
 }
 
-/** All projects the team has created, newest first. */
+/** All projects the team has created, newest first (archived ones included —
+ *  the Projects page filters them into an "Archived" view client-side). */
 export async function listProjects(config: SupabaseConfig): Promise<ProjectRow[] | null> {
   if (!config.url || !config.key) return null;
   try {
-    const res = await fetch(`${config.url}/rest/v1/projects?select=name,created_at&order=created_at.desc`, {
+    const res = await fetch(`${config.url}/rest/v1/projects?select=name,created_at,category,archived&order=created_at.desc`, {
       headers: { 'apikey': config.key, 'Authorization': `Bearer ${config.key}` },
     });
     if (!res.ok) return null;
@@ -292,10 +295,13 @@ export async function listProjects(config: SupabaseConfig): Promise<ProjectRow[]
   }
 }
 
-/** Create a project (idempotent on name). */
-export async function createProject(config: SupabaseConfig, name: string): Promise<boolean> {
+/** Create a project (idempotent on name). An optional service-line category
+ *  is stored on the row. */
+export async function createProject(config: SupabaseConfig, name: string, category?: string): Promise<boolean> {
   if (!config.url || !config.key || !name.trim()) return false;
   try {
+    const body: Record<string, unknown> = { name: name.trim() };
+    if (category && category.trim()) body.category = category.trim();
     const res = await fetch(`${config.url}/rest/v1/projects`, {
       method: 'POST',
       headers: {
@@ -304,11 +310,83 @@ export async function createProject(config: SupabaseConfig, name: string): Promi
         'Content-Type': 'application/json',
         'Prefer': 'resolution=merge-duplicates,return=minimal',
       },
-      body: JSON.stringify({ name: name.trim() }),
+      body: JSON.stringify(body),
     });
     return res.ok || res.status === 201;
   } catch (error) {
     console.error('Create project error:', error);
+    return false;
+  }
+}
+
+/** Patch a project row (category and/or archived flag). Keyed on name. */
+export async function updateProject(
+  config: SupabaseConfig,
+  name: string,
+  patch: { category?: string | null; archived?: boolean }
+): Promise<boolean> {
+  if (!config.url || !config.key || !name.trim()) return false;
+  try {
+    const res = await fetch(
+      `${config.url}/rest/v1/projects?name=eq.${encodeURIComponent(name)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'apikey': config.key,
+          'Authorization': `Bearer ${config.key}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal',
+        },
+        body: JSON.stringify(patch),
+      }
+    );
+    return res.ok;
+  } catch (error) {
+    console.error('Update project error:', error);
+    return false;
+  }
+}
+
+/** Hide a project without deleting any data (reversible). */
+export function archiveProject(config: SupabaseConfig, name: string): Promise<boolean> {
+  return updateProject(config, name, { archived: true });
+}
+
+/** Restore an archived project. */
+export function unarchiveProject(config: SupabaseConfig, name: string): Promise<boolean> {
+  return updateProject(config, name, { archived: false });
+}
+
+/** Permanently delete a project AND its cloud data: the project row, its pins,
+ *  its inspection records, and its stored floor-plan PDF. Irreversible.
+ *
+ *  Associations are by project-name text (no DB foreign keys), so there is no
+ *  automatic cascade — we delete each related table/object explicitly. Local
+ *  (offline) pins/records live in unscoped localStorage and are not purged here;
+ *  the cloud is the source of truth. Returns true if the project row itself was
+ *  removed; related deletes are best-effort. */
+export async function deleteProject(config: SupabaseConfig, name: string): Promise<boolean> {
+  if (!config.url || !config.key || !name.trim()) return false;
+  const headers = { 'apikey': config.key, 'Authorization': `Bearer ${config.key}` };
+  const enc = encodeURIComponent(name);
+
+  // Best-effort: pins, inspection records, and the stored plan PDF.
+  const cleanup = [
+    fetch(`${config.url}/rest/v1/door_pins?project=eq.${enc}`, { method: 'DELETE', headers }),
+    fetch(`${config.url}/rest/v1/door_inspections?project=eq.${enc}`, { method: 'DELETE', headers }),
+    fetch(`${config.url}/storage/v1/object/${planPath(name)}`, { method: 'DELETE', headers }),
+  ];
+  await Promise.allSettled(cleanup);
+
+  // The project row itself — this is the delete we report success on.
+  try {
+    const res = await fetch(`${config.url}/rest/v1/projects?name=eq.${enc}`, {
+      method: 'DELETE',
+      headers,
+    });
+    return res.ok;
+  } catch (error) {
+    console.error('Delete project error:', error);
     return false;
   }
 }

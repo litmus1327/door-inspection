@@ -379,6 +379,22 @@ function App() {
     if (cfg.url && cfg.key) uploadPlanPDF(cfg, plan, name).catch(() => {});
   };
 
+  // Local cleanup when a project is permanently deleted from the Projects page.
+  // The cloud data (row, pins, records, stored plan) is removed in supabase.ts;
+  // here we drop the project's cached floor-plan PDF from IndexedDB.
+  const handleDeleteProjectLocal = async (name: string) => {
+    if (!name) return;
+    try {
+      const db = await openDB();
+      await new Promise<void>((resolve) => {
+        const tx = db.transaction('files', 'readwrite');
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+        tx.objectStore('files').delete(idbKey(name));
+      });
+    } catch { /* ignore */ }
+  };
+
   const handlePinAdded = (pin: DoorPin) => {
     // Next number = highest existing iconNo + 1 (not a count, which would
     // reuse a number after a deletion and collide with an existing pin).
@@ -478,6 +494,7 @@ function App() {
             <ProjectsPage
               onSelectProject={(name) => setActiveProject(name)}
               onCreateProject={handleCreateProject}
+              onDeleteProject={handleDeleteProjectLocal}
             />
           </TooltipProvider>
         </ThemeProvider>
