@@ -5,7 +5,7 @@ import PDFViewer from '@/components/PDFViewer';
 import WallCalibration from '@/components/WallCalibration';
 import { DoorPin } from '@/types';
 import {
-  ProjectCalibration, RGB, loadCalibration, saveCalibration, emptyCalibration,
+  ProjectCalibration, WallPick, loadCalibration, saveCalibration, emptyCalibration,
 } from '@/lib/wallDetect';
 
 interface PdfEntry {
@@ -77,13 +77,15 @@ export default function FloorPlanViewer({
     setCalibration(c);
     saveCalibration(projectName, c);
   };
-  const handleWallColorPicked = (rgb: RGB | null) => {
+  const handleWallColorPicked = (pick: WallPick | null) => {
     if (!armedType) return;
-    if (!rgb) { setLastPickFailed(true); return; }
+    if (!pick) { setLastPickFailed(true); return; }
     setLastPickFailed(false);
+    // 'unknown' style (couldn't read gaps) defaults to solid — most lines are.
+    const style = pick.style === 'unknown' ? 'solid' : pick.style;
     persistCalibration({
       ...calibration,
-      types: { ...calibration.types, [armedType]: { rgb, width: 0 } },
+      types: { ...calibration.types, [armedType]: { rgb: pick.rgb, width: 0, style } },
     });
     setArmedType(null);
   };

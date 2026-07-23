@@ -44,20 +44,33 @@ export default function WallCalibration({
             const entry = calibration.types[type];
             const isArmed = armedType === type;
             const color = entry && entry !== 'na' ? entry.rgb : null;
+            const style = entry && entry !== 'na' ? (entry.style || 'solid') : null;
             return (
               <div
                 key={type}
                 className={`flex items-center gap-3 px-4 py-2.5 ${isArmed ? 'bg-primary/10' : ''} ${armedType && !isArmed ? 'opacity-50' : ''}`}
               >
-                {/* swatch / status dot */}
-                <span
-                  className="shrink-0 w-5 h-5 rounded-full border border-border"
-                  style={{ background: color ? `rgb(${color[0]},${color[1]},${color[2]})` : 'transparent' }}
-                />
+                {/* swatch: a short line in the captured color + style (solid/dashed) */}
+                {color ? (
+                  <span className="shrink-0 w-6 flex items-center" aria-hidden>
+                    <span
+                      className="w-full"
+                      style={{
+                        borderTopWidth: 3,
+                        borderTopStyle: style === 'dashed' ? 'dashed' : 'solid',
+                        borderTopColor: `rgb(${color[0]},${color[1]},${color[2]})`,
+                      }}
+                    />
+                  </span>
+                ) : (
+                  <span className="shrink-0 w-6 flex items-center justify-center">
+                    <span className="w-5 h-5 rounded-full border border-border" />
+                  </span>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{ASSEMBLY_TYPE_LABELS[type]}</div>
                   <div className="text-xs text-muted-foreground">
-                    {entry === 'na' ? 'Not on this plan' : color ? 'Color set' : 'Not set'}
+                    {entry === 'na' ? 'Not on this plan' : color ? `Color set · ${style}` : 'Not set'}
                   </div>
                 </div>
                 {/* actions */}

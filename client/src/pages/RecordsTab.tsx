@@ -29,7 +29,11 @@ interface InspectionRecord {
   synced: boolean;
 }
 
-export default function RecordsTab() {
+interface RecordsTabProps {
+  projectName: string;
+}
+
+export default function RecordsTab({ projectName }: RecordsTabProps) {
   const [records, setRecords] = useState<InspectionRecord[]>([]);
   const [selected, setSelected] = useState<InspectionRecord | null>(null);
   const [filter, setFilter] = useState<'all' | 'pass' | 'fail'>('all');
@@ -38,16 +42,19 @@ export default function RecordsTab() {
   const [syncMsg, setSyncMsg] = useState('');
 
   const loadRecords = () => {
-    // Load current pins (source of truth for what exists)
+    // Load current pins (source of truth for what exists).
     const allPins = Object.values(
       JSON.parse(localStorage.getItem('floorPlanPins') || '{}')
     ).flat() as DoorPin[];
 
-    const validPinIds = new Set(allPins.map((p: any) => p.id));
+    // Scope to the open project. Pins carry projectName (set on drop); records
+    // carry it too (set at inspection time — reliable even for older pins).
+    const projectPins = allPins.filter((p: any) => p.projectName === projectName);
+    const anyValidPinId = new Set(allPins.map((p: any) => p.id));
 
-    // Load inspection records — only keep those whose pinId still exists
+    // Records for THIS project whose pin still exists.
     const allRecords = JSON.parse(localStorage.getItem('doorInspections') || '[]')
-      .filter((r: any) => r.pinId && validPinIds.has(r.pinId));
+      .filter((r: any) => r.pinId && anyValidPinId.has(r.pinId) && r.projectName === projectName);
 
     // Deduplicate by pinId — keep only the most recent record per pin
     const recordsByPin = new Map<string, any>();
@@ -62,8 +69,8 @@ export default function RecordsTab() {
     // Build a set of pinIds that already have a record
     const inspectedPinIds = new Set(dedupedRecords.map((r: any) => r.pinId));
 
-    // For pins with no record yet, generate a "Not Inspected" placeholder row
-    const uninspectedRows = allPins
+    // For this project's pins with no record yet, generate a "Not Inspected" row
+    const uninspectedRows = projectPins
       .filter((p: any) => !inspectedPinIds.has(p.id))
       .map((p: any) => ({
         pinId: p.id,
@@ -93,7 +100,7 @@ export default function RecordsTab() {
       loadRecords();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [projectName]);
 
   const handleSync = async () => {
     setSyncing(true);

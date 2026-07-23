@@ -4,8 +4,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { DoorPin } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import {
-  extractWallStrokes, nearestWallColorAt, detectAssemblyType,
-  WallStroke, ProjectCalibration, RGB, DEFAULT_RADIUS_PCT, DEFAULT_TOLERANCE,
+  extractWallStrokes, nearestWallColorAt, detectAssemblyType, styleAt,
+  WallStroke, ProjectCalibration, WallPick, DEFAULT_RADIUS_PCT, DEFAULT_TOLERANCE,
 } from '@/lib/wallDetect';
 
 // Tap radius (percent of page) when picking a wall color during calibration —
@@ -43,7 +43,7 @@ interface PDFViewerProps {
   // Wall-color calibration + assembly-type auto-detect (Milestone 2)
   isCalibrateMode?: boolean;
   calibration?: ProjectCalibration;
-  onWallColorPicked?: (rgb: RGB | null) => void;
+  onWallColorPicked?: (pick: WallPick | null) => void;
 }
 
 export default function PDFViewer({
@@ -752,13 +752,15 @@ export default function PDFViewer({
     const clickPctX = (canvasX / baseViewportRef.current.width) * 100;
     const clickPctY = (canvasY / baseViewportRef.current.height) * 100;
 
-    // In calibrate mode, a tap reads the color of the nearest wall line and
-    // hands it back — no pin is placed.
+    // In calibrate mode, a tap reads the color AND line style (solid/dashed) of
+    // the nearest wall line and hands them back — no pin is placed.
     if (isCalibrateMode) {
       const hit = nearestWallColorAt(
         wallStrokesRef.current, clickPctX, clickPctY, CALIBRATE_RADIUS_PCT
       );
-      onWallColorPicked?.(hit ? hit.rgb : null);
+      if (!hit) { onWallColorPicked?.(null); return; }
+      const style = styleAt(wallStrokesRef.current, hit.rgb, clickPctX, clickPctY, DEFAULT_TOLERANCE);
+      onWallColorPicked?.({ rgb: hit.rgb, style });
       return;
     }
 
@@ -889,7 +891,7 @@ export default function PDFViewer({
       <div
         ref={containerRef}
         className={`flex-1 overflow-hidden relative ${
-          isDropMode ? 'cursor-crosshair' : isSelectMode ? 'cursor-crosshair' : hoveredPinId ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'
+          isCalibrateMode ? 'cursor-crosshair' : isDropMode ? 'cursor-crosshair' : isSelectMode ? 'cursor-crosshair' : hoveredPinId ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'
         }`}
         style={{ userSelect: 'none', background: '#f5f5f5' }}
         onWheel={handleWheel}

@@ -406,6 +406,7 @@ function App() {
       iconNo: String(maxNo + 1),
       pageNumber: currentPage,
       owner: inspectorName || undefined,
+      projectName: activeProject, // scope the pin (and its Records rows) to this project
     };
     setPins((prev) => ({
       ...prev,
@@ -575,7 +576,7 @@ function App() {
                 {/* Records tab overlay */}
                 {activeTab === 'records' && (
                   <div className="absolute inset-0 z-40 bg-background overflow-auto">
-                    <RecordsTab />
+                    <RecordsTab projectName={activeProject} />
                   </div>
                 )}
 

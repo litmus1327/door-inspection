@@ -1,40 +1,46 @@
 /**
  * Wall / assembly-type auto-detection from a vector PDF floor plan.
  *
- * Life Safety drawings draw each assembly type as a thick, saturated-color
- * line (red / green / blue / orange) over the thin black+gray architecture.
- * The exact colors vary per drawing, so the inspector calibrates once per
- * project (tap a line for each type, or mark it N/A). After that, dropping an
- * icon reads the color of the nearest calibrated wall line and assigns the
- * matching assembly type — and when two calibrated lines run parallel, the
- * higher-precedence type wins (see ASSEMBLY_PRECEDENCE in inspectionRules.ts).
+ * Life Safety drawings draw each assembly type as a thick, saturated-color line
+ * over the thin black+gray architecture. The exact colors vary per drawing, so
+ * the inspector calibrates once per project (tap a line for each type, or mark
+ * N/A). Dropping an icon then reads the color — and, when two types share a
+ * color, the LINE STYLE (solid vs dashed) — of the nearest calibrated wall line
+ * and assigns the matching assembly type. When two calibrated lines run parallel
+ * the higher-precedence type wins (see ASSEMBLY_PRECEDENCE in inspectionRules).
  *
- * Coordinate space: strokes are normalized to PERCENT (0–100) of the page, the
- * same space DoorPin.x / DoorPin.y use, so a pin and a stroke are directly
- * comparable regardless of zoom.
+ * Line style: these drawings encode dashes as many short broken segments (not a
+ * PDF dash array), so "dashed vs solid" is read from geometry — the fraction of
+ * the line that's inked vs gapped near the point.
+ *
+ * Coordinate space: everything is PERCENT (0-100) of the page, the same space
+ * DoorPin.x / DoorPin.y use, so a pin and a stroke are directly comparable.
  */
 import * as pdfjsLib from 'pdfjs-dist';
 import { ASSEMBLY_PRECEDENCE } from './inspectionRules';
 
 export type RGB = [number, number, number];
+export type LineStyle = 'solid' | 'dashed';
 
 export interface WallStroke {
   rgb: RGB;
-  width: number; // stroke line width in page units (rough; metadata only)
-  points: number[]; // flattened [x0,y0,x1,y1,...] in percent (0–100)
+  width: number;
+  // Straight segments in percent coords: each [x1, y1, x2, y2]. Segments do NOT
+  // cross subpath (moveTo) breaks, so dash gaps stay gaps.
+  segments: number[][];
   bbox: [number, number, number, number]; // [minX, minY, maxX, maxY] percent
 }
 
-// A stroke only counts as an assembly-type line if its color is clearly
-// chromatic — this drops the black/gray/white architecture in one test
-// (grays have max(rgb) - min(rgb) ≈ 0).
-const SATURATION_MIN = 40; // 0–255
-// Cap so a pathological page can't exhaust memory. Saturated strokes are a
-// small fraction of the total, so this is generous.
-const MAX_STROKES = 40000;
+// A chromatic stroke only (drops black/gray/white architecture in one test).
+const SATURATION_MIN = 40;
+const MAX_SEGMENTS = 120000;
 
-// ── affine matrix helpers (same convention as pdfjs Util.transform) ──────────
-type Mat = number[]; // [a, b, c, d, e, f]
+// Line-style (coverage) tuning, in percent of page.
+const COVERAGE_W_PCT = 0.7;     // half-window sampled along the line
+const COVERAGE_PERP_PCT = 0.12; // how close a segment must be to count as "this line"
+
+// ── affine matrix helpers (pdfjs Util.transform convention) ──────────────────
+type Mat = number[];
 function matMul(m1: Mat, m2: Mat): Mat {
   return [
     m1[0] * m2[0] + m1[2] * m2[1],
@@ -48,27 +54,31 @@ function matMul(m1: Mat, m2: Mat): Mat {
 function apply(m: Mat, x: number, y: number): [number, number] {
   return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
 }
-
-function saturation(rgb: RGB): number {
-  return Math.max(...rgb) - Math.min(...rgb);
-}
-
+function saturation(rgb: RGB): number { return Math.max(...rgb) - Math.min(...rgb); }
 export function rgbDistance(a: RGB, b: RGB): number {
   return Math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2);
 }
+// distance² from point to segment
+function distSqToSeg(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
+  const dx = bx - ax, dy = by - ay;
+  const len2 = dx * dx + dy * dy;
+  let t = len2 ? ((px - ax) * dx + (py - ay) * dy) / len2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  const cx = ax + t * dx, cy = ay + t * dy;
+  return (px - cx) ** 2 + (py - cy) ** 2;
+}
 
 /**
- * Extract the saturated (assembly-type) wall strokes from one PDF page, in
- * percent coordinates. Returns [] for a non-vector page or on any error — the
- * caller then simply falls back to manual assembly-type selection.
+ * Extract saturated (assembly-type) wall strokes from one PDF page, in percent
+ * coordinates, preserving per-segment structure. [] for a non-vector page or on
+ * error — the caller then falls back to manual assembly-type selection.
  */
 export async function extractWallStrokes(page: any): Promise<WallStroke[]> {
   const OPS = pdfjsLib.OPS;
   try {
     const viewport = page.getViewport({ scale: 1 });
-    const vp = viewport.transform as Mat; // PDF user space → device (scale 1)
-    const W = viewport.width;
-    const H = viewport.height;
+    const vp = viewport.transform as Mat;
+    const W = viewport.width, H = viewport.height;
     const opList = await page.getOperatorList();
 
     const strokes: WallStroke[] = [];
@@ -76,7 +86,8 @@ export async function extractWallStrokes(page: any): Promise<WallStroke[]> {
     const stack: Mat[] = [];
     let color: RGB = [0, 0, 0];
     let width = 1;
-    let path: Array<[number, number]> = []; // current path points, page-user space
+    let subpaths: Array<Array<[number, number]>> = []; // page-user space
+    let segCount = 0;
 
     const STROKE_PAINT = new Set<number>([
       OPS.stroke, OPS.closeStroke, OPS.fillStroke, OPS.eoFillStroke,
@@ -84,23 +95,44 @@ export async function extractWallStrokes(page: any): Promise<WallStroke[]> {
     ]);
 
     const emit = () => {
-      if (path.length < 2) { path = []; return; }
-      if (saturation(color) < SATURATION_MIN) { path = []; return; }
-      if (strokes.length >= MAX_STROKES) { path = []; return; }
-      // Map path points → device (scale-1) → percent of page.
+      if (saturation(color) < SATURATION_MIN || segCount >= MAX_SEGMENTS) { subpaths = []; return; }
       const full = matMul(vp, ctm);
-      const pts: number[] = [];
+      const segments: number[][] = [];
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      for (const [px, py] of path) {
-        const [dx, dy] = apply(full, px, py);
-        const xPct = (dx / W) * 100;
-        const yPct = (dy / H) * 100;
-        pts.push(xPct, yPct);
-        if (xPct < minX) minX = xPct; if (xPct > maxX) maxX = xPct;
-        if (yPct < minY) minY = yPct; if (yPct > maxY) maxY = yPct;
+      for (const sp of subpaths) {
+        // Map each subpath's points to percent, then connect consecutive ones.
+        const pts: Array<[number, number]> = sp.map(([px, py]) => {
+          const [dx, dy] = apply(full, px, py);
+          const xPct = (dx / W) * 100, yPct = (dy / H) * 100;
+          if (xPct < minX) minX = xPct; if (xPct > maxX) maxX = xPct;
+          if (yPct < minY) minY = yPct; if (yPct > maxY) maxY = yPct;
+          return [xPct, yPct];
+        });
+        for (let i = 0; i + 1 < pts.length; i++) {
+          segments.push([pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]]);
+        }
       }
-      strokes.push({ rgb: color, width, points: pts, bbox: [minX, minY, maxX, maxY] });
-      path = [];
+      subpaths = [];
+      if (segments.length === 0) return;
+      segCount += segments.length;
+      strokes.push({ rgb: color, width, segments, bbox: [minX, minY, maxX, maxY] });
+    };
+
+    const addPath = (args: any) => {
+      const ops: number[] = args[0];
+      const co: number[] = args[1];
+      let c = 0;
+      let cur: Array<[number, number]> | null = null;
+      for (const op of ops) {
+        if (op === OPS.moveTo) { cur = [[co[c], co[c + 1]]]; subpaths.push(cur); c += 2; }
+        else if (op === OPS.lineTo) { if (!cur) { cur = []; subpaths.push(cur); } cur.push([co[c], co[c + 1]]); c += 2; }
+        else if (op === OPS.curveTo) { if (cur) cur.push([co[c + 4], co[c + 5]]); c += 6; }
+        else if (op === OPS.curveTo2 || op === OPS.curveTo3) { if (cur) cur.push([co[c + 2], co[c + 3]]); c += 4; }
+        else if (op === OPS.rectangle) {
+          const x = co[c], y = co[c + 1], w = co[c + 2], h = co[c + 3];
+          subpaths.push([[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]]); c += 4;
+        } else if (op === OPS.closePath) { /* leave as-is */ }
+      }
     };
 
     for (let i = 0; i < opList.fnArray.length; i++) {
@@ -119,14 +151,13 @@ export async function extractWallStrokes(page: any): Promise<WallStroke[]> {
             Math.round(255 * (1 - c) * (1 - k)),
             Math.round(255 * (1 - m) * (1 - k)),
             Math.round(255 * (1 - y) * (1 - k)),
-          ];
-          break;
+          ]; break;
         }
-        case OPS.constructPath: appendPath(path, args, OPS); break;
-        case OPS.endPath: path = []; break;
+        case OPS.constructPath: addPath(args); break;
+        case OPS.endPath: subpaths = []; break;
         default:
           if (STROKE_PAINT.has(fn)) emit();
-          else if (fn === OPS.fill || fn === OPS.eoFill) path = []; // fills aren't wall lines
+          else if (fn === OPS.fill || fn === OPS.eoFill) subpaths = [];
       }
     }
     return strokes;
@@ -135,82 +166,96 @@ export async function extractWallStrokes(page: any): Promise<WallStroke[]> {
   }
 }
 
-// Append the endpoints of a constructPath op to the running path (page-user
-// space). We keep line endpoints and curve endpoints — enough for a
-// point-to-polyline distance test; we don't need full curve fidelity.
-function appendPath(path: Array<[number, number]>, args: any, OPS: any) {
-  const opsArr: number[] = args[0];
-  const coords: number[] = args[1];
-  let c = 0;
-  for (const op of opsArr) {
-    switch (op) {
-      case OPS.moveTo:
-      case OPS.lineTo:
-        path.push([coords[c], coords[c + 1]]); c += 2; break;
-      case OPS.curveTo:
-        path.push([coords[c + 4], coords[c + 5]]); c += 6; break;
-      case OPS.curveTo2:
-      case OPS.curveTo3:
-        path.push([coords[c + 2], coords[c + 3]]); c += 4; break;
-      case OPS.rectangle: {
-        const x = coords[c], y = coords[c + 1], w = coords[c + 2], h = coords[c + 3];
-        path.push([x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]); c += 4; break;
-      }
-      case OPS.closePath: break;
-      default: break; // unknown segment op — stop consuming to stay aligned
-    }
-  }
-}
-
-// distance² from point (px,py) to segment (ax,ay)-(bx,by)
-function distSqToSeg(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
-  const dx = bx - ax, dy = by - ay;
-  const len2 = dx * dx + dy * dy;
-  let t = len2 ? ((px - ax) * dx + (py - ay) * dy) / len2 : 0;
-  t = Math.max(0, Math.min(1, t));
-  const cx = ax + t * dx, cy = ay + t * dy;
-  return (px - cx) ** 2 + (py - cy) ** 2;
-}
-
-/** Nearest saturated stroke to a point, within radius (all in percent). */
+// nearest matched-color info at a point (percent), within radius.
 export function nearestWallColorAt(
   strokes: WallStroke[], xPct: number, yPct: number, radiusPct: number
 ): { rgb: RGB; dist: number; width: number } | null {
   const r2 = radiusPct * radiusPct;
   let best: { rgb: RGB; dist: number; width: number } | null = null;
   for (const s of strokes) {
-    // bbox reject (expanded by radius)
     if (xPct < s.bbox[0] - radiusPct || xPct > s.bbox[2] + radiusPct ||
         yPct < s.bbox[1] - radiusPct || yPct > s.bbox[3] + radiusPct) continue;
-    const p = s.points;
-    let md2 = Infinity;
-    for (let i = 0; i + 3 < p.length; i += 2) {
-      const d2 = distSqToSeg(xPct, yPct, p[i], p[i + 1], p[i + 2], p[i + 3]);
-      if (d2 < md2) md2 = d2;
-    }
-    if (md2 <= r2 && (!best || md2 < best.dist * best.dist)) {
-      best = { rgb: s.rgb, dist: Math.sqrt(md2), width: s.width };
+    for (const g of s.segments) {
+      const d2 = distSqToSeg(xPct, yPct, g[0], g[1], g[2], g[3]);
+      if (d2 <= r2 && (!best || d2 < best.dist * best.dist)) {
+        best = { rgb: s.rgb, dist: Math.sqrt(d2), width: s.width };
+      }
     }
   }
   return best;
 }
 
-// ── calibration types + matching ─────────────────────────────────────────────
+/**
+ * Read the line style (solid vs dashed) of the matched-color wall at a point.
+ * Projects nearby same-color segments onto the local line direction and measures
+ * inked coverage vs the line's extent: ~1.0 = solid, ~0.5 = dashed. 'unknown'
+ * when there isn't enough to tell.
+ */
+export function styleAt(
+  strokes: WallStroke[], rgb: RGB, xPct: number, yPct: number, tolerance: number
+): LineStyle | 'unknown' {
+  const W = COVERAGE_W_PCT, PERP = COVERAGE_PERP_PCT;
+  const matched: number[][] = [];
+  let nd = Infinity, dir: [number, number] | null = null;
+  for (const s of strokes) {
+    if (rgbDistance(s.rgb, rgb) > tolerance) continue;
+    if (s.bbox[0] > xPct + W || s.bbox[2] < xPct - W || s.bbox[1] > yPct + W || s.bbox[3] < yPct - W) continue;
+    for (const g of s.segments) {
+      matched.push(g);
+      const d = distSqToSeg(xPct, yPct, g[0], g[1], g[2], g[3]);
+      if (d < nd) {
+        nd = d;
+        const dx = g[2] - g[0], dy = g[3] - g[1], L = Math.hypot(dx, dy) || 1;
+        dir = [dx / L, dy / L];
+      }
+    }
+  }
+  if (!dir || matched.length < 2) return 'unknown';
+  const perp: [number, number] = [-dir[1], dir[0]];
+  const intervals: Array<[number, number]> = [];
+  for (const g of matched) {
+    const ta = (g[0] - xPct) * dir[0] + (g[1] - yPct) * dir[1];
+    const pa = (g[0] - xPct) * perp[0] + (g[1] - yPct) * perp[1];
+    const tb = (g[2] - xPct) * dir[0] + (g[3] - yPct) * dir[1];
+    const pb = (g[2] - xPct) * perp[0] + (g[3] - yPct) * perp[1];
+    if (Math.abs(pa) > PERP && Math.abs(pb) > PERP) continue; // not on this line
+    const lo = Math.max(Math.min(ta, tb), -W);
+    const hi = Math.min(Math.max(ta, tb), W);
+    if (hi > lo) intervals.push([lo, hi]);
+  }
+  if (intervals.length < 1) return 'unknown';
+  intervals.sort((a, b) => a[0] - b[0]);
+  let unionLen = 0, curLo = intervals[0][0], curHi = intervals[0][1];
+  let minT = intervals[0][0], maxT = intervals[0][1];
+  for (let i = 1; i < intervals.length; i++) {
+    const [lo, hi] = intervals[i];
+    maxT = Math.max(maxT, hi);
+    if (lo > curHi) { unionLen += curHi - curLo; curLo = lo; curHi = hi; }
+    else curHi = Math.max(curHi, hi);
+  }
+  unionLen += curHi - curLo;
+  const extent = maxT - minT;
+  if (extent < 0.15) return 'unknown'; // too little of the line to judge
+  const cov = unionLen / extent;
+  if (cov >= 0.8) return 'solid';
+  if (cov <= 0.7) return 'dashed';
+  return 'unknown';
+}
 
-export type CalibrationEntry = { rgb: RGB; width: number } | 'na';
+// ── calibration ──────────────────────────────────────────────────────────────
+
+export type CalibrationEntry = { rgb: RGB; width: number; style?: LineStyle } | 'na';
 export interface ProjectCalibration {
-  types: Record<string, CalibrationEntry>; // assembly-type key → color or 'na'
+  types: Record<string, CalibrationEntry>;
   calibrated: boolean;
 }
+export interface WallPick { rgb: RGB; style: LineStyle | 'unknown'; }
 
 export function emptyCalibration(): ProjectCalibration {
   return { types: {}, calibrated: false };
 }
 
-// Per-project calibration persistence. Keyed by project name so each drawing's
-// color→type map is independent. Local-first; a cloud mirror can come later.
 const CAL_KEY = (project: string) => `wallCalibration:${project}`;
-
 export function loadCalibration(project: string): ProjectCalibration {
   if (!project) return emptyCalibration();
   try {
@@ -219,31 +264,32 @@ export function loadCalibration(project: string): ProjectCalibration {
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === 'object' && parsed.types) return parsed as ProjectCalibration;
     return emptyCalibration();
-  } catch {
-    return emptyCalibration();
-  }
+  } catch { return emptyCalibration(); }
 }
-
 export function saveCalibration(project: string, cal: ProjectCalibration): void {
   if (!project) return;
-  try {
-    localStorage.setItem(CAL_KEY(project), JSON.stringify(cal));
-  } catch { /* ignore quota/serialize errors */ }
+  try { localStorage.setItem(CAL_KEY(project), JSON.stringify(cal)); } catch { /* ignore */ }
 }
 
-/** The calibrated assembly-type whose color is closest to `rgb`, within
- *  tolerance. Ignores N/A entries. */
-export function matchCalibratedType(
-  rgb: RGB, cal: ProjectCalibration, tolerance: number
-): string | null {
-  let bestType: string | null = null;
-  let bestDist = Infinity;
+// All calibrated types whose color is within tolerance of rgb (ignores N/A).
+function calibratedTypesForColor(rgb: RGB, cal: ProjectCalibration, tolerance: number): string[] {
+  const out: string[] = [];
+  for (const [type, entry] of Object.entries(cal.types)) {
+    if (entry === 'na') continue;
+    if (rgbDistance(rgb, entry.rgb) <= tolerance) out.push(type);
+  }
+  return out;
+}
+
+/** Back-compat single-color match (nearest calibrated color within tolerance). */
+export function matchCalibratedType(rgb: RGB, cal: ProjectCalibration, tolerance: number): string | null {
+  let best: string | null = null, bestDist = Infinity;
   for (const [type, entry] of Object.entries(cal.types)) {
     if (entry === 'na') continue;
     const d = rgbDistance(rgb, entry.rgb);
-    if (d <= tolerance && d < bestDist) { bestDist = d; bestType = type; }
+    if (d <= tolerance && d < bestDist) { bestDist = d; best = type; }
   }
-  return bestType;
+  return best;
 }
 
 const PRECEDENCE_INDEX: Record<string, number> =
@@ -251,9 +297,10 @@ const PRECEDENCE_INDEX: Record<string, number> =
 
 /**
  * Auto-detect the assembly type for a dropped pin. Looks at every calibrated
- * wall line within `radiusPct` of the drop point; of the types found, returns
- * the highest-precedence one (fire beats smoke for parallel runs). Returns null
- * when nothing calibrated is close enough — the inspector then picks manually.
+ * wall line within radius; resolves each to a type by color, disambiguating a
+ * shared color by line style; of the types found, returns the highest-precedence
+ * (fire beats smoke). null when nothing calibrated is close enough, or a shared
+ * color's style can't be read — the inspector then picks manually.
  */
 export function detectAssemblyType(
   strokes: WallStroke[],
@@ -268,20 +315,25 @@ export function detectAssemblyType(
     if (saturation(s.rgb) < SATURATION_MIN) continue;
     if (xPct < s.bbox[0] - opts.radiusPct || xPct > s.bbox[2] + opts.radiusPct ||
         yPct < s.bbox[1] - opts.radiusPct || yPct > s.bbox[3] + opts.radiusPct) continue;
-    const p = s.points;
-    let md2 = Infinity;
-    for (let i = 0; i + 3 < p.length; i += 2) {
-      const d2 = distSqToSeg(xPct, yPct, p[i], p[i + 1], p[i + 2], p[i + 3]);
-      if (d2 < md2) md2 = d2;
+    let near = false;
+    for (const g of s.segments) {
+      if (distSqToSeg(xPct, yPct, g[0], g[1], g[2], g[3]) <= r2) { near = true; break; }
     }
-    if (md2 > r2) continue;
-    const t = matchCalibratedType(s.rgb, cal, opts.tolerance);
-    if (t) found.add(t);
+    if (!near) continue;
+    const matches = calibratedTypesForColor(s.rgb, cal, opts.tolerance);
+    if (matches.length === 0) continue;
+    if (matches.length === 1) { found.add(matches[0]); continue; }
+    // Same color → disambiguate by line style.
+    const st = styleAt(strokes, s.rgb, xPct, yPct, opts.tolerance);
+    if (st === 'unknown') continue; // don't guess
+    const pick = matches.find((t) => {
+      const e = cal.types[t];
+      return e !== 'na' && e.style === st;
+    });
+    if (pick) found.add(pick);
   }
   if (found.size === 0) return null;
-  // Highest precedence = lowest index.
-  let winner: string | null = null;
-  let bestIdx = Infinity;
+  let winner: string | null = null, bestIdx = Infinity;
   Array.from(found).forEach((t) => {
     const idx = PRECEDENCE_INDEX[t] ?? Infinity;
     if (idx < bestIdx) { bestIdx = idx; winner = t; }
