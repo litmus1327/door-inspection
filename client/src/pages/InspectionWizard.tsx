@@ -5,6 +5,7 @@ import type { Zone, ZoneState } from '@/types';
 import { ZONE_TO_ITEM_IDS, ZONE_LABELS } from '@/lib/doorZones';
 import { getSupabaseConfig, uploadPhotoToSupabase } from '@/lib/supabase';
 import { loadProjectSetup, saveProjectSetup } from '@/lib/projectSetup';
+import { recordId, dedupeForSave } from '@/lib/inspectionYear';
 import {
   ASSEMBLY_TYPE_LABELS,
   ASSEMBLY_TYPE_DESCRIPTIONS,
@@ -1482,13 +1483,17 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
       .map(([id, d]) => ({ id, ...d }));
     const hasDeficiencies = defList.some(d => d.status === 'deficient');
 
+    const inspectionYear = new Date().getFullYear();
+
     const record = {
-      // Stable per-pin id so re-inspecting a door updates its record instead of
-      // creating a duplicate (cloud upsert merges on id; local dedupe below).
+      // Per-pin, per-year id: re-inspecting a door in the same year updates its
+      // record; a new year adds one (cloud upsert merges on id; local dedupe
+      // below). See lib/inspectionYear.ts.
       id: selectedDoor?.pinId
-        ? `insp_${selectedDoor.pinId}`
+        ? recordId('insp', selectedDoor.pinId, inspectionYear)
         : Date.now().toString(36) + Math.random().toString(36).substring(2, 7),
       pinId: selectedDoor?.pinId,
+      inspectionYear,
       iconNo: currentDoor?.iconNo || '—',
       assetId: currentDoor?.assetId || '—',
       floorNo: currentDoor?.floorNo || '—',
@@ -1509,9 +1514,8 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
     };
 
     const existing = JSON.parse(localStorage.getItem('doorInspections') || '[]');
-    const deduped = record.pinId
-      ? existing.filter((r: any) => r.pinId !== record.pinId)
-      : existing;
+    // Replace only this pin's record for THIS year; prior years are retained.
+    const deduped = dedupeForSave(existing, record.pinId, inspectionYear);
     deduped.push(record);
     localStorage.setItem('doorInspections', JSON.stringify(deduped));
 

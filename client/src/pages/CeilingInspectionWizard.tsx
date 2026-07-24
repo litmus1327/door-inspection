@@ -12,6 +12,7 @@ import {
   searchFindings,
 } from '@/lib/ceilingFindings';
 import CeilingWalkthrough from '@/components/CeilingWalkthrough';
+import { recordId, dedupeForSave } from '@/lib/inspectionYear';
 
 export interface CeilingSelectedPin {
   pinId?: string;
@@ -94,10 +95,16 @@ export default function CeilingInspectionWizard({ selectedPin, onClear, onPinIns
   const complete = async () => {
     if (!selectedFinding) return;
     setSaving(true);
+    const inspectionYear = new Date().getFullYear();
     const record: CeilingInspection = {
-      id: selectedPin?.pinId ? `cinsp_${selectedPin.pinId}` : `cinsp_${Date.now().toString(36)}`,
+      // Per-pin, per-year id: re-inspecting an icon in the same year updates it;
+      // a new year adds a record. See lib/inspectionYear.ts.
+      id: selectedPin?.pinId
+        ? recordId('cinsp', selectedPin.pinId, inspectionYear)
+        : `cinsp_${Date.now().toString(36)}`,
       pinId: selectedPin?.pinId,
       inspectionType: 'above_below_ceiling',
+      inspectionYear,
       iconNo: selectedPin?.iconNo || '—',
       floorNo: selectedPin?.floor || '—',
       gridBlock: selectedPin?.grid || '',
@@ -115,9 +122,10 @@ export default function CeilingInspectionWizard({ selectedPin, onClear, onPinIns
       synced: false,
     };
 
-    // Save to the shared record store (deduped per pin), same key door records use.
+    // Save to the shared record store, same key door records use. Replace only
+    // this pin's record for THIS year; prior years are retained.
     const existing = JSON.parse(localStorage.getItem('doorInspections') || '[]');
-    const deduped = record.pinId ? existing.filter((r: any) => r.pinId !== record.pinId) : existing;
+    const deduped = dedupeForSave(existing, record.pinId, inspectionYear);
     deduped.push(record);
     localStorage.setItem('doorInspections', JSON.stringify(deduped));
 

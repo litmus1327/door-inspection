@@ -56,6 +56,9 @@ export interface InspectionDeficiency {
 
 export interface DoorInspection {
   id: string;
+  pinId?: string;            // the DoorPin this record inspects (set when a pin exists)
+  inspectionType?: 'fire_smoke_doors'; // absent on legacy rows; door service line
+  inspectionYear?: number;   // annual cycle; see lib/inspectionYear.ts
   iconNo: string;
   assetId: string | null;
   floorNo: string;
@@ -68,6 +71,7 @@ export interface DoorInspection {
   overallStatus: 'pass' | 'fail' | 'conditional' | 'inaccessible';
   deficiencies: InspectionDeficiency[];
   findings: Record<string, any>;
+  reviewedSections?: string[]; // sections the inspector explicitly cleared
   additionalComments?: string;
   postInspectionStatus?: string;
   synced: boolean;
@@ -89,6 +93,7 @@ export interface CeilingInspection {
   id: string;
   pinId?: string;
   inspectionType: 'above_below_ceiling';
+  inspectionYear?: number;   // annual cycle; see lib/inspectionYear.ts
   iconNo: string;
   floorNo: string;
   gridBlock: string;
