@@ -79,3 +79,29 @@ export interface ProjectVars {
   gapStandard: 'codify' | 'nfpa80' | 'preoccupancy' | 'surveyreadiness';
   sprinklered: boolean;
 }
+
+// Above & Below Ceiling inspection record. Stored in the SAME localStorage key
+// ('doorInspections') and Supabase table ('door_inspections') as door records —
+// scoped apart by projectName and discriminated by inspectionType — so the
+// existing sync/photo-flush path (lib/sync.ts) carries it unchanged. One record
+// per pin (id = `cinsp_<pinId>`) so re-inspecting a pin upserts, not duplicates.
+export interface CeilingInspection {
+  id: string;
+  pinId?: string;
+  inspectionType: 'above_below_ceiling';
+  iconNo: string;
+  floorNo: string;
+  gridBlock: string;
+  x?: number; // pin position (0-100 % of page) -> CSV X pos (%)
+  y?: number; // pin position (0-100 % of page) -> CSV Y pos (%)
+  findingId: string;      // CeilingFinding.id
+  category: string;       // CeilingFinding.category -> CSV Category column + checklist prefix
+  finding: string;        // CeilingFinding.detail -> checklist "Yes: <category>: <detail>"
+  priority: string;       // 'Priority 1' | 'Priority 2' | 'Priority 3' -> CSV Status column
+  inspectorName: string;
+  projectName: string;
+  completedTime: string;  // ISO; date part stamps the checklist finding tail
+  additionalComments?: string;
+  photos?: string[];      // URLs or offline data: URLs (same as door records)
+  synced: boolean;
+}

@@ -47,6 +47,7 @@ function recordToRow(record: any) {
     status: record.overallStatus || null,
     inspector: record.inspectorName || null,
     inspection_date: record.completedTime || new Date().toISOString(),
+    inspection_type: record.inspectionType || 'fire_smoke_doors',
     data: record,
     updated_at: new Date().toISOString(),
   };

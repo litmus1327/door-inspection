@@ -19,7 +19,10 @@ import ProjectsPage from './pages/ProjectsPage';
 import InspectorGate from './components/InspectorGate';
 import FloorPlanViewer from './pages/FloorPlanViewer';
 import InspectionWizard from './pages/InspectionWizard';
+import CeilingInspectionWizard from './pages/CeilingInspectionWizard';
+import { isCeilingCategory, categoryForProject } from './lib/serviceLine';
 import RecordsTab from './pages/RecordsTab';
+import CeilingRecordsTab from './pages/CeilingRecordsTab';
 import ConfigTab from './pages/ConfigTab';
 import Plans from './pages/Plans';
 import { useLocalStorage } from './hooks/useLocalStorage';
@@ -61,6 +64,8 @@ function App() {
     grid: string;
     assemblyType: string;
     doorRating: string;
+    x?: number; // pin position (0-100 %) — used by the ceiling exporter
+    y?: number;
   } | null>(null);
 
 
@@ -492,6 +497,8 @@ function App() {
       // already selected; the inspector can still override it there.
       assemblyType: updatedPin.assemblyType || '',
       doorRating: '',
+      x: updatedPin.x,
+      y: updatedPin.y,
     });
   };
 
@@ -592,20 +599,39 @@ function App() {
                         className="pointer-events-auto w-full md:w-[42vw] md:min-w-[420px] overflow-hidden bg-background md:border-l md:border-r border-border shadow-2xl"
                         style={{ height: '100dvh' }}
                       >
-                        <InspectionWizard
-                          selectedDoor={selectedDoor}
-                          onClear={() => setSelectedDoor(null)}
-                          onPinInspected={(pinId, status) => handlePinStatusChanged(pinId, status as DoorPin['status'])}
-                        />
+                        {isCeilingCategory(categoryForProject(activeProject)) ? (
+                          <CeilingInspectionWizard
+                            selectedPin={{
+                              pinId: selectedDoor.pinId,
+                              iconNo: selectedDoor.iconNo,
+                              floor: selectedDoor.floor,
+                              grid: selectedDoor.grid,
+                              x: selectedDoor.x,
+                              y: selectedDoor.y,
+                            }}
+                            onClear={() => setSelectedDoor(null)}
+                            onPinInspected={(pinId, status) => handlePinStatusChanged(pinId, status as DoorPin['status'])}
+                          />
+                        ) : (
+                          <InspectionWizard
+                            selectedDoor={selectedDoor}
+                            onClear={() => setSelectedDoor(null)}
+                            onPinInspected={(pinId, status) => handlePinStatusChanged(pinId, status as DoorPin['status'])}
+                          />
+                        )}
                       </div>
                     </div>
                   </>
                 )}
 
-                {/* Records tab overlay */}
+                {/* Records tab overlay — ceiling projects get the ceiling view */}
                 {activeTab === 'records' && (
                   <div className="absolute inset-0 z-40 bg-background overflow-auto">
-                    <RecordsTab projectName={activeProject} />
+                    {isCeilingCategory(categoryForProject(activeProject)) ? (
+                      <CeilingRecordsTab projectName={activeProject} />
+                    ) : (
+                      <RecordsTab projectName={activeProject} />
+                    )}
                   </div>
                 )}
 

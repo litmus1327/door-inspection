@@ -1,4 +1,5 @@
 import { DoorPin } from '@/types';
+import { initials, cell, buildCsvText, downloadCsv } from './fieldwireCsv';
 
 /**
  * Export completed inspections as a Fieldwire-style file the Codify Reporting
@@ -6,6 +7,7 @@ import { DoorPin } from '@/types';
  * row per door. Deficiencies go in `Checklist N` columns as
  *   Yes: <Category>: <Detail> (INITIALS) - YYYY-MM-DD
  * See the Reporting Tool's pipelines/fire_smoke_doors.py for the contract.
+ * Shared UTF-16/tab primitives live in fieldwireCsv.ts (also used by ceilingExport.ts).
  */
 
 // App assembly-type code -> Reporting Tool Category string (note: no "Barrier").
@@ -34,30 +36,6 @@ function mapStatus(overall: string | undefined, hasRecord: boolean): string {
   // 'inaccessible' (and any unknown status) report as Not Inspected — the door
   // was reached but couldn't be evaluated, so it isn't a pass or a fail.
   return 'Not Inspected';
-}
-
-function initials(name: string | undefined): string {
-  if (!name || !name.trim()) return 'NA';
-  const parts = name.trim().split(/\s+/);
-  let ini = parts.map((p) => p[0]).join('').toUpperCase();
-  if (ini.length < 2) ini = name.trim().slice(0, 2).toUpperCase();
-  return ini.slice(0, 4);
-}
-
-function cell(v: any): string {
-  return String(v == null ? '' : v).replace(/[\t\r\n]+/g, ' ').trim();
-}
-
-function toUtf16LeBlob(str: string): Blob {
-  const bytes = new Uint8Array(2 + str.length * 2);
-  bytes[0] = 0xff; // BOM (little-endian)
-  bytes[1] = 0xfe;
-  for (let i = 0; i < str.length; i++) {
-    const c = str.charCodeAt(i);
-    bytes[2 + i * 2] = c & 0xff;
-    bytes[2 + i * 2 + 1] = (c >> 8) & 0xff;
-  }
-  return new Blob([bytes], { type: 'text/csv' });
 }
 
 export function exportFieldwireCsv() {
@@ -120,18 +98,6 @@ export function exportFieldwireCsv() {
   });
 
   const facility = localStorage.getItem('activeProject') || '';
-  const preamble = [
-    'Generated with www.fieldwire.com',
-    facility,
-    new Date().toISOString(),
-    header.join('\t'),
-  ];
-  const content = [...preamble, ...dataLines].join('\r\n');
-
-  const url = URL.createObjectURL(toUtf16LeBlob(content));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `codify_fieldwire_export_${new Date().toISOString().split('T')[0]}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const content = buildCsvText(facility, header, dataLines);
+  downloadCsv(content, `codify_fieldwire_export_${new Date().toISOString().split('T')[0]}.csv`);
 }
