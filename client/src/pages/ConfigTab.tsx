@@ -135,6 +135,49 @@ export default function ConfigTab() {
           </div>
         </div>
 
+        {/* Client preferences — re-asked each annual inspection */}
+        <div>
+          <label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3 block">
+            Client does NOT want us to cite astragals and sweeps?
+          </label>
+          <div className="flex gap-2">
+            {([true, false] as const).map((value) => (
+              <button
+                key={String(value)}
+                onClick={() => updateVar('noCiteAstragalSweep', value)}
+                className={`px-4 py-2 rounded border transition-all font-medium ${
+                  setup.noCiteAstragalSweep === value
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'border-border text-foreground hover:border-primary/50'
+                }`}
+              >
+                {value ? 'Yes' : 'No'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3 block">
+            Client does NOT want us to cite laminate damage on non-fire door assemblies?
+          </label>
+          <div className="flex gap-2">
+            {([true, false] as const).map((value) => (
+              <button
+                key={String(value)}
+                onClick={() => updateVar('noCiteLaminateNonFire', value)}
+                className={`px-4 py-2 rounded border transition-all font-medium ${
+                  setup.noCiteLaminateNonFire === value
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'border-border text-foreground hover:border-primary/50'
+                }`}
+              >
+                {value ? 'Yes' : 'No'}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Cloud Sync (Supabase) — hidden when the deploy already provides it */}
         {!envConnected && (
         <div>

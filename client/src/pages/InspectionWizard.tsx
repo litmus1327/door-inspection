@@ -26,6 +26,7 @@ interface SelectedDoor {
   floor: string;
   grid: string;
   assemblyType: string;
+  assemblyLowConfidence?: boolean;
   doorRating: string;
   pinId?: string;
 }
@@ -46,6 +47,9 @@ interface ProjectVars {
   construction: string;
   gapStandard: string;
   sprinklered: boolean;
+  // Client preferences (Yes = suppress the citation). See lib/projectSetup.ts.
+  noCiteAstragalSweep?: boolean;
+  noCiteLaminateNonFire?: boolean;
 }
 
 interface BranchAnswers {
@@ -113,6 +117,9 @@ export function getApplicableItems(
 ): ChecklistItem[] {
   const sprinklered = projVars.sprinklered !== false;
   const gapStd = projVars.gapStandard || 'codify';
+  // Client preferences — when set, these citations are suppressed.
+  const noCiteAstragalSweep = projVars.noCiteAstragalSweep === true;
+  const noCiteLaminateNonFire = projVars.noCiteLaminateNonFire === true;
   const minRating = MIN_RATINGS[atype] ?? null;
   const isDualEgressSwing = swing === 'dbl_dual_egress';
   let minRequired = minRating;
@@ -163,8 +170,8 @@ export function getApplicableItems(
 
 
   // GAPS
-  items.push({ section: 'Gaps', id: 'gap_astragal', text: 'Gap: Astragal is not intended for gap mitigation.', show: notSingleDoor && isNotSmokePartOrSuite, branch: isSmoke ? 'x4' : null });
-  items.push({ section: 'Gaps', id: 'gap_sweep', text: 'Gap: Sweep is not intended for gap mitigation.', show: hw.hw_sweep && !isSmokePart && !isSuite && !(isSmoke && isCrossCorridor && isDualEgress), branch: 'x1' });
+  items.push({ section: 'Gaps', id: 'gap_astragal', text: 'Gap: Astragal is not intended for gap mitigation.', show: notSingleDoor && isNotSmokePartOrSuite && !noCiteAstragalSweep, branch: isSmoke ? 'x4' : null });
+  items.push({ section: 'Gaps', id: 'gap_sweep', text: 'Gap: Sweep is not intended for gap mitigation.', show: hw.hw_sweep && !isSmokePart && !isSuite && !(isSmoke && isCrossCorridor && isDualEgress) && !noCiteAstragalSweep, branch: 'x1' });
   items.push({ section: 'Gaps', id: 'gap_bottom_3_4', text: 'Gap: Bottom clearance is in excess of 3/4".', show: atype !== 'suite_perimeter', hint: 'Standard: 3/4" max' });
   items.push({ section: 'Gaps', id: 'gap_bottom_1', text: 'Gap: Bottom clearance is in excess of 1".', show: isSuite, hint: 'Suite Perimeter standard: 1" max' });
   items.push({ section: 'Gaps', id: 'gap_face', text: 'Gap: Face gap is excessive.', show: true, branch: 'x2' });
@@ -213,9 +220,11 @@ export function getApplicableItems(
   items.push({ section: 'Physical Integrity', id: 'pi_holes', text: 'Physical Integrity: Fastener hole(s) present in door and/or frame.', show: true, branch: 'x6' });
   items.push({ section: 'Physical Integrity', id: 'pi_prep', text: 'Physical Integrity: Prep exposed in door and/or frame.', show: true, branch: 'x6' });
   items.push({ section: 'Physical Integrity', id: 'pi_dissimilar', text: 'Physical Integrity: Hole(s) in door filled with material dissimilar to that of the door and frame.', show: isNotSmokePartOrSuite, branch: isSmoke ? 'x4' : null });
-  items.push({ section: 'Physical Integrity', id: 'pi_laminate_hinge', text: 'Physical Integrity: Laminate is missing or damaged at hinge edge.', show: true, branch: (isSmokePart || isSuite || isSmokeBarrierNonRated) ? 'x8' : null });
-  items.push({ section: 'Physical Integrity', id: 'pi_laminate_latch', text: 'Physical Integrity: Laminate is missing or damaged latch edge.', show: true, branch: (isSmokePart || isSuite || isSmokeBarrierNonRated) ? 'x8' : null });
-  items.push({ section: 'Physical Integrity', id: 'pi_laminate_face', text: 'Physical Integrity: Laminate is missing or damaged on door face.', show: true, branch: (isSmokePart || isSuite || isSmokeBarrierNonRated) ? 'x8' : null });
+  // Laminate damage: suppressed on NON-fire assemblies when the client opts out.
+  const showLaminate = !(noCiteLaminateNonFire && !isFire);
+  items.push({ section: 'Physical Integrity', id: 'pi_laminate_hinge', text: 'Physical Integrity: Laminate is missing or damaged at hinge edge.', show: showLaminate, branch: (isSmokePart || isSuite || isSmokeBarrierNonRated) ? 'x8' : null });
+  items.push({ section: 'Physical Integrity', id: 'pi_laminate_latch', text: 'Physical Integrity: Laminate is missing or damaged latch edge.', show: showLaminate, branch: (isSmokePart || isSuite || isSmokeBarrierNonRated) ? 'x8' : null });
+  items.push({ section: 'Physical Integrity', id: 'pi_laminate_face', text: 'Physical Integrity: Laminate is missing or damaged on door face.', show: showLaminate, branch: (isSmokePart || isSuite || isSmokeBarrierNonRated) ? 'x8' : null });
   items.push({ section: 'Physical Integrity', id: 'pi_latching_hw', text: 'Physical Integrity: Latching hardware is missing or damaged.', show: hw.hw_lockset_cylindrical || hw.hw_lockset_mortise || hw.hw_panic_device || hw.hw_delayed_egress });
   items.push({ section: 'Physical Integrity', id: 'pi_astragal', text: 'Physical Integrity: Astragal is damaged.', show: notSingleDoor, branch: 'x5' });
   items.push({ section: 'Physical Integrity', id: 'pi_sweep', text: 'Physical Integrity: Sweep is damaged.', show: hw.hw_sweep, branch: 'x9' });
@@ -814,6 +823,10 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
   const [floorNo, setFloorNo] = useState(selectedDoor?.floor || '');
   const [gridBlock, setGridBlock] = useState(selectedDoor?.grid || '');
   const [assemblyType, setAssemblyType] = useState(selectedDoor?.assemblyType || '');
+  // The auto-detect flagged this assembly type as a weak/ambiguous guess. Prompt
+  // the inspector to confirm until they touch the dropdown.
+  const [assemblyTouched, setAssemblyTouched] = useState(false);
+  const showAssemblyConfirm = !!selectedDoor?.assemblyLowConfidence && !assemblyTouched && !!assemblyType;
   const [doorRating, setDoorRating] = useState(selectedDoor?.doorRating || '');
   const [doorSwingType, setDoorSwingType] = useState('single');
   const [hwState, setHwState] = useState<HwState>({ ...DEFAULT_HW_STATE });
@@ -846,6 +859,8 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
     construction: _setup.construction,
     gapStandard: _setup.gapStandard,
     sprinklered: _setup.sprinklered,
+    noCiteAstragalSweep: _setup.noCiteAstragalSweep,
+    noCiteLaminateNonFire: _setup.noCiteLaminateNonFire,
   };
 
   // Inspector
@@ -1614,13 +1629,27 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
   };
 
   // ── COMPLETE SCREEN ──────────────────────────────────────────────
+  // Shared close (X) control — dismisses the wizard from any phase. In-progress
+  // work is preserved as a per-pin draft, so closing is non-destructive.
+  const closeBtn = onClear ? (
+    <button
+      onClick={onClear}
+      aria-label="Close inspection"
+      title="Close"
+      className="shrink-0 w-8 h-8 flex items-center justify-center rounded-sm text-muted-foreground hover:bg-secondary hover:text-foreground text-xl leading-none"
+    >
+      ✕
+    </button>
+  ) : null;
+
   if (phase === 'complete') {
     const defList = Object.values(deficiencies).filter(d => d.status === 'deficient' || d.status === 'advisory');
     const defCount = defList.filter(d => d.status === 'deficient').length;
     const overall = defCount > 0 ? 'fail' : defList.length > 0 ? 'conditional' : 'pass';
 
     return (
-      <div className="p-6 max-w-2xl mx-auto">
+      <div className="p-6 max-w-2xl mx-auto relative">
+        {closeBtn && <div className="absolute top-3 right-3">{closeBtn}</div>}
         <div className={`rounded-lg border p-6 text-center mb-6 ${
           overall === 'pass' ? 'border-green-500/40 bg-green-500/5' :
           overall === 'fail' ? 'border-red-500/40 bg-red-500/5' :
@@ -1676,17 +1705,20 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
               <h1 className="text-2xl font-bold tracking-tight">Inspection Wizard</h1>
               <p className="text-sm text-muted-foreground mt-1">Page 1 of 2: Door Identification</p>
             </div>
-            <button
-              onClick={() => setAssistedMode(!assistedMode)}
-              title="Assisted mode shows reference photos and plain-language help. Turn off for a faster, expert layout. Inspection rules are identical either way."
-              className={`shrink-0 px-3 py-1.5 rounded-sm border text-xs font-mono uppercase tracking-wider transition-all ${
-                assistedMode
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border text-muted-foreground hover:border-primary/50'
-              }`}
-            >
-              Assisted {assistedMode ? 'ON' : 'OFF'}
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setAssistedMode(!assistedMode)}
+                title="Assisted mode shows reference photos and plain-language help. Turn off for a faster, expert layout. Inspection rules are identical either way."
+                className={`px-3 py-1.5 rounded-sm border text-xs font-mono uppercase tracking-wider transition-all ${
+                  assistedMode
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border text-muted-foreground hover:border-primary/50'
+                }`}
+              >
+                Assisted {assistedMode ? 'ON' : 'OFF'}
+              </button>
+              {closeBtn}
+            </div>
           </div>
 
           {/* Scrollable content */}
@@ -1731,6 +1763,7 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
                     <select value={assemblyType} onChange={e => {
                       const val = e.target.value;
                       setAssemblyType(val);
+                      setAssemblyTouched(true);
                       if (val === 'smoke_partition' || val === 'suite_perimeter') {
                         setDoorRating('0');
                         setFrameRating('0');
@@ -1738,7 +1771,7 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
                         setDoorRating('');
                         setFrameRating('180');
                       }
-                    }} className="codify-input flex-1">
+                    }} className={`codify-input flex-1 ${showAssemblyConfirm ? 'border-amber-500' : ''}`}>
                       <option value="">— Select —</option>
                       <option value="3hr_fire">3-Hour Fire Barrier</option>
                       <option value="2hr_fire">2-Hour Fire Barrier</option>
@@ -1749,6 +1782,11 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
                       <option value="suite_perimeter">Suite Perimeter</option>
                     </select>
                   </div>
+                  {showAssemblyConfirm && (
+                    <p className="text-xs text-amber-500 font-mono mt-1">
+                      Auto-detected — the wall color was ambiguous. Please confirm the assembly type.
+                    </p>
+                  )}
                   {assistedMode && assemblyType && ASSEMBLY_TYPE_DESCRIPTIONS[assemblyType] && (
                     <p className="text-xs text-muted-foreground">
                       {ASSEMBLY_TYPE_DESCRIPTIONS[assemblyType]}
@@ -2068,9 +2106,12 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
     return (
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="px-4 pt-4 pb-2 shrink-0">
-          <h1 className="text-2xl font-bold tracking-tight">Inspection Wizard</h1>
-          <p className="text-sm text-muted-foreground mt-1">Page 2 of 2: Door Hardware</p>
+        <div className="px-4 pt-4 pb-2 shrink-0 flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Inspection Wizard</h1>
+            <p className="text-sm text-muted-foreground mt-1">Page 2 of 2: Door Hardware</p>
+          </div>
+          {closeBtn}
         </div>
 
         {/* Scrollable content */}
@@ -2181,6 +2222,7 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
         <span className="text-muted-foreground">FLOOR <span className="text-foreground font-semibold">{currentDoor?.floorNo || '—'}</span></span>
         <span className="text-muted-foreground">TYPE <span className="text-primary font-semibold">{ASSEMBLY_TYPE_LABELS[currentDoor?.assemblyType || ''] || '—'}</span></span>
         <span className="text-muted-foreground">RATING <span className="text-foreground font-semibold">{currentDoor?.doorRating === '0' ? 'Non-Rated' : (currentDoor?.doorRating + ' min')}</span></span>
+        <div className="ml-auto">{closeBtn}</div>
       </div>
 
       {/* Inspect view toggle */}

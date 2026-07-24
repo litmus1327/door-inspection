@@ -49,6 +49,9 @@ function App() {
   const [activeProject, setActiveProjectState] = useState('');
   const setActiveProject = (name: string) => {
     setActiveProjectState(name);
+    // Opening a project lands on Plans with the nav pane open (the hamburger
+    // toggles it closed). Going Home (name === '') leaves it as-is.
+    if (name) setSidebarOpen(true);
     try { localStorage.setItem('activeProject', name); } catch { /* ignore */ }
   };
   const [inspectorName, setInspectorName] = useLocalStorage('inspectorName', '');
@@ -63,6 +66,7 @@ function App() {
     floor: string;
     grid: string;
     assemblyType: string;
+    assemblyLowConfidence?: boolean;
     doorRating: string;
     x?: number; // pin position (0-100 %) — used by the ceiling exporter
     y?: number;
@@ -496,6 +500,7 @@ function App() {
       // Prefill the auto-detected assembly type so the wizard opens with it
       // already selected; the inspector can still override it there.
       assemblyType: updatedPin.assemblyType || '',
+      assemblyLowConfidence: updatedPin.assemblyLowConfidence,
       doorRating: '',
       x: updatedPin.x,
       y: updatedPin.y,
@@ -550,17 +555,17 @@ function App() {
             {/* Sidebar */}
             <Sidebar
               activeTab={activeTab}
-              onTabChange={(tab) => setActiveTab(tab as TabType)}
+              onTabChange={(tab) => { setSelectedDoor(null); setActiveTab(tab as TabType); }}
               isOpen={sidebarOpen}
               onClose={() => setSidebarOpen(false)}
               activeProject={activeProject}
-              onSwitchProject={() => { setSidebarOpen(false); setActiveProject(''); }}
+              onSwitchProject={() => { setSelectedDoor(null); setSidebarOpen(false); setActiveProject(''); }}
             />
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden">
               {/* Header */}
-              <Header onMenuClick={() => setSidebarOpen(true)} />
+              <Header onMenuClick={() => setSidebarOpen((o) => !o)} />
 
               {/* Content */}
               <main className="flex-1 overflow-hidden relative">
@@ -580,7 +585,7 @@ function App() {
                   onPinStatusChanged={handlePinStatusChanged}
                   onPinSelected={handlePinSelected}
                   onFloorNameExtracted={handleFloorNameExtracted}
-                  onPageSelected={(page) => setCurrentPage(page)}
+                  onPageSelected={(page) => { setSelectedDoor(null); setCurrentPage(page); }}
                 />
 
                 {/* Wizard as centered overlay */}

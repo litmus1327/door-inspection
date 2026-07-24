@@ -156,26 +156,29 @@ export default function ProjectsPage({ onSelectProject, onCreateProject, onDelet
   const renderCard = (p: CachedProject) => (
     <div
       key={p.name}
-      className="relative flex flex-col justify-between min-h-32 rounded-lg border border-border bg-card p-4 hover:border-primary hover:shadow-md transition-all"
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelectProject(p.name)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectProject(p.name); } }}
+      className="relative flex flex-col justify-between min-h-32 rounded-lg border border-border bg-card p-4 hover:border-primary hover:shadow-md transition-all cursor-pointer"
     >
-      <button onClick={() => onSelectProject(p.name)} className="text-left w-full">
-        <span className="block text-base font-semibold text-foreground pr-7">{p.name}</span>
+      <span className="block text-base font-semibold text-foreground pr-7">{p.name}</span>
+
+      {/* Footer: category chip stacked directly above the open line */}
+      <div className="mt-3 flex flex-col items-start gap-1.5">
         {p.category && (
-          <span className="inline-block mt-2 text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-secondary text-muted-foreground border border-border">
+          <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-secondary text-muted-foreground border border-border">
             {p.category}
           </span>
         )}
-      </button>
-
-      <div className="mt-3 flex items-center justify-between">
-        <button onClick={() => onSelectProject(p.name)} className="text-xs text-muted-foreground hover:text-primary">
+        <span className="text-xs text-muted-foreground">
           {p.archived ? 'Archived' : 'Tap to open →'}
-        </button>
+        </span>
       </div>
 
-      {/* ⋯ actions menu */}
+      {/* ⋯ actions menu — stopPropagation so it never opens the project */}
       <button
-        onClick={() => setMenuFor(menuFor === p.name ? null : p.name)}
+        onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === p.name ? null : p.name); }}
         className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
         aria-label="Project actions"
       >
@@ -184,25 +187,25 @@ export default function ProjectsPage({ onSelectProject, onCreateProject, onDelet
       {menuFor === p.name && (
         <>
           {/* click-away layer */}
-          <div className="fixed inset-0 z-10" onClick={() => setMenuFor(null)} />
-          <div className="absolute top-9 right-2 z-20 w-36 bg-card border border-border rounded-md shadow-lg py-1 text-sm">
+          <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuFor(null); }} />
+          <div className="absolute top-9 right-2 z-20 w-36 bg-card border border-border rounded-md shadow-lg py-1 text-sm" onClick={(e) => e.stopPropagation()}>
             {p.archived ? (
               <button
-                onClick={() => setArchived(p.name, false)}
+                onClick={(e) => { e.stopPropagation(); setArchived(p.name, false); }}
                 className="block w-full text-left px-3 py-1.5 hover:bg-secondary"
               >
                 Unarchive
               </button>
             ) : (
               <button
-                onClick={() => setArchived(p.name, true)}
+                onClick={(e) => { e.stopPropagation(); setArchived(p.name, true); }}
                 className="block w-full text-left px-3 py-1.5 hover:bg-secondary"
               >
                 Archive
               </button>
             )}
             <button
-              onClick={() => { setConfirmDelete(p.name); setMenuFor(null); }}
+              onClick={(e) => { e.stopPropagation(); setConfirmDelete(p.name); setMenuFor(null); }}
               className="block w-full text-left px-3 py-1.5 text-red-500 hover:bg-secondary"
             >
               Delete…
@@ -258,7 +261,7 @@ export default function ProjectsPage({ onSelectProject, onCreateProject, onDelet
 
       <main className="max-w-3xl mx-auto px-4 py-6">
         <div className="flex items-baseline justify-between mb-4">
-          <h1 className="text-2xl font-bold tracking-tight">Projects</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Home</h1>
           {!connected && (
             <span className="text-xs text-amber-500">Offline — showing saved projects</span>
           )}

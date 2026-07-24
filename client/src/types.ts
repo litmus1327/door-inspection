@@ -43,6 +43,7 @@ export interface DoorPin {
   owner?: string; // Inspector who placed the pin (for multi-inspector presence)
   assemblyType?: string; // Auto-detected assembly-type key (see inspectionRules.ts). Blank = pick manually.
   assemblyAuto?: boolean; // true when assemblyType came from wall-color auto-detect (vs manual)
+  assemblyLowConfidence?: boolean; // true when the auto-detect was a weak/ambiguous match — prompt the inspector to confirm
 }
 
 export interface InspectionDeficiency {

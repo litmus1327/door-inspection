@@ -326,13 +326,26 @@ const PRECEDENCE_INDEX: Record<string, number> =
  * touched, the highest-precedence wins (fire beats smoke). null when nothing
  * calibrated is close enough, or a shared color's style can't be read.
  */
-export function detectAssemblyType(
+/** Detection result carrying a confidence flag. lowConfidence is true when the
+ *  auto-assigned type is a weak/ambiguous match worth the inspector confirming:
+ *  the winning color was near the tolerance boundary, more than one distinct type
+ *  was touched (precedence had to break a tie), or a same-color line's solid/
+ *  dashed style couldn't be read. */
+export interface AssemblyDetection {
+  type: string | null;
+  lowConfidence: boolean;
+}
+
+// Fraction of `tolerance` beyond which a color match is treated as weak.
+const CONFIDENCE_DIST_FRAC = 0.6;
+
+export function detectAssemblyTypeWithConfidence(
   strokes: WallStroke[],
   xPct: number, yPct: number,
   cal: ProjectCalibration,
   opts: { radiusPct: number; tolerance: number; headOffsetPct?: number }
-): string | null {
-  if (!cal.calibrated) return null;
+): AssemblyDetection {
+  if (!cal.calibrated) return { type: null, lowConfidence: false };
   const r = opts.radiusPct, r2 = r * r;
   const useCapsule = !!opts.headOffsetPct && opts.headOffsetPct > 0;
   const headY = yPct - (opts.headOffsetPct || 0);
@@ -345,6 +358,16 @@ export function detectAssemblyType(
   // Best (lowest) precedence index among touched same-color lines we could NOT
   // resolve (style unreadable). Used as a safeguard below.
   let bestUnresolvedIdx = Infinity;
+  let hadUnknownStyle = false;
+  // Min color distance we accepted per found type, for the confidence check.
+  const colorDistByType = new Map<string, number>();
+  const noteDist = (t: string, rgb: RGB) => {
+    const e = cal.types[t];
+    if (e === 'na' || !e) return;
+    const d = rgbDistance(rgb, e.rgb);
+    const prev = colorDistByType.get(t);
+    if (prev === undefined || d < prev) colorDistByType.set(t, d);
+  };
 
   for (const s of strokes) {
     if (saturation(s.rgb) < SATURATION_MIN) continue;
@@ -357,7 +380,7 @@ export function detectAssemblyType(
     if (!near) continue;
     const matches = calibratedTypesForColor(s.rgb, cal, opts.tolerance);
     if (matches.length === 0) continue;
-    if (matches.length === 1) { found.add(matches[0]); continue; }
+    if (matches.length === 1) { found.add(matches[0]); noteDist(matches[0], s.rgb); continue; }
     // Same color → disambiguate by line style. Read at a few points across the
     // balloon (head, tip, middle) and take the majority — more robust at door
     // openings where the line is broken.
@@ -372,6 +395,7 @@ export function detectAssemblyType(
     if (st === 'unknown') {
       // Couldn't tell which of the same-color types — remember its best possible
       // precedence so we don't hand the pin to a strictly lower-priority line.
+      hadUnknownStyle = true;
       const bi = Math.min(...matches.map((t) => PRECEDENCE_INDEX[t] ?? Infinity));
       if (bi < bestUnresolvedIdx) bestUnresolvedIdx = bi;
       continue;
@@ -380,9 +404,9 @@ export function detectAssemblyType(
       const e = cal.types[t];
       return e !== 'na' && e.style === st;
     });
-    if (pick) found.add(pick);
+    if (pick) { found.add(pick); noteDist(pick, s.rgb); }
   }
-  if (found.size === 0) return null;
+  if (found.size === 0) return { type: null, lowConfidence: false };
   let winner: string | null = null, bestIdx = Infinity;
   Array.from(found).forEach((t) => {
     const idx = PRECEDENCE_INDEX[t] ?? Infinity;
@@ -391,8 +415,24 @@ export function detectAssemblyType(
   // Safeguard: a touched same-color line we couldn't resolve could outrank the
   // winner (e.g. a Smoke Barrier we read as "unknown" vs a Suite Perimeter we
   // did resolve). Rather than assign the lower-priority type, leave it blank.
-  if (bestUnresolvedIdx < bestIdx) return null;
-  return winner;
+  if (bestUnresolvedIdx < bestIdx) return { type: null, lowConfidence: false };
+
+  const winnerDist = winner ? (colorDistByType.get(winner) ?? Infinity) : Infinity;
+  const lowConfidence =
+    found.size > 1 ||                                       // a tie broken by precedence
+    hadUnknownStyle ||                                      // an unreadable same-color line
+    winnerDist > opts.tolerance * CONFIDENCE_DIST_FRAC;     // a weak color match
+  return { type: winner, lowConfidence };
+}
+
+/** Back-compat: the assembly type only (used where confidence isn't needed). */
+export function detectAssemblyType(
+  strokes: WallStroke[],
+  xPct: number, yPct: number,
+  cal: ProjectCalibration,
+  opts: { radiusPct: number; tolerance: number; headOffsetPct?: number }
+): string | null {
+  return detectAssemblyTypeWithConfidence(strokes, xPct, yPct, cal, opts).type;
 }
 
 /**

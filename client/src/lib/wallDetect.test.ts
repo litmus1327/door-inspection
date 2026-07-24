@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  detectAssemblyType, matchCalibratedType, nearestWallColorAt, styleAt,
-  ProjectCalibration, WallStroke, RGB,
+  detectAssemblyType, detectAssemblyTypeWithConfidence, matchCalibratedType,
+  nearestWallColorAt, styleAt, ProjectCalibration, WallStroke, RGB,
 } from './wallDetect';
 
 // A vertical wall as one segment at x=col (percent), y 50..60.
@@ -112,5 +112,33 @@ describe('detectAssemblyType', () => {
     expect(detectAssemblyType(strokes, 50, 56, smokeCal, { radiusPct: 0.4, tolerance: 60 })).toBeNull();
     // Balloon reaches up to its head and catches the wall it covers.
     expect(detectAssemblyType(strokes, 50, 56, smokeCal, { radiusPct: 0.4, tolerance: 60, headOffsetPct: 1.2 })).toBe('smoke_barrier');
+  });
+});
+
+describe('detectAssemblyTypeWithConfidence', () => {
+  it('high confidence on a clean, close single-color match', () => {
+    const r = detectAssemblyTypeWithConfidence([line(50, [250, 5, 5])], 50, 55, cal, { radiusPct: 1.2, tolerance: 60 });
+    expect(r.type).toBe('1hr_fire');
+    expect(r.lowConfidence).toBe(false);
+  });
+
+  it('low confidence when the matched color is near the tolerance edge', () => {
+    // distance from RED [255,0,0] is 45 (> 0.6*60 = 36) but still within tolerance 60.
+    const r = detectAssemblyTypeWithConfidence([line(50, [210, 0, 0])], 50, 55, cal, { radiusPct: 1.2, tolerance: 60 });
+    expect(r.type).toBe('1hr_fire');
+    expect(r.lowConfidence).toBe(true);
+  });
+
+  it('low confidence when precedence had to break a tie (two types touched)', () => {
+    const strokes = [line(50, RED), line(51, GREEN)];
+    const r = detectAssemblyTypeWithConfidence(strokes, 50.5, 55, cal, { radiusPct: 1.2, tolerance: 60 });
+    expect(r.type).toBe('1hr_fire');
+    expect(r.lowConfidence).toBe(true);
+  });
+
+  it('no low-confidence flag when nothing matches', () => {
+    const r = detectAssemblyTypeWithConfidence([line(50, RED)], 10, 10, cal, { radiusPct: 1.2, tolerance: 60 });
+    expect(r.type).toBeNull();
+    expect(r.lowConfidence).toBe(false);
   });
 });

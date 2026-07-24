@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { DoorPin } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import {
-  extractWallStrokes, nearestWallColorAt, detectAssemblyType, styleAt, explainDetection,
+  extractWallStrokes, nearestWallColorAt, detectAssemblyTypeWithConfidence, styleAt, explainDetection,
   WallStroke, ProjectCalibration, WallPick, DEFAULT_TOLERANCE,
 } from '@/lib/wallDetect';
 
@@ -926,13 +926,16 @@ export default function PDFViewer({
       // opening). null when nothing calibrated is close enough → left blank for
       // the inspector to pick manually (never a wrong guess).
       let detected: string | null = null;
+      let detectLowConfidence = false;
       if (calibration) {
         const vw = baseViewportRef.current.width;   // scale:2 viewport
         const vh = baseViewportRef.current.height;
         const headOffsetPct = (BALLOON_CENTER_OFFSET_PX / vh) * 100;
         const radiusPct = (BALLOON_RADIUS_PX / Math.min(vw, vh)) * 100;
         const detectOpts = { radiusPct, tolerance: DEFAULT_TOLERANCE, headOffsetPct };
-        detected = detectAssemblyType(wallStrokesRef.current, clickPctX, clickPctY, calibration, detectOpts);
+        const det = detectAssemblyTypeWithConfidence(wallStrokesRef.current, clickPctX, clickPctY, calibration, detectOpts);
+        detected = det.type;
+        detectLowConfidence = det.lowConfidence;
         // Optional on-device diagnostic: localStorage.detectDebug = '1'
         try {
           if (localStorage.getItem('detectDebug')) {
@@ -953,7 +956,7 @@ export default function PDFViewer({
         projectName: '',
         pageNumber: activePage,
         gridBlock,
-        ...(detected ? { assemblyType: detected, assemblyAuto: true } : {}),
+        ...(detected ? { assemblyType: detected, assemblyAuto: true, assemblyLowConfidence: detectLowConfidence } : {}),
       };
       onPinAdded(newPin);
       return;

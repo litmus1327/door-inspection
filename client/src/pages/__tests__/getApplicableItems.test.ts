@@ -63,3 +63,26 @@ describe('getApplicableItems — dormant branch wiring', () => {
     expect(item('pi_sweep', '1hr_fire', { hw_sweep: true } as any, 'single', pv, false, '90', '90')?.branch).toBe('x9');
   });
 });
+
+describe('getApplicableItems — client-preference suppression', () => {
+  const pvNoAstragal = { ...pv, noCiteAstragalSweep: true };
+  const pvNoLaminate = { ...pv, noCiteLaminateNonFire: true };
+
+  it('suppresses the astragal/sweep gap citations when the client opts out', () => {
+    const shownDefault = shownIds('1hr_fire', { hw_sweep: true } as any, 'dbl_pair', pv, false, '90', '90');
+    expect(shownDefault.has('gap_astragal')).toBe(true);
+    expect(shownDefault.has('gap_sweep')).toBe(true);
+    const shownOptOut = shownIds('1hr_fire', { hw_sweep: true } as any, 'dbl_pair', pvNoAstragal, false, '90', '90');
+    expect(shownOptOut.has('gap_astragal')).toBe(false);
+    expect(shownOptOut.has('gap_sweep')).toBe(false);
+  });
+
+  it('suppresses laminate on NON-fire assemblies but keeps it on fire assemblies when opted out', () => {
+    // Smoke barrier is non-fire → suppressed when opted out.
+    expect(shownIds('smoke_barrier', noHw, 'single', pvNoLaminate, false, '0', '0').has('pi_laminate_face')).toBe(false);
+    // 1-hour fire is fire-rated → still cited even when opted out.
+    expect(shownIds('1hr_fire', noHw, 'single', pvNoLaminate, false, '90', '90').has('pi_laminate_face')).toBe(true);
+    // Default (opt-in) → laminate cited on non-fire too.
+    expect(shownIds('smoke_barrier', noHw, 'single', pv, false, '0', '0').has('pi_laminate_face')).toBe(true);
+  });
+});

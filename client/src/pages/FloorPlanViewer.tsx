@@ -118,13 +118,17 @@ export default function FloorPlanViewer({
   const isCalibrateMode = showCalibration && armedType !== null;
 
   // ── Per-project setup gate (construction, gap standard, sprinklered, assisted) ──
-  // Required once per project, before calibration and pins.
+  // First-time setup asks everything ('full'); each new inspection year re-asks
+  // only the gap standard + the two client-preference questions ('annual').
+  const curYear = new Date().getFullYear();
+  const setupNeeded = (s: ProjectSetup) => !isCeiling && (!s.configured || s.annualYear !== curYear);
+  const setupMode = (s: ProjectSetup): 'full' | 'annual' => (s.configured ? 'annual' : 'full');
   const [setup, setSetup] = useState<ProjectSetup>(emptyProjectSetup);
   const [showSetup, setShowSetup] = useState(false);
   useEffect(() => {
     const s = loadProjectSetup(projectName);
     setSetup(s);
-    setShowSetup(!isCeiling && !s.configured);
+    setShowSetup(setupNeeded(s));
   }, [projectName]);
   const handleSaveSetup = (s: ProjectSetup) => {
     saveProjectSetup(projectName, s);
@@ -132,8 +136,9 @@ export default function FloorPlanViewer({
     setShowSetup(false);
   };
   // Ceiling projects have no door setup/calibration to satisfy, so pins can drop
-  // as soon as the plan is open.
-  const canDropPins = isCeiling || (setup.configured && calibration.calibrated);
+  // as soon as the plan is open. Door projects need the current year's setup
+  // answered plus wall calibration.
+  const canDropPins = isCeiling || (setup.configured && setup.annualYear === curYear && calibration.calibrated);
 
   // Clear selection when switching modes or pages
   useEffect(() => {
@@ -237,7 +242,7 @@ export default function FloorPlanViewer({
             <button
               onClick={() => { setShowSetup(true); setIsDropMode(false); setIsSelectMode(false); }}
               className={`p-3 rounded-lg shadow-lg transition-all ${
-                setup.configured ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-amber-500 text-white hover:bg-amber-600 animate-pulse'
+                setupNeeded(setup) ? 'bg-amber-500 text-white hover:bg-amber-600 animate-pulse' : 'bg-gray-700 text-white hover:bg-gray-600'
               }`}
               title="Project setup"
             >
@@ -265,7 +270,7 @@ export default function FloorPlanViewer({
             are done; for ceiling it's always available. */}
         <button
           onClick={() => {
-            if (!isCeiling && !setup.configured) { setShowSetup(true); return; }
+            if (setupNeeded(setup)) { setShowSetup(true); return; }
             if (!isCeiling && !calibration.calibrated) { setShowCalibration(true); return; }
             setIsDropMode(!isDropMode);
             if (isSelectMode) setIsSelectMode(false);
@@ -277,7 +282,7 @@ export default function FloorPlanViewer({
               : 'bg-gray-700 text-white hover:bg-gray-600'
           }`}
           title={
-            !isCeiling && !setup.configured ? 'Finish project setup first'
+            setupNeeded(setup) ? 'Finish project setup first'
               : !isCeiling && !calibration.calibrated ? 'Calibrate wall colors first'
                 : isDropMode ? 'Exit drop mode' : 'Drop pins'
           }
@@ -359,6 +364,7 @@ export default function FloorPlanViewer({
       {showSetup && (
         <ProjectSetupPanel
           initial={setup}
+          mode={setupMode(setup)}
           onSave={handleSaveSetup}
           onCancel={setup.configured ? () => setShowSetup(false) : undefined}
         />

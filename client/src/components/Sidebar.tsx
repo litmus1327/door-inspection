@@ -1,4 +1,4 @@
-import { MapPin, FileText, Settings, ChevronRight, FolderOpen } from 'lucide-react';
+import { MapPin, FileText, Settings, ChevronRight, FolderOpen, Home } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -36,6 +36,16 @@ export default function Sidebar({ activeTab, onTabChange, isOpen, onClose, activ
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto pt-6 px-3">
         <div className="space-y-2">
+          {/* Home — returns to the Home/Projects page */}
+          {onSwitchProject && (
+            <button
+              onClick={onSwitchProject}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-sm text-sidebar-foreground hover:bg-sidebar-accent transition-all"
+            >
+              <Home size={18} />
+              <span className="text-sm font-medium">Home</span>
+            </button>
+          )}
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
