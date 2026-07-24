@@ -9,7 +9,7 @@ import {
   ProjectCalibration, WallPick, loadCalibration, saveCalibration, emptyCalibration,
 } from '@/lib/wallDetect';
 import { ProjectSetup, loadProjectSetup, saveProjectSetup, emptyProjectSetup } from '@/lib/projectSetup';
-import { isCeilingCategory, categoryForProject } from '@/lib/serviceLine';
+import { isNonDoorCategory, categoryForProject } from '@/lib/serviceLine';
 
 interface PdfEntry {
   id: string;
@@ -61,10 +61,11 @@ export default function FloorPlanViewer({
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedPinIds, setSelectedPinIds] = useState<Set<string>>(new Set());
 
-  // Above & Below Ceiling projects are not door inspections: the door-only
-  // setup questions (construction/gap/sprinklered) and wall-color calibration
-  // don't apply, so we skip both gates for them and let pins drop immediately.
-  const isCeiling = isCeilingCategory(categoryForProject(projectName));
+  // Non-door service lines (ceiling, damper) don't use the door-only setup
+  // questions (construction/gap/sprinklered) or wall-color calibration, so we
+  // skip both gates for them and let pins drop immediately. (Named `isCeiling`
+  // historically; it now means "any non-door service line".)
+  const isCeiling = isNonDoorCategory(categoryForProject(projectName));
 
   // ── Wall-color calibration (assembly-type auto-detect) ──────────────────────
   // Required once per project before pins can be dropped: the inspector taps a

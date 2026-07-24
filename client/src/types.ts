@@ -85,6 +85,32 @@ export interface ProjectVars {
   sprinklered: boolean;
 }
 
+// Fire & Smoke Damper inspection record. Shares the `door_inspections` table and
+// `doorInspections` localStorage key (discriminated by inspectionType), like the
+// ceiling record. One record per pin (id = `dinsp_<pinId>_<year>`).
+export interface DamperInspection {
+  id: string;
+  pinId?: string;
+  inspectionType: 'fire_smoke_damper';
+  inspectionYear?: number;   // annual cycle; see lib/inspectionYear.ts
+  iconNo: string;
+  floorNo: string;
+  gridBlock: string;
+  x?: number; // pin position (0-100 % of page) -> CSV X pos (%)
+  y?: number;
+  category: string;          // 'Fire' | 'Smoke' | 'Combination'
+  status: 'pass' | 'fail' | 'inaccessible';
+  deficiencies: string[];    // flat sentences from DAMPER_DEFICIENCIES -> Checklist "Yes:" cells
+  noDamperPresent?: boolean; // -> Fieldwire "No Damper Present" column
+  assetId?: string;
+  inspectorName: string;
+  projectName: string;
+  completedTime: string;
+  additionalComments?: string;
+  photos?: string[];         // URLs or offline data: URLs
+  synced: boolean;
+}
+
 // Above & Below Ceiling inspection record. Stored in the SAME localStorage key
 // ('doorInspections') and Supabase table ('door_inspections') as door records —
 // scoped apart by projectName and discriminated by inspectionType — so the

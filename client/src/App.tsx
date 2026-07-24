@@ -20,9 +20,11 @@ import InspectorGate from './components/InspectorGate';
 import FloorPlanViewer from './pages/FloorPlanViewer';
 import InspectionWizard from './pages/InspectionWizard';
 import CeilingInspectionWizard from './pages/CeilingInspectionWizard';
-import { isCeilingCategory, categoryForProject } from './lib/serviceLine';
+import DamperInspectionWizard from './pages/DamperInspectionWizard';
+import { serviceLineForCategory, categoryForProject } from './lib/serviceLine';
 import RecordsTab from './pages/RecordsTab';
 import CeilingRecordsTab from './pages/CeilingRecordsTab';
+import DamperRecordsTab from './pages/DamperRecordsTab';
 import ConfigTab from './pages/ConfigTab';
 import Plans from './pages/Plans';
 import { useLocalStorage } from './hooks/useLocalStorage';
@@ -604,26 +606,21 @@ function App() {
                         className="pointer-events-auto w-full md:w-[42vw] md:min-w-[420px] overflow-hidden bg-background md:border-l md:border-r border-border shadow-2xl"
                         style={{ height: '100dvh' }}
                       >
-                        {isCeilingCategory(categoryForProject(activeProject)) ? (
-                          <CeilingInspectionWizard
-                            selectedPin={{
-                              pinId: selectedDoor.pinId,
-                              iconNo: selectedDoor.iconNo,
-                              floor: selectedDoor.floor,
-                              grid: selectedDoor.grid,
-                              x: selectedDoor.x,
-                              y: selectedDoor.y,
-                            }}
-                            onClear={() => setSelectedDoor(null)}
-                            onPinInspected={(pinId, status) => handlePinStatusChanged(pinId, status as DoorPin['status'])}
-                          />
-                        ) : (
-                          <InspectionWizard
-                            selectedDoor={selectedDoor}
-                            onClear={() => setSelectedDoor(null)}
-                            onPinInspected={(pinId, status) => handlePinStatusChanged(pinId, status as DoorPin['status'])}
-                          />
-                        )}
+                        {(() => {
+                          const sl = serviceLineForCategory(categoryForProject(activeProject));
+                          const pin = {
+                            pinId: selectedDoor.pinId,
+                            iconNo: selectedDoor.iconNo,
+                            floor: selectedDoor.floor,
+                            grid: selectedDoor.grid,
+                            x: selectedDoor.x,
+                            y: selectedDoor.y,
+                          };
+                          const onPinInspected = (pinId: string, status: string) => handlePinStatusChanged(pinId, status as DoorPin['status']);
+                          if (sl === 'above_below_ceiling') return <CeilingInspectionWizard selectedPin={pin} onClear={() => setSelectedDoor(null)} onPinInspected={onPinInspected} />;
+                          if (sl === 'fire_smoke_damper') return <DamperInspectionWizard selectedPin={pin} onClear={() => setSelectedDoor(null)} onPinInspected={onPinInspected} />;
+                          return <InspectionWizard selectedDoor={selectedDoor} onClear={() => setSelectedDoor(null)} onPinInspected={onPinInspected} />;
+                        })()}
                       </div>
                     </div>
                   </>
@@ -632,11 +629,12 @@ function App() {
                 {/* Records tab overlay — ceiling projects get the ceiling view */}
                 {activeTab === 'records' && (
                   <div className="absolute inset-0 z-40 bg-background overflow-auto">
-                    {isCeilingCategory(categoryForProject(activeProject)) ? (
-                      <CeilingRecordsTab projectName={activeProject} />
-                    ) : (
-                      <RecordsTab projectName={activeProject} />
-                    )}
+                    {(() => {
+                      const sl = serviceLineForCategory(categoryForProject(activeProject));
+                      if (sl === 'above_below_ceiling') return <CeilingRecordsTab projectName={activeProject} />;
+                      if (sl === 'fire_smoke_damper') return <DamperRecordsTab projectName={activeProject} />;
+                      return <RecordsTab projectName={activeProject} />;
+                    })()}
                   </div>
                 )}
 
