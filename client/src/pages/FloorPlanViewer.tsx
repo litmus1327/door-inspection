@@ -9,6 +9,7 @@ import {
   ProjectCalibration, WallPick, loadCalibration, saveCalibration, emptyCalibration,
 } from '@/lib/wallDetect';
 import { ProjectSetup, loadProjectSetup, saveProjectSetup, emptyProjectSetup } from '@/lib/projectSetup';
+import { isCeilingCategory, categoryForProject } from '@/lib/serviceLine';
 
 interface PdfEntry {
   id: string;
@@ -60,6 +61,11 @@ export default function FloorPlanViewer({
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedPinIds, setSelectedPinIds] = useState<Set<string>>(new Set());
 
+  // Above & Below Ceiling projects are not door inspections: the door-only
+  // setup questions (construction/gap/sprinklered) and wall-color calibration
+  // don't apply, so we skip both gates for them and let pins drop immediately.
+  const isCeiling = isCeilingCategory(categoryForProject(projectName));
+
   // ── Wall-color calibration (assembly-type auto-detect) ──────────────────────
   // Required once per project before pins can be dropped: the inspector taps a
   // line for each assembly type (or marks it N/A). See lib/wallDetect.ts.
@@ -72,7 +78,7 @@ export default function FloorPlanViewer({
   useEffect(() => {
     const c = loadCalibration(projectName);
     setCalibration(c);
-    setShowCalibration(!c.calibrated);
+    setShowCalibration(!isCeiling && !c.calibrated);
     setArmedType(null);
     setLastPickFailed(false);
   }, [projectName]);
@@ -118,14 +124,16 @@ export default function FloorPlanViewer({
   useEffect(() => {
     const s = loadProjectSetup(projectName);
     setSetup(s);
-    setShowSetup(!s.configured);
+    setShowSetup(!isCeiling && !s.configured);
   }, [projectName]);
   const handleSaveSetup = (s: ProjectSetup) => {
     saveProjectSetup(projectName, s);
     setSetup(s);
     setShowSetup(false);
   };
-  const canDropPins = setup.configured && calibration.calibrated;
+  // Ceiling projects have no door setup/calibration to satisfy, so pins can drop
+  // as soon as the plan is open.
+  const canDropPins = isCeiling || (setup.configured && calibration.calibrated);
 
   // Clear selection when switching modes or pages
   useEffect(() => {
@@ -222,37 +230,43 @@ export default function FloorPlanViewer({
 
       {/* Fieldwire-style Markup Toolbar - Bottom Right */}
       <div className="fixed bottom-4 right-4 z-40 flex flex-col gap-2">
-        {/* Project setup — required before dropping pins */}
-        <button
-          onClick={() => { setShowSetup(true); setIsDropMode(false); setIsSelectMode(false); }}
-          className={`p-3 rounded-lg shadow-lg transition-all ${
-            setup.configured ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-amber-500 text-white hover:bg-amber-600 animate-pulse'
-          }`}
-          title="Project setup"
-        >
-          <SlidersHorizontal size={20} />
-        </button>
+        {/* Project setup + wall calibration are door-only; hidden for ceiling. */}
+        {!isCeiling && (
+          <>
+            {/* Project setup — required before dropping pins */}
+            <button
+              onClick={() => { setShowSetup(true); setIsDropMode(false); setIsSelectMode(false); }}
+              className={`p-3 rounded-lg shadow-lg transition-all ${
+                setup.configured ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-amber-500 text-white hover:bg-amber-600 animate-pulse'
+              }`}
+              title="Project setup"
+            >
+              <SlidersHorizontal size={20} />
+            </button>
 
-        {/* Calibrate wall colors — required before dropping pins */}
-        <button
-          onClick={() => { setShowCalibration(true); setIsDropMode(false); setIsSelectMode(false); }}
-          className={`p-3 rounded-lg shadow-lg transition-all ${
-            showCalibration
-              ? 'bg-amber-500 text-white hover:bg-amber-600'
-              : calibration.calibrated
-                ? 'bg-gray-700 text-white hover:bg-gray-600'
-                : 'bg-amber-500 text-white hover:bg-amber-600 animate-pulse'
-          }`}
-          title="Set up wall colors"
-        >
-          <Palette size={20} />
-        </button>
+            {/* Calibrate wall colors — required before dropping pins */}
+            <button
+              onClick={() => { setShowCalibration(true); setIsDropMode(false); setIsSelectMode(false); }}
+              className={`p-3 rounded-lg shadow-lg transition-all ${
+                showCalibration
+                  ? 'bg-amber-500 text-white hover:bg-amber-600'
+                  : calibration.calibrated
+                    ? 'bg-gray-700 text-white hover:bg-gray-600'
+                    : 'bg-amber-500 text-white hover:bg-amber-600 animate-pulse'
+              }`}
+              title="Set up wall colors"
+            >
+              <Palette size={20} />
+            </button>
+          </>
+        )}
 
-        {/* Pin Tool — disabled until project setup + wall calibration are done */}
+        {/* Pin Tool — for doors, disabled until project setup + wall calibration
+            are done; for ceiling it's always available. */}
         <button
           onClick={() => {
-            if (!setup.configured) { setShowSetup(true); return; }
-            if (!calibration.calibrated) { setShowCalibration(true); return; }
+            if (!isCeiling && !setup.configured) { setShowSetup(true); return; }
+            if (!isCeiling && !calibration.calibrated) { setShowCalibration(true); return; }
             setIsDropMode(!isDropMode);
             if (isSelectMode) setIsSelectMode(false);
           }}
@@ -263,8 +277,8 @@ export default function FloorPlanViewer({
               : 'bg-gray-700 text-white hover:bg-gray-600'
           }`}
           title={
-            !setup.configured ? 'Finish project setup first'
-              : !calibration.calibrated ? 'Calibrate wall colors first'
+            !isCeiling && !setup.configured ? 'Finish project setup first'
+              : !isCeiling && !calibration.calibrated ? 'Calibrate wall colors first'
                 : isDropMode ? 'Exit drop mode' : 'Drop pins'
           }
         >
