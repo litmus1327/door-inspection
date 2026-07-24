@@ -3,6 +3,7 @@ import { DoorPin, CeilingInspection } from '@/types';
 import { syncInspections, exportBackup } from '@/lib/sync';
 import { getSupabaseConfig } from '@/lib/supabase';
 import { exportCeilingCsv } from '@/lib/ceilingExport';
+import { generateCeilingLocationSummary } from '@/lib/ceilingLocationSummary';
 
 // Records view for Above & Below Ceiling projects. Ceiling has no pass/fail —
 // every icon is a finding — so the table shows Category / Finding / Priority
@@ -25,6 +26,8 @@ export default function CeilingRecordsTab({ projectName }: Props) {
   const [search, setSearch] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfMsg, setPdfMsg] = useState('');
 
   const loadRecords = () => {
     const allPins = Object.values(
@@ -68,6 +71,22 @@ export default function CeilingRecordsTab({ projectName }: Props) {
     setSyncMsg(r.ok ? `Synced: ${r.uploaded} up, ${r.downloaded} down` : (r.error || 'Sync failed'));
     loadRecords();
     setSyncing(false);
+  };
+
+  const handleLocationSummary = async () => {
+    setPdfBusy(true);
+    setPdfMsg('');
+    try {
+      const r = await generateCeilingLocationSummary(projectName, records);
+      setPdfMsg(
+        r.ok
+          ? `PDF: ${r.icons} icons, ${r.photos} photos, ${r.drawings} drawings${r.message ? ` — ${r.message}` : ''}`
+          : (r.message || 'Nothing to export')
+      );
+    } catch (e: any) {
+      setPdfMsg(`PDF failed: ${e?.message || 'error'}`);
+    }
+    setPdfBusy(false);
   };
 
   const filtered = records.filter((r) => {
@@ -117,10 +136,18 @@ export default function CeilingRecordsTab({ projectName }: Props) {
           />
           <button
             onClick={() => exportCeilingCsv(projectName)}
-            title="Export the Fieldwire-format file the Codify Reporting Tool ingests (Above & Below Ceiling)."
+            title="Export the Fieldwire-format CSV the Codify Reporting Tool ingests (Above & Below Ceiling)."
             className="px-3 py-1.5 border border-border rounded-sm text-xs font-mono uppercase tracking-wide text-muted-foreground hover:border-primary/50 transition-all"
           >
-            Export to Reporting Tool
+            Export CSV
+          </button>
+          <button
+            onClick={handleLocationSummary}
+            disabled={pdfBusy}
+            title="Generate the Location Summary PDF (photos + plan drawings) to upload alongside the CSV in the Reporting Tool."
+            className="px-3 py-1.5 border border-border rounded-sm text-xs font-mono uppercase tracking-wide text-muted-foreground hover:border-primary/50 transition-all disabled:opacity-50"
+          >
+            {pdfBusy ? 'Building PDF…' : 'Location Summary PDF'}
           </button>
           <button
             onClick={exportBackup}
@@ -137,6 +164,7 @@ export default function CeilingRecordsTab({ projectName }: Props) {
             {syncing ? 'Syncing…' : 'Sync to Cloud'}
           </button>
           {syncMsg && <span className="text-xs font-mono text-muted-foreground self-center">{syncMsg}</span>}
+          {pdfMsg && <span className="text-xs font-mono text-muted-foreground self-center">{pdfMsg}</span>}
         </div>
 
         {/* Table */}
