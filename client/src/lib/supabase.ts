@@ -104,6 +104,25 @@ export async function fetchInspectionRecords(
   }
 }
 
+// Delete an inspection record (door or ceiling) from the cloud by its id. Used
+// by the Tasks page's delete action; the local copy is removed separately.
+export async function deleteInspectionRecord(config: SupabaseConfig, id: string): Promise<boolean> {
+  if (!config.url || !config.key || !id) return false;
+  try {
+    const res = await fetch(
+      `${config.url}/rest/v1/door_inspections?id=eq.${encodeURIComponent(id)}`,
+      {
+        method: 'DELETE',
+        headers: { 'apikey': config.key, 'Authorization': `Bearer ${config.key}` },
+      }
+    );
+    return res.ok;
+  } catch (error) {
+    console.error('Delete inspection record error:', error);
+    return false;
+  }
+}
+
 export async function uploadPhotoToSupabase(
   config: SupabaseConfig,
   file: File,
