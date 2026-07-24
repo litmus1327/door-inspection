@@ -3,7 +3,7 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import DoorDiagram from '@/components/DoorDiagram';
 import type { Zone, ZoneState } from '@/types';
 import { ZONE_TO_ITEM_IDS, ZONE_LABELS } from '@/lib/doorZones';
-import { getSupabaseConfig, uploadPhotoToSupabase } from '@/lib/supabase';
+import { getSupabaseConfig, uploadPhotoToSupabase, uploadInspectionRecord } from '@/lib/supabase';
 import { loadProjectSetup, saveProjectSetup } from '@/lib/projectSetup';
 import { recordId, dedupeForSave } from '@/lib/inspectionYear';
 import {
@@ -1518,6 +1518,23 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
     const deduped = dedupeForSave(existing, record.pinId, inspectionYear);
     deduped.push(record);
     localStorage.setItem('doorInspections', JSON.stringify(deduped));
+
+    // Best-effort immediate cloud upload so a finished door doesn't wait for the
+    // next sync (matches the ceiling wizard). Fire-and-forget so the UI advances
+    // instantly. Offline or unconfigured, this is skipped and the record stays
+    // local with synced:false for sync.ts to flush later — offline use unchanged.
+    const cfg = getSupabaseConfig();
+    if (cfg.url && cfg.key && navigator.onLine) {
+      uploadInspectionRecord(cfg, record)
+        .then((ok) => {
+          if (!ok) return;
+          const all = JSON.parse(localStorage.getItem('doorInspections') || '[]');
+          localStorage.setItem('doorInspections', JSON.stringify(
+            all.map((r: any) => (r.id === record.id ? { ...r, synced: true } : r))
+          ));
+        })
+        .catch(() => { /* stays unsynced; sync.ts retries on next trigger */ });
+    }
 
     // The finalized record supersedes any in-progress draft for this pin.
     try {
