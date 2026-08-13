@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 // uuid works in insecure contexts (e.g. the http:// LAN test link); crypto.randomUUID
 // is undefined there and throws, which broke PDF-entry creation on phones.
 import { v4 as uuidv4 } from 'uuid';
@@ -31,6 +31,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { getSupabaseConfig, upsertPin, deletePin, fetchPins, uploadPlanPDF, downloadPlanPDF, planExistsInCloud } from './lib/supabase';
 import { syncInspections, flushPendingPhotos } from './lib/sync';
 import { DoorPin } from './types';
+import { pinMapInProject } from './lib/projectScope';
 
 type TabType = 'plans' | 'inspect' | 'records' | 'config';
 
@@ -81,6 +82,21 @@ function App() {
   const [totalPages, setTotalPages] = useState(0);
   const [pins, setPins] = useLocalStorage<Record<number, DoorPin[]>>('floorPlanPins', {});
   const [floorNames, setFloorNames] = useState<Record<number, string>>({});
+
+  // Pins for the CURRENT project only, for display and for icon numbering.
+  //
+  // `pins` is every project's pins under one localStorage key. Offline (or
+  // before the cloud fetch lands, which IS project-scoped) project B's plan
+  // rendered project A's pins, counted them in its totals and continued its
+  // numbering from A's highest icon number.
+  //
+  // Mutation handlers deliberately keep operating on the FULL `pins` map: they
+  // rebuild it page by page, so filtering there would delete every other
+  // project's pins on the first edit. Read scoped, write whole.
+  const visiblePins = useMemo(
+    () => pinMapInProject(pins, activeProject),
+    [pins, activeProject],
+  );
   const [currentPage, setCurrentPage] = useState(1);
 
   // IndexedDB helpers for PDF persistence
@@ -437,7 +453,13 @@ function App() {
   const handlePinAdded = (pin: DoorPin) => {
     // Next number = highest existing iconNo + 1 (not a count, which would
     // reuse a number after a deletion and collide with an existing pin).
-    const maxNo = Object.values(pins)
+    //
+    // Scoped to THIS project. `pins` holds every project's pins under one
+    // localStorage key, so numbering off the whole map made a new facility's
+    // first door continue from another facility's highest number: open a second
+    // project on a device that already had 240 doors and its icon 1 came out
+    // as 241.
+    const maxNo = Object.values(visiblePins)
       .flat()
       .reduce((m, p) => Math.max(m, parseInt(p.iconNo) || 0), 0);
     const pinWithNumber: DoorPin = {
@@ -518,7 +540,7 @@ function App() {
   };
 
   const handlePinSelected = (pin: DoorPin) => {
-    const currentPagePins = pins[currentPage] || [];
+    const currentPagePins = visiblePins[currentPage] || [];
     const updatedPin = currentPagePins.find((p) => p.id === pin.id) || pin;
     setSelectedDoor({
       pinId: pin.id,
@@ -603,7 +625,7 @@ function App() {
                   pdfEntries={pdfEntries}
                   pdfDocuments={pdfDocuments}
                   totalPages={totalPages}
-                  pins={pins}
+                  pins={visiblePins}
                   floorNames={floorNames}
                   projectName={activeProject}
                   onPDFUpload={handlePDFUpload}

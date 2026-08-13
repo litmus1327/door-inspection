@@ -4,6 +4,7 @@ import {
   fetchInspectionRecords,
   uploadPhotoToSupabase,
 } from './supabase';
+import { activeProject } from './projectScope';
 
 export interface SyncResult {
   ok: boolean;
@@ -88,11 +89,32 @@ export async function syncInspections(): Promise<SyncResult> {
   }
 
   // 2. Pull and merge cloud records we don't have.
+  //
+  // Scoped to the active project. `fetchInspectionRecords` has always taken a
+  // project (fetchPins is called with one) and this call never passed it, so
+  // every device pulled every facility's records into the single unscoped
+  // `doorInspections` array. That is what put other projects' records on the
+  // device in the first place, ahead of any exporter or tab reading them.
+  //
+  // With no project selected it still fetches everything, so syncing from the
+  // Projects home behaves as before.
   let downloaded = 0;
-  const cloud = await fetchInspectionRecords(config);
+  const project = activeProject();
+  const cloud = await fetchInspectionRecords(config, project || undefined);
   if (cloud === null) {
     return { ok: uploaded > 0, uploaded, downloaded, error: 'Could not reach Supabase to download' };
   }
+  // supabase.fetchInspectionRecords sends `Range: 0-9999` and does not check the
+  // Content-Range that comes back, so past 10,000 rows the response is silently
+  // truncated. Say so rather than letting a partial download look complete.
+  if (cloud.length >= 10000) {
+    console.warn(
+      '[sync] the record download hit its 10,000-row cap, so some records were ' +
+      'not downloaded. Work inside a project (which scopes the query) or raise ' +
+      'the Range header in supabase.fetchInspectionRecords.'
+    );
+  }
+
   updateLocal((records) => {
     const ids = new Set(records.map((r: any) => r && r.id).filter(Boolean));
     for (const rec of cloud) {

@@ -52,7 +52,27 @@ export default function Plans({
   const [selectedPage, setSelectedPage] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [checkedPages, setCheckedPages] = useState<Set<number>>(new Set());
-  const [hiddenPages, setHiddenPages] = useLocalStorage<number[]>('hiddenPages', []);
+  // Hidden pages, PER PROJECT. This was one global `number[]`, so hiding page 3
+  // in one project hid page 3 in every other project -- and page numbers are
+  // global indices across a project's PDFs, so the pages that vanished were
+  // unrelated to the ones anyone chose to hide.
+  //
+  // Stored as a map under a static key rather than by interpolating the project
+  // into the key: useLocalStorage reads its key once, in a useState initialiser,
+  // so a changing key would keep serving the first project's value until the
+  // component happened to remount. The old `hiddenPages` key is left untouched
+  // and simply ignored; this is a display preference, not inspection data, so
+  // there is nothing worth migrating.
+  const [hiddenByProject, setHiddenByProject] =
+    useLocalStorage<Record<string, number[]>>('hiddenPagesByProject', {});
+  const projectKey = projectName || '';
+  const hiddenPages = hiddenByProject[projectKey] || [];
+  const setHiddenPages = (value: number[] | ((prev: number[]) => number[])) =>
+    setHiddenByProject((prev) => {
+      const current = prev[projectKey] || [];
+      const next = typeof value === 'function' ? value(current) : value;
+      return { ...prev, [projectKey]: next };
+    });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Generate thumbnails lazily

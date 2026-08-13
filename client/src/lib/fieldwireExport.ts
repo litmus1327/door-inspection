@@ -1,6 +1,7 @@
 import { DoorPin } from '@/types';
 import { initials, cell, buildCsvText, downloadCsv } from './fieldwireCsv';
-import { recordYear } from './inspectionYear';
+import { activeProject, pinsInProject, recordsInProject } from './projectScope';
+import { recordYear, recordType } from './inspectionYear';
 
 /**
  * Export completed inspections as a Fieldwire-style file the Codify Reporting
@@ -47,15 +48,29 @@ const defsOf = (rec: any): any[] =>
  *  pipelines/fire_smoke_doors.py, and four of them went missing for months
  *  without either side erroring. See fieldwireExport.test.ts. */
 export function buildFieldwireCsvText(): string {
-  const pins = Object.values(
-    JSON.parse(localStorage.getItem('floorPlanPins') || '{}')
-  ).flat() as DoorPin[];
-  const allRecords: any[] = JSON.parse(localStorage.getItem('doorInspections') || '[]');
+  // Scoped to the active project. This used to walk EVERY pin and record on the
+  // device, so a phone holding a door project and any other project exported
+  // the other project's pins as door rows. ceilingExport and damperExport have
+  // always scoped their records this way; doors was the odd one out.
+  const project = activeProject();
+  const pins = pinsInProject(project);
+  const allRecords: any[] = recordsInProject(
+    JSON.parse(localStorage.getItem('doorInspections') || '[]'),
+    project,
+  );
 
   // All records per pin, across years, oldest -> newest. Door records only.
+  //
+  // Matched POSITIVELY on the service line. The test was
+  // `!== 'above_below_ceiling'`, which means "everything except ceiling", so
+  // every service line added afterwards opted into the door path by default and
+  // fire_smoke_damper passed it -- a damper's surveyor comment was written into
+  // the door row's Message columns, where fire_smoke_doors.py reads it as a door
+  // comment. A negative filter cannot fail loudly; this one can.
   const historyByPin = new Map<string, any[]>();
   for (const r of allRecords) {
-    if (!r || !r.pinId || r.inspectionType === 'above_below_ceiling') continue;
+    if (!r || !r.pinId) continue;
+    if (recordType(r) !== 'fire_smoke_doors') continue;
     const arr = historyByPin.get(r.pinId) || [];
     arr.push(r);
     historyByPin.set(r.pinId, arr);

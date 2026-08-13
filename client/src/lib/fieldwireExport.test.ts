@@ -126,21 +126,30 @@ describe('door CSV contract with pipelines/fire_smoke_doors.py', () => {
     expect(checklist).toContain('(DS)');
   });
 
-  // KNOWN FAILING, deliberately. `it.fails` passes only while the body throws,
-  // so this goes green the moment the bug is fixed and tells you to delete the
-  // marker. A skipped test rots silently; this one cannot.
-  //
-  // The bug: the record filter is `!== 'above_below_ceiling'` (fieldwireExport
-  // line ~58) and RecordsTab.tsx has the same one-sided shape, so every service
-  // line added after ceiling opts into the DOOR path by default.
-  // `fire_smoke_damper` passes it today. Combined with the export not being
-  // project-scoped, a device holding both a door project and a damper project
-  // emits damper records as door rows.
-  //
-  // Not fixed here: it is Tier 3 in the remediation plan, outside the approved
-  // Phase 1. Fixing it means a positive filter (`=== 'fire_smoke_door'`) plus
-  // project scoping, which changes what every existing device exports.
-  it.fails('keeps a damper record out of the door export', () => {
+  // Was `it.fails` while the bug stood: the filter used to be
+  // `!== 'above_below_ceiling'`, meaning "everything except ceiling", so every
+  // service line added afterwards opted into the DOOR path by default and
+  // fire_smoke_damper passed it. Now a positive match on the service line, plus
+  // project scoping. The marker was removed when this started passing, which is
+  // what `it.fails` is for -- it reports a failure the moment the body stops
+  // throwing, so a fixed bug cannot leave a stale "known failing" note behind.
+  it('exports only the active project\'s pins', () => {
+    // The export walked every pin on the device. A phone holding two facilities
+    // put the other one's doors in this CSV, as "Not Inspected" rows with icon
+    // numbers that collide with real ones.
+    localStorage.setItem(
+      'floorPlanPins',
+      JSON.stringify({
+        1: [PIN, { ...PIN, id: 'pin-other', iconNo: '99', projectName: 'Other Hospital' }],
+      }),
+    );
+    const csv = buildFieldwireCsvText();
+    const ids = rowsOf(csv).map((r) => valueOf(csv, r, 'ID'));
+    expect(ids).toEqual(['7']);
+    expect(ids).not.toContain('99');
+  });
+
+  it('keeps a damper record out of the door export', () => {
     // A REALISTIC damper record: it has `status`, not `overallStatus`, and its
     // deficiencies are flat strings rather than objects. Spreading the door
     // fixture here would give it an `overallStatus` no damper record has, and

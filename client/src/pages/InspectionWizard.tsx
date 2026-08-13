@@ -5,7 +5,7 @@ import type { Zone, ZoneState } from '@/types';
 import { ZONE_TO_ITEM_IDS, ZONE_LABELS } from '@/lib/doorZones';
 import { getSupabaseConfig, uploadPhotoToSupabase, uploadInspectionRecord } from '@/lib/supabase';
 import { loadProjectSetup, saveProjectSetup } from '@/lib/projectSetup';
-import { recordId, dedupeForSave } from '@/lib/inspectionYear';
+import { recordId, dedupeForSave, recordType } from '@/lib/inspectionYear';
 import {
   ASSEMBLY_TYPE_LABELS,
   ASSEMBLY_TYPE_DESCRIPTIONS,
@@ -1000,12 +1000,30 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
     });
   };
 
+  // An Asset ID only has to be unique WITHIN a project and within the door
+  // service line. This used to scan every record in localStorage across all
+  // projects, all years and all service lines, so two hospitals that both number
+  // a door "0038" hard-blocked each other: the second one could neither start
+  // the inspection nor mark the door inaccessible, with a message naming an icon
+  // number from a different facility.
+  const duplicateAssetId = (value: string) => {
+    const wanted = value.trim();
+    if (!wanted) return undefined;
+    const project = localStorage.getItem('activeProject') || '';
+    const existing = JSON.parse(localStorage.getItem('doorInspections') || '[]');
+    return existing.find(
+      (r: any) =>
+        r &&
+        r.assetId === wanted &&
+        r.pinId !== selectedDoor?.pinId &&
+        recordType(r) === 'fire_smoke_doors' &&
+        (!project || !r.projectName || r.projectName === project)
+    );
+  };
+
   const validateAssetId = (value: string) => {
     if (!value.trim()) { setAssetIdError(''); return; }
-    const existing = JSON.parse(localStorage.getItem('doorInspections') || '[]');
-    const duplicate = existing.find(
-      (r: any) => r.assetId === value.trim() && r.pinId !== selectedDoor?.pinId
-    );
+    const duplicate = duplicateAssetId(value);
     if (duplicate) {
       setAssetIdError(`Already assigned to Icon No. ${duplicate.iconNo}`);
     } else {
@@ -1015,10 +1033,7 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
 
   const markInaccessible = () => {
     if (!assetId.trim()) { alert('Asset ID is required.'); return; }
-    const existing = JSON.parse(localStorage.getItem('doorInspections') || '[]');
-    const duplicate = existing.find(
-      (r: any) => r.assetId === assetId.trim() && r.pinId !== selectedDoor?.pinId
-    );
+    const duplicate = duplicateAssetId(assetId);
     if (duplicate) {
       setAssetIdError(`Already assigned to Icon No. ${duplicate.iconNo}`);
       return;
