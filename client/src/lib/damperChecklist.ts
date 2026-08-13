@@ -8,7 +8,15 @@
 // parses (flat sentences, no "Category:" prefix). Confirmed with Derek 2026-07-24.
 
 export type DamperCategory = 'Fire' | 'Smoke' | 'Combination';
-export type DamperStatus = 'pass' | 'fail' | 'inaccessible';
+
+// 'no_damper' is a location where no damper exists, and it is deliberately NOT
+// one of the three inspection outcomes. It used to be recorded as 'pass', which
+// meant an empty location was exported as Status=Pass, counted as an inspected
+// damper, and inflated the compliance percentage on the client's report — the
+// "No Damper Present" column carrying the real signal is read by nothing in the
+// Reporting Tool. The three-way picker still offers only pass/fail/inaccessible;
+// this value is set by the "No damper present" checkbox alone.
+export type DamperStatus = 'pass' | 'fail' | 'inaccessible' | 'no_damper';
 
 export const DAMPER_CATEGORIES: DamperCategory[] = ['Fire', 'Smoke', 'Combination'];
 
@@ -41,4 +49,5 @@ export const DAMPER_STATUS_LABEL: Record<DamperStatus, string> = {
   pass: 'Pass',
   fail: 'Fail',
   inaccessible: 'Inaccessible',
+  no_damper: 'No Damper',
 };

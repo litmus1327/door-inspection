@@ -39,7 +39,18 @@ export function exportDamperCsv(projectName?: string): void {
     if (newer) latestByPin.set(key, r);
   }
 
-  const STATUS_LABEL: Record<string, string> = { pass: 'Pass', fail: 'Fail', inaccessible: 'Inaccessible' };
+  // 'No Damper' is not one of the three inspection outcomes; it says no damper
+  // exists at the location. See DamperStatus in lib/damperChecklist.ts. The
+  // Reporting Tool does not canonicalise this value yet, so such a row parses
+  // with an unrecognised status and is left uncoloured in the Excel sibling
+  // (builders/excel_report_damper._status_fill returns None) rather than being
+  // counted as a passing damper. Visibly odd beats invisibly wrong.
+  const STATUS_LABEL: Record<string, string> = {
+    pass: 'Pass',
+    fail: 'Fail',
+    inaccessible: 'Inaccessible',
+    no_damper: 'No Damper',
+  };
 
   const rows = Array.from(latestByPin.values()).map((rec) => {
     const pin = rec.pinId ? pinById.get(rec.pinId) : undefined;
@@ -63,7 +74,18 @@ export function exportDamperCsv(projectName?: string): void {
     return {
       ID: cell(rec.iconNo || pin?.iconNo),
       Title: 'Icon No.',
-      Status: STATUS_LABEL[rec.status] || 'Pass',
+      // Derived from the flag, not the stored status, because records saved by
+      // an older build carry `status: 'pass'` alongside `noDamperPresent: true`
+      // and are already on devices and in the cloud. The exporter is the one
+      // choke point every data path passes through, so fixing it here closes
+      // the finding for history as well as for new saves.
+      //
+      // Never default to Pass either: a record whose status is absent,
+      // misspelled, or written by a different build must not be exported as a
+      // passing damper. fieldwireExport.mapStatus makes the same safe choice.
+      Status: rec.noDamperPresent
+        ? STATUS_LABEL.no_damper
+        : (STATUS_LABEL[rec.status] || 'Not Inspected'),
       Category: cell(rec.category),
       Assignee: cell(rec.inspectorName),
       Plan: cell(rec.floorNo),

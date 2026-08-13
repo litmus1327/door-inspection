@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { getSupabaseConfig, uploadPhotoToSupabase, uploadInspectionRecord } from '@/lib/supabase';
 import { compressImage } from '@/lib/imageCompress';
-import { DamperInspection } from '@/types';
+import { DamperInspection, DoorStatus } from '@/types';
 import { DAMPER_CATEGORIES, DAMPER_DEFICIENCIES, DamperCategory, DamperStatus } from '@/lib/damperChecklist';
 import { recordId, dedupeForSave } from '@/lib/inspectionYear';
 
@@ -25,6 +25,8 @@ const STATUS_STYLE: Record<DamperStatus, string> = {
   pass: 'border-green-500 bg-green-500/10 text-green-600 dark:text-green-400',
   fail: 'border-red-500 bg-red-500/10 text-red-600 dark:text-red-400',
   inaccessible: 'border-slate-500 bg-slate-500/10 text-slate-600 dark:text-slate-300',
+  // Not offered by the three-way picker; set by the "No damper present" box.
+  no_damper: 'border-slate-500 bg-slate-500/10 text-slate-600 dark:text-slate-300',
 };
 
 export default function DamperInspectionWizard({ selectedPin, onClear, onPinInspected }: DamperWizardProps) {
@@ -76,7 +78,8 @@ export default function DamperInspectionWizard({ selectedPin, onClear, onPinInsp
     if (!canSave) return;
     setSaving(true);
     const inspectionYear = new Date().getFullYear();
-    const effStatus: DamperStatus = noDamperPresent ? 'pass' : (status as DamperStatus);
+    // A location with no damper is not a passing damper. See DamperStatus.
+    const effStatus: DamperStatus = noDamperPresent ? 'no_damper' : (status as DamperStatus);
     const record: DamperInspection = {
       id: selectedPin?.pinId
         ? recordId('dinsp' as any, selectedPin.pinId, inspectionYear)
@@ -121,7 +124,16 @@ export default function DamperInspectionWizard({ selectedPin, onClear, onPinInsp
       }
     }
 
-    if (selectedPin?.pinId) onPinInspected?.(selectedPin.pinId, effStatus === 'fail' ? 'fail' : 'pass');
+    // Pass the real status through. Collapsing to fail-or-pass painted an
+    // inaccessible damper, and a location with no damper, green on the plan and
+    // pushed that to the cloud via cloudUpsertPin. DoorStatus already carries
+    // 'inaccessible'; a no-damper location has nothing to inspect, so it reads
+    // as not_inspected rather than claiming an outcome it never had.
+    if (selectedPin?.pinId) {
+      const pinStatus: DoorStatus =
+        effStatus === 'no_damper' ? 'not_inspected' : effStatus;
+      onPinInspected?.(selectedPin.pinId, pinStatus);
+    }
     setSaving(false);
     onClear?.();
   };
@@ -148,7 +160,14 @@ export default function DamperInspectionWizard({ selectedPin, onClear, onPinInsp
       <div className="flex-1 overflow-auto p-4 space-y-4">
         {/* No damper present */}
         <button
-          onClick={() => setNoDamperPresent((v) => !v)}
+          onClick={() => setNoDamperPresent((v) => {
+            // Ticking this hides the checklist but used to leave `defs` intact,
+            // so Fail + three deficiencies + tick saved a record carrying three
+            // deficiencies the inspector could no longer see. setStatusExplicit
+            // already clears them for Pass and Inaccessible; same rule here.
+            if (!v) { setDefs(new Set()); setStatus(''); }
+            return !v;
+          })}
           className={`w-full text-left text-sm px-3 py-2 rounded-sm border transition-all ${
             noDamperPresent ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:border-primary/50'
           }`}

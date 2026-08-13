@@ -1,3 +1,6 @@
+// damperChecklist has no imports of its own, so this cannot cycle back.
+import type { DamperStatus } from '@/lib/damperChecklist';
+
 export type DoorStatus = 'not_inspected' | 'pass' | 'fail' | 'inaccessible';
 
 // Interactive door-diagram zones. Each maps to checklist item IDs in
@@ -99,7 +102,9 @@ export interface DamperInspection {
   x?: number; // pin position (0-100 % of page) -> CSV X pos (%)
   y?: number;
   category: string;          // 'Fire' | 'Smoke' | 'Combination'
-  status: 'pass' | 'fail' | 'inaccessible';
+  // Duplicated the literals before, which is how it drifted from DamperStatus.
+  // 'no_damper' is a location with no damper, not an inspection outcome.
+  status: DamperStatus;
   deficiencies: string[];    // flat sentences from DAMPER_DEFICIENCIES -> Checklist "Yes:" cells
   noDamperPresent?: boolean; // -> Fieldwire "No Damper Present" column
   assetId?: string;

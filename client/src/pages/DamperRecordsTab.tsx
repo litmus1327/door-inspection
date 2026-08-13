@@ -17,6 +17,9 @@ const STATUS_PILL: Record<DamperStatus, string> = {
   pass: 'bg-green-500/15 text-green-600 dark:text-green-400',
   fail: 'bg-red-500/15 text-red-600 dark:text-red-400',
   inaccessible: 'bg-slate-500/15 text-slate-600 dark:text-slate-300',
+  // A location with no damper, not an inspection outcome. Not offered by the
+  // batch picker or the per-record picker; set by the wizard's checkbox.
+  no_damper: 'bg-slate-500/15 text-slate-600 dark:text-slate-300',
 };
 
 const BULK_FIELDS = [
@@ -111,6 +114,11 @@ export default function DamperRecordsTab({ projectName }: Props) {
     pass: rows.filter((r) => r.status === 'pass').length,
     fail: rows.filter((r) => r.status === 'fail').length,
     inaccessible: rows.filter((r) => r.status === 'inaccessible').length,
+    // These used to be counted as passes, which is the bug that made a location
+    // with no damper look like a damper that passed. Giving them their own
+    // bucket rather than none: a record that lands in `total` and in no bucket
+    // is invisible on this tab, which is the same defect wearing a new hat.
+    noDamper: rows.filter((r) => r.status === 'no_damper').length,
   }), [rows]);
 
   const filteredIds = useMemo(() => filtered.map((r) => r.id), [filtered]);
@@ -189,6 +197,7 @@ export default function DamperRecordsTab({ projectName }: Props) {
             { label: 'Pass', value: counts.pass, color: 'text-green-600 dark:text-green-400', key: 'pass' as const },
             { label: 'Fail', value: counts.fail, color: 'text-red-600 dark:text-red-400', key: 'fail' as const },
             { label: 'Inaccessible', value: counts.inaccessible, color: 'text-slate-600 dark:text-slate-300', key: 'inaccessible' as const },
+            { label: 'No Damper', value: counts.noDamper, color: 'text-slate-600 dark:text-slate-300', key: 'no_damper' as const },
           ].map((s) => (
             <button key={s.label} onClick={() => setStatusFilter(statusFilter === s.key ? 'all' : s.key)}
               className={`bg-card px-4 py-3 text-center transition-all ${statusFilter === s.key ? 'ring-1 ring-inset ring-primary' : 'hover:bg-muted/40'}`}>
