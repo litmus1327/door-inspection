@@ -219,8 +219,13 @@ function App() {
         const local: Record<number, DoorPin[]> = JSON.parse(
           localStorage.getItem('floorPlanPins') || '{}'
         );
+        // upsertPin RETURNS false on failure, it does not throw (it catches its
+        // own errors), so the try/catch around this block never fired for a
+        // failed upload. Track what did not make it.
+        const unsent = new Set<string>();
         for (const p of Object.values(local).flat()) {
-          await upsertPin(cfg, p);
+          const ok = await upsertPin(cfg, p);
+          if (!ok && p?.id) unsent.add(p.id);
         }
         flushPendingPhotos().catch(() => {});
         const cloud = await fetchPins(cfg, project());
@@ -229,6 +234,28 @@ function App() {
           for (const p of cloud) {
             const page = (p && p.pageNumber) || 1;
             (grouped[page] = grouped[page] || []).push(p);
+          }
+          // Keep any local pin the cloud does not know about. This used to be a
+          // flat `setPins(grouped)`, and `pins` is useLocalStorage-backed, so it
+          // REPLACED the stored map: an inspector dropping pins on a weak signal
+          // had every failed upload erased from the device permanently, having
+          // never reached the cloud. `fetchPins` is also capped at
+          // `Range: 0-9999`, so past 10,000 pins a truncated response became the
+          // new local truth the same way.
+          //
+          // mergePeerPins above already had the right shape (additive, never
+          // removes); this is the same rule applied to the first sync.
+          const cloudIds = new Set(cloud.map((p: any) => p?.id).filter(Boolean));
+          for (const p of Object.values(local).flat()) {
+            if (!p?.id || cloudIds.has(p.id)) continue;
+            const page = p.pageNumber || 1;
+            (grouped[page] = grouped[page] || []).push(p);
+          }
+          if (unsent.size) {
+            console.warn(
+              `[pins] ${unsent.size} pin(s) failed to upload and were kept locally; ` +
+              `they will retry on the next sync.`
+            );
           }
           setPins(grouped);
         }
