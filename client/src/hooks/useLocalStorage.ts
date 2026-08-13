@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 
 export function useLocalStorage<T>(key: string, initialValue: T) {
   const [storedValue, setStoredValue] = useState<T>(() => {
@@ -33,15 +33,36 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
     }
   });
 
-  const setValue = (value: T | ((val: T) => T)) => {
+  // The latest value, updated synchronously by setValue rather than waiting for
+  // a re-render.
+  //
+  // `setValue` used to resolve an updater against `storedValue`, which is
+  // captured from the render closure and does not change until React re-renders.
+  // So N calls in one tick all saw the SAME starting value and the last one won.
+  // That is not theoretical: "Clear all pins" does
+  // `pinIds.forEach(id => onPinRemoved(id))`, N synchronous calls, and each
+  // handler removes one pin from `prev`. The inspection records were purged in
+  // the same loop by direct localStorage writes, which DO read fresh each time,
+  // so the result was every record deleted and all but one pin still on the
+  // plan. "Delete selected" has the same shape.
+  //
+  // Resolving against a ref fixes the whole class rather than that one caller,
+  // and keeps the localStorage write out of a React state updater (which may run
+  // twice under StrictMode).
+  const latest = useRef(storedValue);
+  latest.current = storedValue;
+
+  const setValue = useCallback((value: T | ((val: T) => T)) => {
     try {
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
+      const valueToStore =
+        value instanceof Function ? (value as (val: T) => T)(latest.current) : value;
+      latest.current = valueToStore;
       setStoredValue(valueToStore);
       window.localStorage.setItem(key, JSON.stringify(valueToStore));
     } catch (error) {
       console.error(`Error setting localStorage key "${key}":`, error);
     }
-  };
+  }, [key]);
 
   return [storedValue, setValue] as const;
 }
