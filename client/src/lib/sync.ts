@@ -10,7 +10,48 @@ export interface SyncResult {
   ok: boolean;
   uploaded: number;
   downloaded: number;
+  /** Doors where two devices held different inspections for the same year. */
+  conflicts?: number;
   error?: string;
+}
+
+/** Superseded inspections, kept rather than discarded. See resolveConflict. */
+const SUPERSEDED_KEY = 'supersededInspections';
+
+/**
+ * Which of two inspections of the same door, in the same year, is authoritative.
+ *
+ * Derek's rule, 2026-08-13: the last inspector to touch the door wins. The
+ * important part is that "last" means last to INSPECT, not last to sync. Signal
+ * comes back at arbitrary times in a hospital, so resolving on arrival order
+ * would let an inspector who finished at 9am and synced at 4pm overwrite one who
+ * re-inspected at 2pm -- the opposite of the intent. `completedTime` is on every
+ * record, so every device reaches the SAME answer no matter who syncs first.
+ * That convergence is the point.
+ *
+ * Caveat, accepted deliberately: completedTime comes from the device clock, so a
+ * badly wrong clock wins or loses wrongly. Reconciling clocks costs far more
+ * than it saves here, and the superseded copy is kept either way.
+ */
+export function isNewer(candidate: any, incumbent: any): boolean {
+  const t = (r: any) => {
+    const ms = new Date(r?.completedTime || 0).getTime();
+    return isNaN(ms) ? 0 : ms;
+  };
+  // Ties keep the incumbent: same timestamp means the same inspection round
+  // trip, and churning the local copy for no gain would just re-upload it.
+  return t(candidate) > t(incumbent);
+}
+
+/** Set aside a record that lost a conflict. Append-only, never read by the app. */
+function archiveSuperseded(record: any): void {
+  try {
+    const prior = JSON.parse(localStorage.getItem(SUPERSEDED_KEY) || '[]');
+    prior.push({ ...record, supersededAt: new Date().toISOString() });
+    localStorage.setItem(SUPERSEDED_KEY, JSON.stringify(prior));
+  } catch {
+    /* archiving is best-effort; never block the sync over it */
+  }
 }
 
 function loadLocal(): any[] {
@@ -46,11 +87,19 @@ function updateLocal(apply: (records: any[]) => boolean): void {
 /**
  * Two-way sync of inspection records with Supabase:
  *  1. Upload every local record not yet marked synced; mark it synced on success.
- *  2. Download cloud records and add any whose id we don't have locally.
+ *  2. Download cloud records, adding new ones and resolving same-door conflicts.
  *
- * Records are keyed by their stable `id`. This is add/merge only — it never
- * deletes, and on an id collision the local copy wins (no overwrite). Good
- * enough for per-door records; revisit if two people edit the same door.
+ * Records are keyed by their stable `id` (`insp_<pinId>_<year>`), so two devices
+ * inspecting the same door in the same year produce the SAME id. This never
+ * deletes; on a collision the later INSPECTION wins (see `isNewer`) and the
+ * superseded copy is kept under `supersededInspections`.
+ *
+ * This docstring used to end "on an id collision the local copy wins (no
+ * overwrite) ... revisit if two people edit the same door". That was half the
+ * story and the dangerous half: locally the first copy won, but the cloud upsert
+ * is `resolution=merge-duplicates`, so up there the last UPLOAD won. The two
+ * halves pulled in opposite directions, the devices never converged, and
+ * whichever one ran the export decided the client's report.
  */
 export async function syncInspections(): Promise<SyncResult> {
   const config = getSupabaseConfig();
@@ -115,19 +164,56 @@ export async function syncInspections(): Promise<SyncResult> {
     );
   }
 
+  // Merge, resolving a same-door conflict by which inspection happened LAST.
+  //
+  // This step used to skip any id it already held, which meant the two halves of
+  // the sync resolved in OPPOSITE directions: the cloud upsert is
+  // `resolution=merge-duplicates`, so the last device to UPLOAD won there, while
+  // locally the first copy won and never budged. So two devices that inspected
+  // the same door never agreed, neither knew, and whichever one happened to run
+  // the export decided what the client's report said.
+  let conflicts = 0;
   updateLocal((records) => {
-    const ids = new Set(records.map((r: any) => r && r.id).filter(Boolean));
+    const byId = new Map<string, number>();
+    records.forEach((r: any, i: number) => { if (r && r.id) byId.set(r.id, i); });
+
     for (const rec of cloud) {
-      if (rec && rec.id && !ids.has(rec.id)) {
+      if (!rec || !rec.id) continue;
+      const at = byId.get(rec.id);
+      if (at === undefined) {
         records.push({ ...rec, synced: true });
-        ids.add(rec.id);
+        byId.set(rec.id, records.length - 1);
         downloaded++;
+        continue;
+      }
+      const mine = records[at];
+      if (isNewer(rec, mine)) {
+        // Theirs is the later inspection: take it, keep ours.
+        archiveSuperseded(mine);
+        records[at] = { ...rec, synced: true };
+        conflicts++;
+        downloaded++;
+      } else if (isNewer(mine, rec)) {
+        // Ours is later, so the cloud is holding the stale one. Mark it
+        // unsynced so the next upload pushes ours and the other device
+        // converges; without this the cloud keeps the older inspection and
+        // every other device keeps reading it.
+        if (mine.synced === true) mine.synced = false;
+        conflicts++;
       }
     }
-    return downloaded > 0;
+    return true;
   });
 
-  return { ok: true, uploaded, downloaded };
+  if (conflicts > 0) {
+    console.warn(
+      `[sync] ${conflicts} door(s) were inspected on more than one device this ` +
+      `year. The later inspection wins; the replaced copy is kept in ` +
+      `localStorage under "${SUPERSEDED_KEY}".`
+    );
+  }
+
+  return { ok: true, uploaded, downloaded, conflicts };
 }
 
 /**

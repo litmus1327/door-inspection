@@ -5,7 +5,7 @@ import type { Zone, ZoneState } from '@/types';
 import { ZONE_TO_ITEM_IDS, ZONE_LABELS } from '@/lib/doorZones';
 import { getSupabaseConfig, uploadPhotoToSupabase, uploadInspectionRecord } from '@/lib/supabase';
 import { loadProjectSetup, saveProjectSetup } from '@/lib/projectSetup';
-import { recordId, dedupeForSave, recordType } from '@/lib/inspectionYear';
+import { recordId, dedupeForSave, recordType, recordYear } from '@/lib/inspectionYear';
 import {
   ASSEMBLY_TYPE_LABELS,
   ASSEMBLY_TYPE_DESCRIPTIONS,
@@ -1006,6 +1006,39 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
   // a door "0038" hard-blocked each other: the second one could neither start
   // the inspection nor mark the door inaccessible, with a message naming an icon
   // number from a different facility.
+  // Has someone else already inspected THIS door in the CURRENT year?
+  //
+  // The soft half of the two-device rule. A lock cannot be enforced: both
+  // inspectors can be in a basement with no signal, inspect the same door, and
+  // sync an hour later, so nothing here promises prevention. What it does catch
+  // is the common case -- two people working the same corridor from opposite
+  // ends -- by saying plainly that saving will replace someone's completed work.
+  //
+  // Read from local records rather than a live presence channel, deliberately:
+  // records arrive by sync and this then works offline too, where a presence
+  // channel would show nothing at exactly the moment it matters most.
+  const priorInspectionThisYear = useMemo(() => {
+    if (!selectedDoor?.pinId) return null;
+    const year = new Date().getFullYear();
+    try {
+      const all = JSON.parse(localStorage.getItem('doorInspections') || '[]');
+      const mine = (inspectorName || '').trim().toLowerCase();
+      return (
+        all.find(
+          (r: any) =>
+            r &&
+            r.pinId === selectedDoor.pinId &&
+            recordType(r) === 'fire_smoke_doors' &&
+            recordYear(r) === year &&
+            (r.inspectorName || '').trim().toLowerCase() !== mine &&
+            (r.inspectorName || '').trim() !== ''
+        ) || null
+      );
+    } catch {
+      return null;
+    }
+  }, [selectedDoor?.pinId, inspectorName]);
+
   const duplicateAssetId = (value: string) => {
     const wanted = value.trim();
     if (!wanted) return undefined;
@@ -1813,6 +1846,15 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
 
           {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto px-4 pb-6 space-y-4 max-w-2xl mx-auto w-full">
+            {priorInspectionThisYear && (
+              <div className="px-3 py-2 bg-yellow-500/10 border border-yellow-500/40 rounded-sm text-xs font-mono text-yellow-700 dark:text-yellow-400">
+                ⚠ {priorInspectionThisYear.inspectorName} already inspected this
+                door{priorInspectionThisYear.completedTime
+                  ? ` on ${new Date(priorInspectionThisYear.completedTime).toLocaleDateString()}`
+                  : ''}. Completing it again replaces their inspection. Their copy
+                is kept, but the report will show yours.
+              </div>
+            )}
             {/* Door Identification card */}
             <div className="bg-card border border-border rounded-sm p-4 space-y-3">
               <h2 className="text-xs font-semibold uppercase tracking-widest text-primary font-mono">Door Identification</h2>

@@ -172,7 +172,15 @@ export default function DamperRecordsTab({ projectName }: Props) {
   const handleSync = async () => {
     setSyncing(true); setSyncMsg('');
     const r = await syncInspections();
-    setSyncMsg(r.ok ? `Synced: ${r.uploaded} up, ${r.downloaded} down` : (r.error || 'Sync failed'));
+    // Conflicts are named in the message, not just the console: a door
+    // inspected on two devices is worth knowing about even though the sync
+    // resolved it (later inspection wins, replaced copy kept).
+    setSyncMsg(
+      r.ok
+        ? `Synced: ${r.uploaded} up, ${r.downloaded} down` +
+          (r.conflicts ? ` — ${r.conflicts} door(s) inspected on two devices; kept the later one` : '')
+        : (r.error || 'Sync failed')
+    );
     loadRecords(); setSyncing(false);
   };
 

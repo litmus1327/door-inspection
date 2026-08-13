@@ -109,6 +109,117 @@ describe('syncInspections', () => {
   });
 });
 
+// Derek's rule, 2026-08-13: the last inspector to touch a door wins. "Last"
+// means last to INSPECT, not last to sync -- signal returns at arbitrary times
+// in a hospital, so resolving on arrival order would let a 9am inspection that
+// synced at 4pm beat a 2pm re-inspection.
+describe('two devices, same door, same year', () => {
+  const rec = (over: Partial<any> = {}) => ({
+    id: 'insp_pin-1_2026',
+    pinId: 'pin-1',
+    inspectionYear: 2026,
+    inspectorName: 'Derek Smith',
+    completedTime: '2026-08-13T09:00:00Z',
+    synced: true,
+    ...over,
+  });
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.mocked(uploadInspectionRecord).mockResolvedValue(true);
+  });
+  afterEach(() => vi.clearAllMocks());
+
+  it('takes the cloud copy when it is the later inspection', async () => {
+    write([rec({ completedTime: '2026-08-13T09:00:00Z' })]);
+    vi.mocked(fetchInspectionRecords).mockResolvedValue([
+      rec({ inspectorName: 'Carson Maloney', completedTime: '2026-08-13T14:00:00Z' }),
+    ] as any);
+
+    const r = await syncInspections();
+
+    const all = read();
+    expect(all).toHaveLength(1);
+    expect(all[0].inspectorName).toBe('Carson Maloney');
+    expect(r.conflicts).toBe(1);
+  });
+
+  it('keeps the local copy when it is the later inspection, and re-uploads it', async () => {
+    write([rec({ inspectorName: 'Carson Maloney', completedTime: '2026-08-13T14:00:00Z' })]);
+    vi.mocked(fetchInspectionRecords).mockResolvedValue([
+      rec({ completedTime: '2026-08-13T09:00:00Z' }),
+    ] as any);
+
+    const r = await syncInspections();
+
+    const all = read();
+    expect(all[0].inspectorName).toBe('Carson Maloney');
+    // Without flipping synced, the cloud keeps the OLDER inspection and every
+    // other device goes on reading it -- the devices would never converge.
+    expect(all[0].synced).toBe(false);
+    expect(r.conflicts).toBe(1);
+  });
+
+  it('resolves on when the door was inspected, not on which arrived', async () => {
+    // The 9am inspection syncs LAST. It must still lose to the 2pm one.
+    write([rec({ inspectorName: 'Carson Maloney', completedTime: '2026-08-13T14:00:00Z' })]);
+    vi.mocked(fetchInspectionRecords).mockResolvedValue([
+      rec({ inspectorName: 'Derek Smith', completedTime: '2026-08-13T09:00:00Z' }),
+    ] as any);
+
+    await syncInspections();
+
+    expect(read()[0].inspectorName).toBe('Carson Maloney');
+  });
+
+  it('keeps the superseded inspection rather than discarding it', async () => {
+    write([rec({ inspectorName: 'Derek Smith', completedTime: '2026-08-13T09:00:00Z' })]);
+    vi.mocked(fetchInspectionRecords).mockResolvedValue([
+      rec({ inspectorName: 'Carson Maloney', completedTime: '2026-08-13T14:00:00Z' }),
+    ] as any);
+
+    await syncInspections();
+
+    const kept = JSON.parse(localStorage.getItem('supersededInspections') || '[]');
+    expect(kept).toHaveLength(1);
+    expect(kept[0].inspectorName).toBe('Derek Smith');
+    expect(kept[0].supersededAt).toBeTruthy();
+  });
+
+  it('does not report a conflict when the two copies are the same inspection', async () => {
+    // Identical timestamps are the same round trip, not a disagreement.
+    write([rec()]);
+    vi.mocked(fetchInspectionRecords).mockResolvedValue([rec()] as any);
+
+    const r = await syncInspections();
+
+    expect(r.conflicts).toBe(0);
+    expect(read()[0].synced).toBe(true);
+    expect(JSON.parse(localStorage.getItem('supersededInspections') || '[]')).toHaveLength(0);
+  });
+
+  it('converges: both devices end on the same inspection', async () => {
+    const early = rec({ inspectorName: 'Derek Smith', completedTime: '2026-08-13T09:00:00Z' });
+    const late = rec({ inspectorName: 'Carson Maloney', completedTime: '2026-08-13T14:00:00Z' });
+
+    // Device A holds the early one and pulls the late one.
+    write([early]);
+    vi.mocked(fetchInspectionRecords).mockResolvedValue([late] as any);
+    await syncInspections();
+    const deviceA = read()[0].inspectorName;
+
+    // Device B holds the late one and pulls the early one.
+    localStorage.clear();
+    write([late]);
+    vi.mocked(fetchInspectionRecords).mockResolvedValue([early] as any);
+    await syncInspections();
+    const deviceB = read()[0].inspectorName;
+
+    expect(deviceA).toBe(deviceB);
+    expect(deviceA).toBe('Carson Maloney');
+  });
+});
+
 describe('flushPendingPhotos', () => {
   beforeEach(() => {
     localStorage.clear();
