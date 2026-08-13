@@ -1275,6 +1275,15 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
     setDeficiencies(initDefs);
     setSectionReview({});
     setCurrentSectionIdx(0);
+    // Per-door answers, cleared here because the header "← Back" returns to
+    // setup WITHOUT unmounting the wizard. Without this, an inspector who backs
+    // out and changes the hardware keeps the previous configuration's verdicts:
+    // a blocking prompt already answered stays answered and its decision tree is
+    // skipped for hardware it never saw, and a stale `x14Compliant` hides the
+    // self-closing item while its auto-flag is re-added below, leaving a
+    // deficiency with no checklist row to clear it from.
+    setBlockingPromptsDone({});
+    setX14Compliant(false);
     setPhase('inspect');
   };
 
@@ -1573,11 +1582,53 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
     if (onClear) onClear();
   };
 
+  // Every blocking prompt this door trips and has not answered yet, across all
+  // sections. The prompt UI below is scoped to the section being viewed, which
+  // is right for walking the checklist and wrong as the only gate: it renders
+  // solely inside the `inspectView === 'checklist'` branch, and assisted mode —
+  // the "training wheels" setting whose whole job is to enforce a full review —
+  // opens on the Diagram view (see the inspectView initialiser). So the four
+  // x11-x14 decision trees were unreachable on the default path for a new
+  // inspector, and the diagram Complete button finished the door without them.
+  const pendingBlockingPrompts = () => {
+    const hw = currentDoor?.hwState || {};
+    const swing = currentDoor?.doorSwingType || '';
+    return BLOCKING_PROMPTS.filter(
+      bp => bp.condition(hw, swing) &&
+        !blockingPromptsDone[bp.id] &&
+        // Only block on a prompt the inspector can actually reach. The prompt
+        // renders inside its own section, so if that section has no visible
+        // items there is nowhere to answer it and blocking would trap the door
+        // with no way out. No configuration reaches that today, but only
+        // because three unrelated `show` conditions happen to line up, so the
+        // guard is stated rather than assumed.
+        visibleSections.includes(bp.section)
+    );
+  };
+
   // Completion guard shared by both the checklist and diagram Complete buttons.
-  // Presentation differs by view, but the validation is identical either way.
+  // Presentation differs by view, but the validation is identical either way —
+  // which is exactly why the blocking-prompt check belongs here and not in the
+  // render tree. A view added later inherits it for free.
   const handleComplete = () => {
     if (!currentDoor?.assetId?.trim()) {
       alert('Asset ID is missing — please finish door setup before completing.');
+      return;
+    }
+    const pending = pendingBlockingPrompts();
+    if (pending.length > 0) {
+      // Route to the prompt rather than duplicating its UI into the diagram
+      // branch: switching views puts the inspector in front of the working
+      // BranchUI, on the section that owns the first unanswered prompt.
+      const target = visibleSections.indexOf(pending[0].section);
+      setInspectView('checklist');
+      if (target >= 0) navigateToSection(target);
+      const list = pending
+        .map(bp => `• ${bp.section}: ${bp.title.split('—')[0].trim()}`)
+        .join('\n');
+      alert(
+        `This door needs ${pending.length} question${pending.length !== 1 ? 's' : ''} answered before it can be completed:\n\n${list}`
+      );
       return;
     }
     if (unresolvedSections.length > 0) {
