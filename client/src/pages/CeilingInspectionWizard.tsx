@@ -125,7 +125,7 @@ export default function CeilingInspectionWizard({ selectedPin, onClear, onPinIns
     // Save to the shared record store, same key door records use. Replace only
     // this pin's record for THIS year; prior years are retained.
     const existing = JSON.parse(localStorage.getItem('doorInspections') || '[]');
-    const deduped = dedupeForSave(existing, record.pinId, inspectionYear);
+    const deduped = dedupeForSave(existing, record.pinId, inspectionYear, 'above_below_ceiling');
     deduped.push(record);
     localStorage.setItem('doorInspections', JSON.stringify(deduped));
 

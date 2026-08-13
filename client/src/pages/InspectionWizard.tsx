@@ -1023,11 +1023,19 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
       setAssetIdError(`Already assigned to Icon No. ${duplicate.iconNo}`);
       return;
     }
+    // Same id scheme and same dedupe as completeInspection. This path used to
+    // build a YEAR-LESS `insp_<pinId>` and then dedupe with
+    // `records.filter(r => r.pinId !== record.pinId)`, which removes the pin's
+    // record for EVERY year, not just this one. A door inspected in 2025 and
+    // marked Inaccessible in 2026 lost its 2025 record permanently, which is
+    // the whole annual history that lib/inspectionYear.ts exists to keep.
+    const inspectionYear = new Date().getFullYear();
     const record = {
       id: selectedDoor?.pinId
-        ? `insp_${selectedDoor.pinId}`
+        ? recordId('insp', selectedDoor.pinId, inspectionYear)
         : Date.now().toString(36) + Math.random().toString(36).substring(2, 7),
       pinId: selectedDoor?.pinId,
+      inspectionYear,
       iconNo: iconNo.trim(),
       assetId: assetId.trim(),
       floorNo: floorNo.trim(),
@@ -1045,11 +1053,27 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
       synced: false,
     };
     const records = JSON.parse(localStorage.getItem('doorInspections') || '[]');
-    const deduped = record.pinId
-      ? records.filter((r: any) => r.pinId !== record.pinId)
-      : records;
+    const deduped = dedupeForSave(records, record.pinId, inspectionYear, 'fire_smoke_doors');
     deduped.push(record);
     localStorage.setItem('doorInspections', JSON.stringify(deduped));
+
+    // This path never uploaded, so an inaccessible door stayed on the device,
+    // invisible to every other inspector and to an export run from another
+    // machine. Same fire-and-forget shape as completeInspection, including the
+    // re-read before marking synced so a record saved meanwhile is not lost.
+    const cfg = getSupabaseConfig();
+    if (cfg.url && cfg.key && navigator.onLine) {
+      uploadInspectionRecord(cfg, record)
+        .then((ok) => {
+          if (!ok) return;
+          const all = JSON.parse(localStorage.getItem('doorInspections') || '[]');
+          localStorage.setItem('doorInspections', JSON.stringify(
+            all.map((r: any) => (r.id === record.id ? { ...r, synced: true } : r))
+          ));
+        })
+        .catch(() => { /* stays unsynced; sync.ts retries on next trigger */ });
+    }
+
     if (selectedDoor?.pinId) {
       onPinInspected?.(selectedDoor.pinId, 'inaccessible');
       window.dispatchEvent(new CustomEvent('pinStatusUpdate', {
@@ -1539,7 +1563,7 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
 
     const existing = JSON.parse(localStorage.getItem('doorInspections') || '[]');
     // Replace only this pin's record for THIS year; prior years are retained.
-    const deduped = dedupeForSave(existing, record.pinId, inspectionYear);
+    const deduped = dedupeForSave(existing, record.pinId, inspectionYear, 'fire_smoke_doors');
     deduped.push(record);
     localStorage.setItem('doorInspections', JSON.stringify(deduped));
 
@@ -2262,7 +2286,29 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
       {/* Door header strip */}
       <div className="bg-card border-b border-border px-4 py-2 flex gap-4 flex-wrap items-center text-xs font-mono">
         <button
-          onClick={() => setPhase('setup')}
+          onClick={() => {
+            // Going back and pressing "Begin Inspection" again runs
+            // startInspection, which does setDeficiencies(initDefs) and discards
+            // every finding flagged by hand. That is the RIGHT behaviour --
+            // changing the hardware changes which checklist items apply, so the
+            // old answers cannot be trusted -- but it happened silently, and an
+            // inspector who tapped Back to correct a typo in the Asset ID lost a
+            // whole door's work with no warning. Auto-flagged items are excluded
+            // from the count: startInspection re-adds those.
+            const manual = Object.values(deficiencies).filter(
+              (d: any) =>
+                (d.status === 'deficient' || d.status === 'advisory') && !d.autoFlagged
+            ).length;
+            if (
+              manual > 0 &&
+              !confirm(
+                `Going back to setup will clear the ${manual} finding${manual !== 1 ? 's' : ''} ` +
+                `you have flagged on this door, because changing the door's details changes ` +
+                `which checks apply.\n\nGo back anyway?`
+              )
+            ) return;
+            setPhase('setup');
+          }}
           className="flex items-center gap-1 px-2 py-1 rounded-sm border border-border text-muted-foreground hover:border-primary/50 hover:text-foreground transition-all shrink-0"
           title="Back to door setup"
         >

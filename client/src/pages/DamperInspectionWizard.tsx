@@ -82,7 +82,7 @@ export default function DamperInspectionWizard({ selectedPin, onClear, onPinInsp
     const effStatus: DamperStatus = noDamperPresent ? 'no_damper' : (status as DamperStatus);
     const record: DamperInspection = {
       id: selectedPin?.pinId
-        ? recordId('dinsp' as any, selectedPin.pinId, inspectionYear)
+        ? recordId('dinsp', selectedPin.pinId, inspectionYear)
         : `dinsp_${Date.now().toString(36)}`,
       pinId: selectedPin?.pinId,
       inspectionType: 'fire_smoke_damper',
@@ -107,7 +107,7 @@ export default function DamperInspectionWizard({ selectedPin, onClear, onPinInsp
 
     // Save to the shared record store; replace only this pin's record for THIS year.
     const existing = JSON.parse(localStorage.getItem('doorInspections') || '[]');
-    const deduped = dedupeForSave(existing, record.pinId, inspectionYear);
+    const deduped = dedupeForSave(existing, record.pinId, inspectionYear, 'fire_smoke_damper');
     deduped.push(record);
     localStorage.setItem('doorInspections', JSON.stringify(deduped));
 
