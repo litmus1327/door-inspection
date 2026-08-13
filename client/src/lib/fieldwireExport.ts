@@ -42,7 +42,11 @@ function mapStatus(overall: string | undefined, hasRecord: boolean): string {
 const defsOf = (rec: any): any[] =>
   (rec?.deficiencies || []).filter((d: any) => d && (d.status === 'deficient' || d.status === 'advisory'));
 
-export function exportFieldwireCsv() {
+/** The door CSV as text. Split out from the download so the app-to-report
+ *  contract can be asserted in a test: the columns here are read by name in
+ *  pipelines/fire_smoke_doors.py, and four of them went missing for months
+ *  without either side erroring. See fieldwireExport.test.ts. */
+export function buildFieldwireCsvText(): string {
   const pins = Object.values(
     JSON.parse(localStorage.getItem('floorPlanPins') || '{}')
   ).flat() as DoorPin[];
@@ -107,15 +111,31 @@ export function exportFieldwireCsv() {
       ...(currentComment ? [currentComment] : []),
     ];
 
+    // Plan + X/Y drive the auto-grid overlay on the drawings appendix and the
+    // grid_block fill (app.py's apply_grids block for doors; pipelines/
+    // fire_smoke_doors.py reads "Plan", "X pos (%)", "Y pos (%)"). Doors were
+    // the ONLY service line not emitting them, so every door parsed with
+    // x_pct/y_pct None, _tasks_by_plan came out empty, apply_grids never ran,
+    // and any door whose Grid Block the inspector did not type by hand had no
+    // location in the report and no fallback. damperExport.ts and
+    // ceilingExport.ts are the reference; keep the three in step.
+    const x = rec?.x ?? pin.x;
+    const y = rec?.y ?? pin.y;
+
     return {
       ID: cell(rec?.iconNo || pin.iconNo),
       Status: mapStatus(rec?.overallStatus, !!rec),
       Category: rec ? CATEGORY_MAP[rec.assemblyType] || '' : '',
       Assignee: cell(rec?.inspectorName),
+      Plan: cell(rec?.floorNo),
+      'X pos (%)': x == null ? '' : String(x),
+      'Y pos (%)': y == null ? '' : String(y),
       Floor: cell(rec?.floorNo),
       'Grid Block': cell(rec?.gridBlock || pin.gridBlock),
       'Asset ID': cell(rec?.assetId || pin.assetId),
       'Door Rating': mapRating(rec?.doorRating),
+      // Read by Post-Repair Mode (pipelines/fire_smoke_doors.py "Last Updated").
+      'Last Updated': cell(rec?.completedTime),
       checklist,
       messages,
     };
@@ -124,7 +144,13 @@ export function exportFieldwireCsv() {
   const maxDefs = Math.max(1, ...rows.map((r) => r.checklist.length));
   const maxMsgs = Math.max(0, ...rows.map((r) => r.messages.length));
 
-  const baseCols = ['ID', 'Status', 'Category', 'Assignee', 'Floor', 'Grid Block', 'Asset ID', 'Door Rating'];
+  // Column ORDER is cosmetic — every parser looks cells up by header name — but
+  // it is kept aligned with damperExport/ceilingExport so the three exports read
+  // the same way side by side.
+  const baseCols = [
+    'ID', 'Status', 'Category', 'Assignee', 'Plan', 'X pos (%)', 'Y pos (%)',
+    'Floor', 'Grid Block', 'Asset ID', 'Door Rating', 'Last Updated',
+  ];
   const checklistCols = Array.from({ length: maxDefs }, (_, i) => `Checklist ${i + 1}`);
   const messageCols = Array.from({ length: maxMsgs }, (_, i) => `Message ${i + 1}`);
   const header = [...baseCols, ...checklistCols, ...messageCols];
@@ -137,6 +163,11 @@ export function exportFieldwireCsv() {
   });
 
   const facility = localStorage.getItem('activeProject') || '';
-  const content = buildCsvText(facility, header, dataLines);
+  return buildCsvText(facility, header, dataLines);
+}
+
+/** Build the door CSV and hand it to the browser as a download. */
+export function exportFieldwireCsv(): void {
+  const content = buildFieldwireCsvText();
   downloadCsv(content, `codify_fieldwire_export_${new Date().toISOString().split('T')[0]}.csv`);
 }
