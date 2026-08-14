@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { DoorPin, DamperInspection } from '@/types';
+import { DoorPin, DoorStatus, DamperInspection } from '@/types';
 import { syncInspections, exportBackup } from '@/lib/sync';
+import { usePinStatus } from '@/hooks/usePinStatus';
 import { getSupabaseConfig } from '@/lib/supabase';
 import { exportDamperCsv } from '@/lib/damperExport';
 import { generateDamperLocationSummary } from '@/lib/damperLocationSummary';
@@ -13,6 +14,27 @@ import { DAMPER_CATEGORIES, DAMPER_STATUS_LABEL, DamperStatus } from '@/lib/damp
 
 interface Props { projectName: string; }
 
+// A display row is either a saved damper record or a synthetic "not inspected"
+// pin. Rows were built from RECORDS ALONE, so a damper pin nobody had inspected
+// yet produced no row: it was absent from the list, from every status bucket and
+// from Total, which is the one number an inspector uses to see what is left.
+// The door Tasks page has always done this; this is parity with it.
+interface Row extends DamperInspection {
+  _uninspected?: boolean;
+  _pin?: DoorPin;
+}
+
+type StatusKey = DamperStatus | 'not_inspected';
+
+// The row's status for counts, filters and the pill. `_uninspected` is checked
+// FIRST and deliberately: a synthetic row carries a placeholder `status`, and
+// reading that field directly would count a damper nobody has looked at as a
+// PASS -- the same defect as "no damper present" being recorded as a pass.
+function statusOf(r: Row): StatusKey {
+  if (r._uninspected || !r.completedTime) return 'not_inspected';
+  return r.status;
+}
+
 const STATUS_PILL: Record<DamperStatus, string> = {
   pass: 'bg-green-500/15 text-green-600 dark:text-green-400',
   fail: 'bg-red-500/15 text-red-600 dark:text-red-400',
@@ -22,6 +44,17 @@ const STATUS_PILL: Record<DamperStatus, string> = {
   no_damper: 'bg-slate-500/15 text-slate-600 dark:text-slate-300',
 };
 
+// Pills and labels including the synthetic "not inspected" state, which is not
+// a DamperStatus and so is absent from DAMPER_STATUS_LABEL/STATUS_PILL.
+const PILL: Record<string, string> = {
+  ...STATUS_PILL,
+  not_inspected: 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400',
+};
+const LABEL: Record<string, string> = {
+  ...DAMPER_STATUS_LABEL,
+  not_inspected: 'Not Inspected',
+};
+
 const BULK_FIELDS = [
   { key: 'floorNo', label: 'Floor' },
   { key: 'gridBlock', label: 'Grid Block' },
@@ -29,10 +62,11 @@ const BULK_FIELDS = [
 
 export default function DamperRecordsTab({ projectName }: Props) {
   const [allRecords, setAllRecords] = useState<DamperInspection[]>([]);
+  const [pins, setPins] = useState<DoorPin[]>([]);
   const [selected, setSelected] = useState<DamperInspection | null>(null);
 
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | DamperStatus>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | StatusKey>('all');
   const [categoryFilter, setCategoryFilter] = useState<'all' | string>('all');
   const [floorFilter, setFloorFilter] = useState<'all' | string>('all');
   const [yearFilter, setYearFilter] = useState<'latest' | number>('latest');
@@ -46,6 +80,7 @@ export default function DamperRecordsTab({ projectName }: Props) {
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<DamperInspection>>({});
 
+  const applyPinStatuses = usePinStatus();
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
   const [pdfBusy, setPdfBusy] = useState(false);
@@ -59,6 +94,7 @@ export default function DamperRecordsTab({ projectName }: Props) {
         r.projectName === projectName && (!r.pinId || validPinIds.has(r.pinId))
     );
     setAllRecords(recs as DamperInspection[]);
+    setPins(allPins.filter((p) => p.projectName === projectName));
   };
 
   useEffect(() => {
@@ -78,7 +114,7 @@ export default function DamperRecordsTab({ projectName }: Props) {
     return Array.from(ys).sort((a, b) => b - a);
   }, [allRecords]);
 
-  const rows = useMemo<DamperInspection[]>(() => {
+  const rows = useMemo<Row[]>(() => {
     const scoped = yearFilter === 'latest' ? allRecords : allRecords.filter((r) => recordYear(r) === yearFilter);
     const byPin = new Map<string, DamperInspection>();
     for (const r of scoped) {
@@ -87,8 +123,26 @@ export default function DamperRecordsTab({ projectName }: Props) {
         (recordYear(r) === recordYear(cur) && new Date(r.completedTime || 0).getTime() > new Date(cur.completedTime || 0).getTime());
       if (newer) byPin.set(key(r), r);
     }
-    return Array.from(byPin.values()).sort((a, b) => (Number(a.iconNo) || 0) - (Number(b.iconNo) || 0));
-  }, [allRecords, yearFilter]);
+    const recordRows: Row[] = Array.from(byPin.values());
+    const inspected = new Set(recordRows.map((r) => r.pinId));
+
+    // Only in the Latest view: in a past year, a pin that did not exist then
+    // should not be reported as unfinished work for that year.
+    const uninspected: Row[] = yearFilter === 'latest'
+      ? pins.filter((p) => !inspected.has(p.id)).map((p) => ({
+          id: `uninspected_${p.id}`, pinId: p.id, iconNo: p.iconNo,
+          inspectionType: 'fire_smoke_damper' as const,
+          floorNo: '—', gridBlock: p.gridBlock || '', category: '—',
+          // Placeholder only; statusOf never reads it (see _uninspected).
+          status: 'pass' as DamperStatus, deficiencies: [],
+          inspectorName: '—', projectName, completedTime: '',
+          synced: false, _uninspected: true, _pin: p,
+        }))
+      : [];
+
+    return [...recordRows, ...uninspected]
+      .sort((a, b) => (Number(a.iconNo) || 0) - (Number(b.iconNo) || 0));
+  }, [allRecords, pins, yearFilter, projectName]);
 
   const floorOptions = useMemo(() => {
     const fs = new Set<string>();
@@ -97,7 +151,7 @@ export default function DamperRecordsTab({ projectName }: Props) {
   }, [rows]);
 
   const filtered = useMemo(() => rows.filter((r) => {
-    if (statusFilter !== 'all' && r.status !== statusFilter) return false;
+    if (statusFilter !== 'all' && statusOf(r) !== statusFilter) return false;
     if (categoryFilter !== 'all' && r.category !== categoryFilter) return false;
     if (floorFilter !== 'all' && r.floorNo !== floorFilter) return false;
     if (search) {
@@ -111,14 +165,15 @@ export default function DamperRecordsTab({ projectName }: Props) {
 
   const counts = useMemo(() => ({
     total: rows.length,
-    pass: rows.filter((r) => r.status === 'pass').length,
-    fail: rows.filter((r) => r.status === 'fail').length,
-    inaccessible: rows.filter((r) => r.status === 'inaccessible').length,
+    pass: rows.filter((r) => statusOf(r) === 'pass').length,
+    fail: rows.filter((r) => statusOf(r) === 'fail').length,
+    inaccessible: rows.filter((r) => statusOf(r) === 'inaccessible').length,
+    notInspected: rows.filter((r) => statusOf(r) === 'not_inspected').length,
     // These used to be counted as passes, which is the bug that made a location
     // with no damper look like a damper that passed. Giving them their own
     // bucket rather than none: a record that lands in `total` and in no bucket
     // is invisible on this tab, which is the same defect wearing a new hat.
-    noDamper: rows.filter((r) => r.status === 'no_damper').length,
+    noDamper: rows.filter((r) => statusOf(r) === 'no_damper').length,
   }), [rows]);
 
   const filteredIds = useMemo(() => filtered.map((r) => r.id), [filtered]);
@@ -131,11 +186,37 @@ export default function DamperRecordsTab({ projectName }: Props) {
   });
   const toggleOne = (id: string) => setChecked((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const clearSelection = () => { setChecked(new Set()); setBatchPanel(null); setBatchValue(''); };
-  const selectedRows = useMemo(() => rows.filter((r) => checked.has(r.id)), [rows, checked]);
+  const selectedRows = useMemo(
+    // Synthetic rows are excluded: there is no record behind them to update or
+    // delete, and their id matches nothing in storage.
+    () => rows.filter((r) => checked.has(r.id) && !r._uninspected),
+    [rows, checked],
+  );
 
   const applyBatchStatus = async (status: DamperStatus) => {
     setBusy(true);
-    await upsertRecords(selectedRows.map((r) => ({ ...r, status })) as any);
+    // Clearing the deficiencies is part of setting the status, exactly as in the
+    // wizard's setStatusExplicit. Without it, bulk-marking failed dampers as Pass
+    // saved records reading Pass while still carrying their deficiency list --
+    // which the Reporting Tool parses as real findings on a passing damper.
+    const updated = selectedRows.map((r) => ({
+      ...r,
+      status,
+      deficiencies: status === 'fail' ? r.deficiencies : [],
+      // The flag and the status have to agree; they are two views of one fact.
+      noDamperPresent: status === 'no_damper' ? true : undefined,
+    }));
+    await upsertRecords(updated as any);
+    // Repaint the plan. A damper with no damper present has nothing to inspect,
+    // so its pin reads not_inspected rather than claiming an outcome.
+    applyPinStatuses(new Map(
+      updated
+        .filter((r) => r.pinId)
+        .map((r) => [
+          r.pinId as string,
+          (status === 'no_damper' ? 'not_inspected' : status) as DoorStatus,
+        ]),
+    ));
     loadRecords(); clearSelection(); setBusy(false);
   };
   const applyBatchEdit = async () => {
@@ -149,7 +230,9 @@ export default function DamperRecordsTab({ projectName }: Props) {
     if (ids.size === 0) return;
     if (!confirm(`Delete ${ids.size} damper record(s)? This cannot be undone.`)) return;
     setBusy(true);
+    const clearedPins = selectedRows.filter((r) => r.pinId).map((r) => r.pinId as string);
     await deleteRecords(ids);
+    applyPinStatuses(new Map(clearedPins.map((id) => [id, 'not_inspected' as DoorStatus])));
     if (selected && ids.has(selected.id)) setSelected(null);
     loadRecords(); clearSelection(); setBusy(false);
   };
@@ -199,13 +282,14 @@ export default function DamperRecordsTab({ projectName }: Props) {
     <div className="flex h-full overflow-hidden">
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Status counts (clickable filters) */}
-        <div className="grid grid-cols-4 gap-px border-b border-border bg-border">
+        <div className="grid grid-cols-6 gap-px border-b border-border bg-border">
           {[
             { label: 'Total', value: counts.total, color: 'text-foreground', key: 'all' as const },
             { label: 'Pass', value: counts.pass, color: 'text-green-600 dark:text-green-400', key: 'pass' as const },
             { label: 'Fail', value: counts.fail, color: 'text-red-600 dark:text-red-400', key: 'fail' as const },
             { label: 'Inaccessible', value: counts.inaccessible, color: 'text-slate-600 dark:text-slate-300', key: 'inaccessible' as const },
             { label: 'No Damper', value: counts.noDamper, color: 'text-slate-600 dark:text-slate-300', key: 'no_damper' as const },
+            { label: 'Not Insp.', value: counts.notInspected, color: 'text-yellow-600 dark:text-yellow-400', key: 'not_inspected' as const },
           ].map((s) => (
             <button key={s.label} onClick={() => setStatusFilter(statusFilter === s.key ? 'all' : s.key)}
               className={`bg-card px-4 py-3 text-center transition-all ${statusFilter === s.key ? 'ring-1 ring-inset ring-primary' : 'hover:bg-muted/40'}`}>
@@ -295,7 +379,7 @@ export default function DamperRecordsTab({ projectName }: Props) {
                     <td className="px-3 py-2 text-xs cursor-pointer" onClick={() => { setSelected(r); setEditing(false); }}>{r.floorNo || '—'}</td>
                     <td className="px-3 py-2 text-xs">{r.gridBlock || '—'}</td>
                     <td className="px-3 py-2 text-xs whitespace-nowrap">{r.noDamperPresent ? '— (no damper)' : r.category}</td>
-                    <td className="px-3 py-2"><span className={`px-2 py-0.5 rounded-full text-xs font-mono font-semibold ${STATUS_PILL[r.status] || ''}`}>{DAMPER_STATUS_LABEL[r.status] || r.status}</span></td>
+                    <td className="px-3 py-2"><span className={`px-2 py-0.5 rounded-full text-xs font-mono font-semibold ${PILL[statusOf(r)] || ''}`}>{LABEL[statusOf(r)] || statusOf(r)}</span></td>
                     <td className="px-3 py-2 text-xs">{(r.deficiencies || []).length > 0 ? <span className="text-red-600 dark:text-red-400">{r.deficiencies.length} deficiencies</span> : <span className="text-green-600 dark:text-green-400">None</span>}</td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">{r.inspectorName || '—'}</td>
                     <td className="px-3 py-2 text-xs font-mono text-muted-foreground whitespace-nowrap">{r.completedTime ? recordYear(r) : '—'}</td>

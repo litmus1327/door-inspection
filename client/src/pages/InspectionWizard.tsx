@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { toast } from 'sonner';
 import DoorDiagram from '@/components/DoorDiagram';
-import type { Zone, ZoneState } from '@/types';
+import type { Zone, ZoneState, DoorStatus } from '@/types';
 import { ZONE_TO_ITEM_IDS, ZONE_LABELS } from '@/lib/doorZones';
 import { getSupabaseConfig, uploadPhotoToSupabase, uploadInspectionRecord } from '@/lib/supabase';
 import { loadProjectSetup, saveProjectSetup } from '@/lib/projectSetup';
@@ -1641,7 +1642,11 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
       }
     } catch { /* ignore */ }
 
-    const pinStatus = hasDeficiencies ? 'fail' : 'pass';
+    // The real verdict, not a two-way collapse. `overallStatus` is already
+    // three-way (fail / conditional / pass); flattening it here painted an
+    // advisory-only door green on the plan, and RecordsTab counted it in `total`
+    // and in none of its buckets, so it was invisible from both directions.
+    const pinStatus = record.overallStatus as DoorStatus;
     if (selectedDoor?.pinId) {
       onPinInspected?.(selectedDoor.pinId, pinStatus);
       // Legacy event kept as a fallback for any other listeners.
@@ -1649,6 +1654,35 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
         detail: { pinId: selectedDoor.pinId, status: pinStatus }
       }));
     }
+
+    // The verdict, which the inspector otherwise never sees.
+    //
+    // `setPhase('complete')` below is immediately followed by `onClear()`, and
+    // App renders this wizard only while `selectedDoor` is non-null, so the
+    // component unmounts before the complete screen further down this file can
+    // paint. It has therefore been dead code, and every door finished silently:
+    // no Pass/Fail/Conditional, no deficiency count, no confirmation the record
+    // saved at all.
+    //
+    // A toast rather than making that screen reachable, deliberately. Reaching
+    // it would put a mandatory tap between every door and the next, and an
+    // inspector walking a few hundred doors would feel that on every one. This
+    // restores the missing information without slowing the walk down.
+    //
+    // NOTE the complete screen is STILL unreachable. Removing it is a separate
+    // call, recorded in the remediation plan.
+    const defCount = defList.length;
+    const verdict = record.overallStatus;
+    const label = verdict === 'fail' ? 'FAIL'
+      : verdict === 'conditional' ? 'CONDITIONAL'
+      : 'PASS';
+    const detail = defCount === 0
+      ? 'No findings'
+      : `${defCount} finding${defCount !== 1 ? 's' : ''} recorded`;
+    const message = `Icon ${record.iconNo} — ${label}: ${detail}`;
+    if (verdict === 'fail') toast.error(message);
+    else if (verdict === 'conditional') toast.warning(message);
+    else toast.success(message);
 
     setPhase('complete');
     if (onClear) onClear();

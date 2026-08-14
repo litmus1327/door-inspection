@@ -1,4 +1,42 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+
+// Every hook instance watching the same key, so they stay in step.
+//
+// Each call to this hook owns a useState whose initialiser runs ONCE, at mount.
+// Six components call it with 'inspectorName' (App, Header, ProjectsPage and the
+// three wizards), so changing the inspector on the Projects page updated that
+// component and localStorage while App and Header went on serving the value they
+// read when they mounted. New pins were stamped `owner: <previous inspector>`,
+// and the header showed the old name until a reload.
+//
+// Same defect as the stale closure this hook already had: one value, several
+// sources of truth. Fixed here rather than by threading props, so it holds for
+// every key -- floorPlanPins and hiddenPagesByProject have the same exposure.
+type Listener = (value: any) => void;
+const listeners = new Map<string, Set<Listener>>();
+
+function subscribe(key: string, fn: Listener): () => void {
+  let set = listeners.get(key);
+  if (!set) {
+    set = new Set();
+    listeners.set(key, set);
+  }
+  set.add(fn);
+  return () => {
+    set!.delete(fn);
+    if (set!.size === 0) listeners.delete(key);
+  };
+}
+
+function broadcast(key: string, value: any, from: Listener | null): void {
+  const set = listeners.get(key);
+  if (!set) return;
+  // Copy first: a listener that unsubscribes while we notify would otherwise
+  // mutate the set mid-iteration.
+  for (const fn of Array.from(set)) {
+    if (fn !== from) fn(value);
+  }
+}
 
 export function useLocalStorage<T>(key: string, initialValue: T) {
   const [storedValue, setStoredValue] = useState<T>(() => {
@@ -52,6 +90,19 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
   const latest = useRef(storedValue);
   latest.current = storedValue;
 
+  // This instance's inbox, created once so its identity is stable: `setValue`
+  // uses it to exclude itself from its own broadcast. `setStoredValue` is
+  // referentially stable across renders, so the closure never goes stale.
+  const inbox = useRef<Listener | null>(null);
+  if (inbox.current === null) {
+    inbox.current = (value: any) => {
+      latest.current = value;
+      setStoredValue(value);
+    };
+  }
+
+  useEffect(() => subscribe(key, inbox.current!), [key]);
+
   const setValue = useCallback((value: T | ((val: T) => T)) => {
     try {
       const valueToStore =
@@ -59,6 +110,9 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
       latest.current = valueToStore;
       setStoredValue(valueToStore);
       window.localStorage.setItem(key, JSON.stringify(valueToStore));
+      // Tell the other components watching this key. Without this they keep
+      // serving whatever they read at mount.
+      broadcast(key, valueToStore, inbox.current);
     } catch (error) {
       console.error(`Error setting localStorage key "${key}":`, error);
     }

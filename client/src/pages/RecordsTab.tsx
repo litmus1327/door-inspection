@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { DoorPin } from '@/types';
+import { DoorPin, DoorStatus } from '@/types';
 import { syncInspections, exportBackup } from '@/lib/sync';
+import { usePinStatus } from '@/hooks/usePinStatus';
 import { getSupabaseConfig } from '@/lib/supabase';
 import { exportFieldwireCsv } from '@/lib/fieldwireExport';
 import { ASSEMBLY_TYPE_LABELS } from '@/lib/inspectionRules';
@@ -40,7 +41,10 @@ const STATUS_LABEL: Record<StatusKey, string> = {
 const STATUS_PILL: Record<StatusKey, string> = {
   pass: 'bg-green-500/15 text-green-600 dark:text-green-400',
   fail: 'bg-red-500/15 text-red-600 dark:text-red-400',
-  conditional: 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400',
+  // Cyan, matching the pin colour in PDFViewer. It was the same yellow as
+  // NOT INSPECTED, so the two were indistinguishable at a glance in the one
+  // place a conditional door was visible at all.
+  conditional: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
   inaccessible: 'bg-slate-500/15 text-slate-600 dark:text-slate-300',
   not_inspected: 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400',
 };
@@ -78,6 +82,7 @@ export default function RecordsTab({ projectName }: RecordsTabProps) {
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<DoorRecord>>({});
 
+  const applyPinStatuses = usePinStatus();
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
 
@@ -170,10 +175,15 @@ export default function RecordsTab({ projectName }: RecordsTabProps) {
   }), [rows, statusFilter, typeFilter, floorFilter, search]);
 
   const counts = useMemo(() => {
-    const c = { total: rows.length, pass: 0, fail: 0, inaccessible: 0, not_inspected: 0 };
+    // `conditional` needs its own bucket. statusOf has always returned it and
+    // STATUS_LABEL has always had a pill for it, but there was no counter, so an
+    // advisory-only door sat in `total` and in none of the tiles -- present in
+    // the list, absent from every total, and impossible to filter to.
+    const c = { total: rows.length, pass: 0, conditional: 0, fail: 0, inaccessible: 0, not_inspected: 0 };
     for (const r of rows) {
       const s = statusOf(r);
       if (s === 'pass') c.pass++;
+      else if (s === 'conditional') c.conditional++;
       else if (s === 'fail') c.fail++;
       else if (s === 'inaccessible') c.inaccessible++;
       else if (s === 'not_inspected') c.not_inspected++;
@@ -217,6 +227,13 @@ export default function RecordsTab({ projectName }: RecordsTabProps) {
       }
     }
     await upsertRecords(toUpsert);
+    // Repaint the pins too. Without this the plan kept the old colour for every
+    // door touched here, and nothing ever reconciled the two views.
+    applyPinStatuses(new Map(
+      toUpsert
+        .filter((r) => r.pinId)
+        .map((r) => [r.pinId as string, status as DoorStatus]),
+    ));
     loadRecords();
     clearSelection();
     setBusy(false);
@@ -240,7 +257,15 @@ export default function RecordsTab({ projectName }: RecordsTabProps) {
     if (realIds.size === 0) { clearSelection(); return; }
     if (!confirm(`Delete ${realIds.size} inspection record(s)? This cannot be undone.`)) return;
     setBusy(true);
+    // Capture the pins BEFORE deleting: afterwards the rows are gone and there
+    // is nothing left to map the pin ids from.
+    const clearedPins = selectedRows
+      .filter((r) => !r._uninspected && r.pinId)
+      .map((r) => r.pinId as string);
     await deleteRecords(realIds);
+    // A door with no inspection record is not inspected. Leaving the pin on its
+    // old colour claimed a verdict that no longer exists anywhere.
+    applyPinStatuses(new Map(clearedPins.map((id) => [id, 'not_inspected' as DoorStatus])));
     if (selected && realIds.has(selected.id)) setSelected(null);
     loadRecords();
     clearSelection();
@@ -297,10 +322,11 @@ export default function RecordsTab({ projectName }: RecordsTabProps) {
     <div className="flex h-full overflow-hidden">
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Stats / status grouping */}
-        <div className="grid grid-cols-5 gap-px border-b border-border bg-border">
+        <div className="grid grid-cols-6 gap-px border-b border-border bg-border">
           {[
             { label: 'Total', value: counts.total, color: 'text-foreground', key: 'all' as const },
             { label: 'Pass', value: counts.pass, color: 'text-green-600 dark:text-green-400', key: 'pass' as const },
+            { label: 'Conditional', value: counts.conditional, color: 'text-cyan-600 dark:text-cyan-400', key: 'conditional' as const },
             { label: 'Fail', value: counts.fail, color: 'text-red-600 dark:text-red-400', key: 'fail' as const },
             { label: 'Inaccessible', value: counts.inaccessible, color: 'text-slate-600 dark:text-slate-300', key: 'inaccessible' as const },
             { label: 'Not Insp.', value: counts.not_inspected, color: 'text-yellow-600 dark:text-yellow-400', key: 'not_inspected' as const },

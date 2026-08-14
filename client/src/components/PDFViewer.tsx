@@ -582,6 +582,9 @@ export default function PDFViewer({
     const colors: Record<string, { bg: string; border: string; text: string }> = {
       pass: { bg: '#28c76f', border: '#1a9e52', text: '#ffffff' },
       fail: { bg: '#ea5455', border: '#c0392b', text: '#ffffff' },
+      // Advisory findings only. Deliberately not green: the door is compliant
+      // but something was noted, and green tells the inspector to move on.
+      conditional: { bg: '#00b8d9', border: '#0091ab', text: '#ffffff' },
       inaccessible: { bg: '#ff9f43', border: '#cc7a00', text: '#ffffff' },
       not_inspected: { bg: '#f5c518', border: '#c9a200', text: '#0d0f12' },
     };

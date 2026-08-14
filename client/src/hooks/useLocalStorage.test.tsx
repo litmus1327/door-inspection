@@ -85,6 +85,38 @@ describe('useLocalStorage', () => {
     expect(JSON.parse(localStorage.getItem('inspectorName')!)).toBe('Derek Smith');
   });
 
+  it('keeps two components watching the same key in step', () => {
+    // Six components call this hook with 'inspectorName'. Each owns a useState
+    // whose initialiser runs once at mount, so changing the inspector on the
+    // Projects page left App and Header serving the value they read when they
+    // mounted -- new pins were stamped with the PREVIOUS inspector's name.
+    const a = mountHook<string>('inspectorName', '');
+    const b = mountHook<string>('inspectorName', '');
+
+    act(() => a.set('Carson Maloney'));
+
+    expect(a.value).toBe('Carson Maloney');
+    expect(b.value).toBe('Carson Maloney');
+    expect(JSON.parse(localStorage.getItem('inspectorName')!)).toBe('Carson Maloney');
+  });
+
+  it('propagates an updater result to the other watchers too', () => {
+    const a = mountHook<number>('counter', 0);
+    const b = mountHook<number>('counter', 0);
+    act(() => {
+      a.set((n) => n + 1);
+      a.set((n) => n + 1);
+    });
+    expect(b.value).toBe(2);
+  });
+
+  it('does not cross-talk between different keys', () => {
+    const a = mountHook<string>('inspectorName', '');
+    const other = mountHook<string>('activeProject', '');
+    act(() => a.set('Derek Smith'));
+    expect(other.value).toBe('');
+  });
+
   it('reads an existing value on mount and migrates the legacy pin array', () => {
     // Pins were once stored as a flat array; the hook migrates them onto page 1.
     localStorage.setItem('floorPlanPins', JSON.stringify([{ id: 'a' }, { id: 'b' }]));

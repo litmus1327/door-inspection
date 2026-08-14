@@ -1,7 +1,11 @@
 // damperChecklist has no imports of its own, so this cannot cycle back.
 import type { DamperStatus } from '@/lib/damperChecklist';
 
-export type DoorStatus = 'not_inspected' | 'pass' | 'fail' | 'inaccessible';
+// 'conditional' = advisory findings only, no hard deficiency. It was collapsed
+// into 'pass' at the pin, so a door with open advisories showed green on the
+// plan and the inspector had no way to see it needed a second look.
+export type DoorStatus =
+  | 'not_inspected' | 'pass' | 'conditional' | 'fail' | 'inaccessible';
 
 // Interactive door-diagram zones. Each maps to checklist item IDs in
 // client/src/lib/doorZones.ts. See INTERACTIVE_DOOR_DIAGRAM_SPEC.md.
