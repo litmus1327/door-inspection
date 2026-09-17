@@ -1,3 +1,5 @@
+import { recordType } from './inspectionYear';
+
 export interface SupabaseConfig {
   url: string;
   key: string;
@@ -37,7 +39,10 @@ export async function testSupabaseConnection(config: SupabaseConfig): Promise<bo
 
 // Map an app inspection record to a door_inspections table row. The full
 // record is kept in `data`; the rest are denormalized columns for querying.
-function recordToRow(record: any) {
+// `inspection_type` and `data.inspectionType` are two views of the same fact —
+// recordType() is the one place that decides it, so this never drifts from
+// how lib/inspectionYear.ts identifies a record's service line.
+export function recordToRow(record: any) {
   return {
     id: record.id,
     project: record.projectName || null,
@@ -47,7 +52,7 @@ function recordToRow(record: any) {
     status: record.overallStatus || null,
     inspector: record.inspectorName || null,
     inspection_date: record.completedTime || new Date().toISOString(),
-    inspection_type: record.inspectionType || 'fire_smoke_doors',
+    inspection_type: recordType(record),
     data: record,
     updated_at: new Date().toISOString(),
   };
