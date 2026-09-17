@@ -102,6 +102,12 @@
   --chart-5: #b9791a;
 
   --radius: 0.375rem;
+
+  /* Elevation scale — used by .codify-card and the floating toolbar instead of
+     ad hoc Tailwind shadow utilities, so depth stays consistent as one lever. */
+  --shadow-sm: 0 1px 2px rgba(27, 29, 33, 0.06);
+  --shadow-md: 0 2px 8px rgba(27, 29, 33, 0.08), 0 1px 2px rgba(27, 29, 33, 0.06);
+  --shadow-lg: 0 8px 24px rgba(27, 29, 33, 0.12), 0 2px 6px rgba(27, 29, 33, 0.08);
 }
 
 .dark {
@@ -152,6 +158,11 @@
   --chart-3: #28c76f;
   --chart-4: #ea5455;
   --chart-5: #ff9f43;
+
+  /* Dark surfaces need a stronger shadow to read against a dark background. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.24);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.32), 0 1px 2px rgba(0, 0, 0, 0.24);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.28);
 }
 
 @layer base {
@@ -228,6 +239,7 @@
   
   .codify-card {
     @apply bg-card border border-border rounded-sm p-5;
+    box-shadow: var(--shadow-sm);
   }
   
   .codify-card-title {
@@ -244,6 +256,10 @@
   .codify-btn-primary {
     @apply bg-primary text-primary-foreground px-6 py-2 rounded-sm font-semibold tracking-wide uppercase text-sm transition-all hover:bg-yellow-500 active:translate-y-0.5;
     font-family: 'Barlow Condensed', sans-serif;
+    box-shadow: var(--shadow-sm);
+  }
+  .codify-btn-primary:active {
+    box-shadow: none;
   }
   
   .codify-btn-secondary {
@@ -304,6 +320,7 @@
   button,
   [role="button"],
   select {
-    min-height: 40px;
+    /* iOS HIG / Android Material both call for 44px minimum tap targets. */
+    min-height: 44px;
   }
 }
