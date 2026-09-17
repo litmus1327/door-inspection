@@ -17,6 +17,9 @@ import {
   HARDWARE_META,
   SECTIONS,
   BLOCKING_PROMPTS,
+  minRequiredRating,
+  CHECKLIST_PANELS,
+  isChecklistGroup,
 } from '@/lib/inspectionRules';
 import DictationRecorder from '@/components/DictationRecorder';
 import DictationReviewDialog, { DictationReviewRow } from '@/components/DictationReviewDialog';
@@ -124,13 +127,15 @@ export function getApplicableItems(
   // Client preferences — when set, these citations are suppressed.
   const noCiteAstragalSweep = projVars.noCiteAstragalSweep === true;
   const noCiteLaminateNonFire = projVars.noCiteLaminateNonFire === true;
-  const minRating = MIN_RATINGS[atype] ?? null;
   const isDualEgressSwing = swing === 'dbl_dual_egress';
-  let minRequired = minRating;
-  if (atype === '1hr_fire' && isStairDoor) minRequired = 60;
-    if (atype === 'smoke_barrier' && isDualEgressSwing && isCrossCorridor && isHealthCareOccupancy) minRequired = 0;
-  // 1-Hour Partition corridor doors require a 45-min minimum (IBC).
-  if (atype === '1hr_partition' && isCorridorDoor) minRequired = 45;
+  const minRequired = minRequiredRating(atype, {
+    isStairDoor,
+    isDualEgressSwing,
+    isCrossCorridor,
+    isHealthCareOccupancy,
+    isCorridorDoor,
+    construction: projVars.construction,
+  });
   const doorRatingNum = doorRating === 'label_illegible' ? -1 : parseInt(doorRating) || 0;
   const frameRatingNum = frameRating === 'label_illegible' ? -1 : parseInt(frameRating) || 0;
   const doorIsUnderrated = minRequired !== null && minRequired > 0 && doorRatingNum < minRequired;
@@ -178,7 +183,7 @@ export function getApplicableItems(
   items.push({ section: 'Gaps', id: 'gap_sweep', text: 'Gap: Sweep is not intended for gap mitigation.', show: hw.hw_sweep && !isSmokePart && !isSuite && !(isSmoke && isCrossCorridor && isDualEgress) && !noCiteAstragalSweep, branch: 'x1' });
   items.push({ section: 'Gaps', id: 'gap_bottom_3_4', text: 'Gap: Bottom clearance is in excess of 3/4".', show: atype !== 'suite_perimeter', hint: 'Standard: 3/4" max' });
   items.push({ section: 'Gaps', id: 'gap_bottom_1', text: 'Gap: Bottom clearance is in excess of 1".', show: isSuite, hint: 'Suite Perimeter standard: 1" max' });
-  items.push({ section: 'Gaps', id: 'gap_face', text: 'Gap: Face gap is excessive.', show: true, branch: 'x2' });
+  items.push({ section: 'Gaps', id: 'gap_face', text: 'Gap: Face gap is excessive.', show: true, branch: 'x2', hint: 'Measured distance between the face of the door and the door stop on the frame.' });
   items.push({ section: 'Gaps', id: 'gap_fire_pin', text: 'Gap: Face gap renders fire pin ineffective.', show: notSingleDoor && locksetOrPanic && (isFire || isSmoke), branch: isSmoke ? 'x4' : null });
   items.push({ section: 'Gaps', id: 'gap_hinge', text: 'Gap: Hinge edge gap is in excess of 1/8 ± 1/16".', show: true, hint: `Applied gap standard — ${gapHint}`, branch: isSuite ? 'x3' : null });
   items.push({ section: 'Gaps', id: 'gap_latch', text: 'Gap: Latch edge gap is in excess of 1/8 ± 1/16".', show: true, hint: `Applied gap standard — ${gapHint}`, branch: isSuite ? 'x3' : null });
@@ -228,6 +233,7 @@ export function getApplicableItems(
   const showLaminate = !(noCiteLaminateNonFire && !isFire);
   items.push({ section: 'Physical Integrity', id: 'pi_laminate_hinge', text: 'Physical Integrity: Laminate is missing or damaged at hinge edge.', show: showLaminate, branch: (isSmokePart || isSuite || isSmokeBarrierNonRated) ? 'x8' : null });
   items.push({ section: 'Physical Integrity', id: 'pi_laminate_latch', text: 'Physical Integrity: Laminate is missing or damaged latch edge.', show: showLaminate, branch: (isSmokePart || isSuite || isSmokeBarrierNonRated) ? 'x8' : null });
+  items.push({ section: 'Physical Integrity', id: 'pi_laminate_top', text: 'Physical Integrity: Laminate is missing or damaged at top edge.', show: showLaminate, branch: (isSmokePart || isSuite || isSmokeBarrierNonRated) ? 'x8' : null });
   items.push({ section: 'Physical Integrity', id: 'pi_laminate_face', text: 'Physical Integrity: Laminate is missing or damaged on door face.', show: showLaminate, branch: (isSmokePart || isSuite || isSmokeBarrierNonRated) ? 'x8' : null });
   items.push({ section: 'Physical Integrity', id: 'pi_latching_hw', text: 'Physical Integrity: Latching hardware is missing or damaged.', show: hw.hw_lockset_cylindrical || hw.hw_lockset_mortise || hw.hw_panic_device || hw.hw_delayed_egress });
   items.push({ section: 'Physical Integrity', id: 'pi_astragal', text: 'Physical Integrity: Astragal is damaged.', show: notSingleDoor, branch: 'x5' });
@@ -238,7 +244,6 @@ export function getApplicableItems(
   items.push({ section: 'Physical Integrity', id: 'vp_missing', text: 'Vision Panel: Cross-corridor smoke barrier door not equipped with vision panel.', show: isCrossCorridor && !hw.hw_vision_panel, autoFlag: true });
 
   // SIGNAGE
-  items.push({ section: 'Signage', id: 'sign_delayed_egress', text: 'Signage: Delayed egress signage is not provided.', show: hw.hw_delayed_egress });
   items.push({ section: 'Signage', id: 'sign_coat_rack', text: 'Signage: Mechanically fastened coat rack.', show: hw.hw_signage && isNotSmokePartOrSuite, branch: isSmoke ? 'x4' : null });
   items.push({ section: 'Signage', id: 'sign_mech_fastened', text: 'Signage: Signage mechanically fastened to door.', show: hw.hw_signage && isNotSmokePartOrSuite, branch: isSmoke ? 'x4' : null });
   items.push({ section: 'Signage', id: 'sign_5pct', text: 'Signage: Signage on door exceeds 5% of door face.', show: hw.hw_signage && isNotSmokePartOrSuite, branch: isSmoke ? 'x4' : null });
@@ -250,6 +255,9 @@ export function getApplicableItems(
   items.push({ section: 'Locking', id: 'lock_deadbolt', text: 'Locking: Deadbolt present where occupant load is greater than 3.', show: hw.hw_deadbolt, branch: 'x11' });
   items.push({ section: 'Locking', id: 'lock_delayed_failure', text: 'Locking: Delayed egress device failure.', show: hw.hw_delayed_egress });
   items.push({ section: 'Locking', id: 'lock_delayed_sprinkler', text: 'Locking: Delayed egress device present in other than fully sprinklered building.', show: hw.hw_delayed_egress && !sprinklered });
+  // Lives under Locking (grouped with the Delayed Egress panel), not Signage —
+  // see CHECKLIST_PANELS in inspectionRules.ts.
+  items.push({ section: 'Locking', id: 'sign_delayed_egress', text: 'Signage: Delayed egress signage is not provided.', show: hw.hw_delayed_egress });
   items.push({ section: 'Locking', id: 'lock_motion_fails', text: 'Locking: Motion sensor fails to release mag-lock.', show: hw.hw_motion_sensor });
 
   items.push({ section: 'Locking', id: 'lock_locked_egress', text: 'Locking: Door is mechanically locked in the means of egress.', show: true });
@@ -780,6 +788,108 @@ function DeficiencyItem({ item, defState, atype, swing, sprinklered, gapStd, onT
   );
 }
 
+// Shared props every item inside a panel/group needs to render via
+// DeficiencyItem unchanged — panels only change what visually contains an
+// item, never its wording or toggle/note/branch behavior.
+interface ChecklistPanelRenderCtx {
+  deficiencies: Record<string, DeficiencyState>;
+  atype: string;
+  swing: string;
+  sprinklered: boolean;
+  gapStd: string;
+  onToggle: (item: ChecklistItem) => void;
+  onNoteChange: (id: string, note: string) => void;
+  onBranchAnswer: (itemId: string, qid: string, value: string, branchId?: string) => void;
+}
+
+function panelFlagCount(items: ChecklistItem[], deficiencies: Record<string, DeficiencyState>): number {
+  return items.filter((i) => {
+    const st = deficiencies[i.id]?.status;
+    return st === 'deficient' || st === 'advisory';
+  }).length;
+}
+
+function PanelHeader({ title, itemCount, flaggedCount, expanded, onClick }: {
+  title: string; itemCount: number; flaggedCount: number; expanded: boolean; onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-muted/40 transition-all"
+    >
+      <span className="text-sm font-medium text-foreground">{title}</span>
+      <span className="flex items-center gap-2 shrink-0">
+        {flaggedCount > 0 && (
+          <span className="text-xs font-mono font-semibold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-500">
+            {flaggedCount}
+          </span>
+        )}
+        <span className="text-xs text-muted-foreground font-mono">{itemCount} item{itemCount === 1 ? '' : 's'}</span>
+        <span className="text-muted-foreground">{expanded ? '▾' : '▸'}</span>
+      </span>
+    </button>
+  );
+}
+
+// A collapsible cluster of similar checklist items. Starts collapsed always —
+// never auto-opens just because something inside is flagged, so the inspector
+// deliberately opens and reads each panel rather than shortcutting past it. A
+// red badge on the header still shows a flagged count, so re-visiting a
+// section you already worked doesn't require re-opening every panel to see
+// what's already handled.
+function ChecklistPanel({ title, items, ctx }: { title: string; items: ChecklistItem[]; ctx: ChecklistPanelRenderCtx }) {
+  const [expanded, setExpanded] = useState(false);
+  if (items.length === 0) return null; // nothing applicable to this door landed in this panel
+  const flaggedCount = panelFlagCount(items, ctx.deficiencies);
+  return (
+    <div className="rounded-sm border border-border overflow-hidden">
+      <PanelHeader title={title} itemCount={items.length} flaggedCount={flaggedCount} expanded={expanded} onClick={() => setExpanded((v) => !v)} />
+      {expanded && (
+        <div className="p-2 space-y-2 border-t border-border bg-background/40">
+          {items.map((item) => (
+            <DeficiencyItem
+              key={item.id}
+              item={item}
+              defState={ctx.deficiencies[item.id]}
+              atype={ctx.atype}
+              swing={ctx.swing}
+              sprinklered={ctx.sprinklered}
+              gapStd={ctx.gapStd}
+              onToggle={ctx.onToggle}
+              onNoteChange={ctx.onNoteChange}
+              onBranchAnswer={ctx.onBranchAnswer}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// The rare two-level case (e.g. Self-Closing's "what's causing this?" wrapping
+// Closer/Coordinator/Obstruction) — an outer collapsible containing several
+// ChecklistPanels. Same collapsed-by-default, badge-not-auto-expand rule.
+function ChecklistGroupPanel({ title, panels, ctx }: {
+  title: string; panels: Array<{ title: string; items: ChecklistItem[] }>; ctx: ChecklistPanelRenderCtx;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const allItems = panels.flatMap((p) => p.items);
+  if (allItems.length === 0) return null;
+  const flaggedCount = panelFlagCount(allItems, ctx.deficiencies);
+  return (
+    <div className="rounded-sm border border-border overflow-hidden">
+      <PanelHeader title={title} itemCount={allItems.length} flaggedCount={flaggedCount} expanded={expanded} onClick={() => setExpanded((v) => !v)} />
+      {expanded && (
+        <div className="p-2 space-y-2 border-t border-border bg-background/40">
+          {panels.map((p) => (
+            <ChecklistPanel key={p.title} title={p.title} items={p.items} ctx={ctx} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Compress a captured photo to a bounded-size JPEG data URL so it can be shown
 // and stored offline without exhausting localStorage; uploaded later when online.
 async function compressImage(file: File, maxDim = 1280, quality = 0.7): Promise<string> {
@@ -1172,9 +1282,22 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
       startTime: new Date().toISOString(),
     };
 
-    // Auto-flag rating deficiency
+    // Auto-flag rating deficiency. minRequiredRating() is the SAME function
+    // getApplicableItems's `show` condition calls — they used to compute this
+    // independently and drifted (getApplicableItems didn't know an existing-
+    // construction smoke barrier needs no rating), which let a rating row show
+    // as needing attention without ever being auto-flagged. One function, one
+    // answer, for both door and frame.
     const initDefs: Record<string, DeficiencyState> = {};
-    
+    const minRequired = minRequiredRating(assemblyType, {
+      isStairDoor,
+      isDualEgressSwing: doorSwingType === 'dbl_dual_egress',
+      isCrossCorridor,
+      isHealthCareOccupancy,
+      isCorridorDoor,
+      construction: projectVars.construction,
+    });
+
     // Door label illegible auto-flag
     if (doorRating === 'label_illegible') {
       initDefs['label_door'] = {
@@ -1195,14 +1318,6 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
       };
     } else {
       const rating = parseInt(doorRating);
-      const minRating = MIN_RATINGS[assemblyType];
-      const isDualEgress = doorSwingType === 'dbl_dual_egress';
-      let minRequired = minRating;
-      if (assemblyType === '1hr_fire' && isStairDoor) minRequired = 60;
-      if (assemblyType === 'smoke_barrier' && isDualEgress && isCrossCorridor && isHealthCareOccupancy) minRequired = 0;
-      // Smoke barrier doors need no fire rating in Existing Occupancy; the 20-min
-      // minimum applies only to New Occupancy.
-      if (assemblyType === 'smoke_barrier' && projectVars.construction === 'existing') minRequired = 0;
       if (minRequired !== null && rating < minRequired) {
         initDefs['rating_door'] = {
           status: 'deficient',
@@ -1214,16 +1329,6 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
         };
       }
     }
-
-    // Frame rating auto-flag logic
-    const minRating = MIN_RATINGS[assemblyType];
-    const isDualEgress = doorSwingType === 'dbl_dual_egress';
-    let minRequired = minRating;
-    if (assemblyType === '1hr_fire' && isStairDoor) minRequired = 60;
-    if (assemblyType === 'smoke_barrier' && isDualEgress && isCrossCorridor && isHealthCareOccupancy) minRequired = 0;
-    // Smoke barrier doors need no fire rating in Existing Occupancy; the 20-min
-    // minimum applies only to New Occupancy.
-    if (assemblyType === 'smoke_barrier' && projectVars.construction === 'existing') minRequired = 0;
 
     // Frame label illegible auto-flag
     if (frameRating === 'label_illegible') {
@@ -1247,7 +1352,7 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
       };
     } else {
       const frameRatingNum = parseInt(frameRating);
-      if (minRequired !== null && minRequired !== 0 && frameRatingNum < minRequired) {
+      if (minRequired !== null && frameRatingNum < minRequired) {
         initDefs['rating_frame'] = {
           status: 'deficient',
           text: 'Rating: Frame is underrated for the door assembly type.',
@@ -1258,18 +1363,10 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
         };
       }
     }
-
-    // Auto-flag corridor door for 1-hour partition at 20 min
-    if (assemblyType === '1hr_partition' && doorRating === '20' && isCorridorDoor === true) {
-      initDefs['rating_door'] = {
-        status: 'deficient',
-        text: 'Rating: Door is underrated for the door assembly type.',
-        category: 'Rating',
-        note: '1-Hour Partition corridor doors require minimum 45 min rating per IBC.',
-        branchAnswers: {},
-        autoFlagged: true,
-      };
-    }
+    // The 1-Hour Partition corridor case (45 min minimum) used to need its own
+    // hardcoded check here, and only matched a door rating of exactly '20' —
+    // missing any other under-45 rating. minRequiredRating() now folds that
+    // rule into the general check above for every rating, not just one value.
 
     // Auto-flag a cross-corridor smoke barrier door that has no vision panel
     // (mirrors the vp_missing show-condition, which carried autoFlag).
@@ -2764,9 +2861,54 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
             );
           }
 
+          // Cluster this section's items into the collapsible panels defined in
+          // CHECKLIST_PANELS (display only — doesn't affect which items apply,
+          // their wording, or their toggle/note/branch behavior). Anything not
+          // claimed by a panel (including inspector-added custom items, whose
+          // ids never match a static panel's itemIds) renders as a plain
+          // standalone row, same as every item did before panels existed.
+          const sectionBlocks = CHECKLIST_PANELS[currentSection] || [];
+          const claimedIds = new Set(
+            sectionBlocks.flatMap((block) =>
+              isChecklistGroup(block) ? block.panels.flatMap((p) => p.itemIds) : block.itemIds
+            )
+          );
+          const standaloneItems = sectionItems.filter((item) => !claimedIds.has(item.id));
+          const renderCtx: ChecklistPanelRenderCtx = {
+            deficiencies,
+            atype: currentDoor?.assemblyType || '',
+            swing: currentDoor?.doorSwingType || '',
+            sprinklered: currentDoor?.projectVars.sprinklered !== false,
+            gapStd: currentDoor?.projectVars.gapStandard || 'codify',
+            onToggle: toggleDeficiency,
+            onNoteChange: updateNote,
+            onBranchAnswer: updateBranchAnswer,
+          };
+
           return (
             <div className="space-y-2">
-              {sectionItems.map(item => (
+              {sectionBlocks.map((block) =>
+                isChecklistGroup(block) ? (
+                  <ChecklistGroupPanel
+                    key={block.title}
+                    title={block.title}
+                    panels={block.panels.map((p) => ({
+                      title: p.title,
+                      items: sectionItems.filter((item) => p.itemIds.includes(item.id)),
+                    }))}
+                    ctx={renderCtx}
+                  />
+                ) : (
+                  <ChecklistPanel
+                    key={block.title}
+                    title={block.title}
+                    items={sectionItems.filter((item) => block.itemIds.includes(item.id))}
+                    ctx={renderCtx}
+                  />
+                )
+              )}
+
+              {standaloneItems.map(item => (
                 <DeficiencyItem
                   key={item.id}
                   item={item}

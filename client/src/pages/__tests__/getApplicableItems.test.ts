@@ -43,6 +43,30 @@ describe('getApplicableItems — rating minimums', () => {
     const ids = shownIds('1hr_partition', noHw, 'single', pv, false, '20', '20', true, false, false, true);
     expect(ids.has('rating_door')).toBe(true);
   });
+
+  it('flags an UNDER-45 1-hour partition corridor door at any rating, not just 20 (regression: this used to be a hardcoded special case matching only doorRating === "20")', () => {
+    const ids = shownIds('1hr_partition', noHw, 'single', pv, false, '0', '0', true, false, false, true);
+    expect(ids.has('rating_door')).toBe(true);
+  });
+
+  it('does not flag an existing-construction smoke barrier for rating, even unrated (minRequiredRating() shared with startInspection\'s auto-flag — the bug this fixes let the row show without ever auto-flagging)', () => {
+    const ids = shownIds('smoke_barrier', noHw, 'single', { ...pv, construction: 'existing' }, false, '0', '0');
+    expect(ids.has('rating_door')).toBe(false);
+    expect(ids.has('rating_frame')).toBe(false);
+  });
+
+  it('flags an unrated smoke barrier in NEW construction (20-min minimum applies)', () => {
+    const ids = shownIds('smoke_barrier', noHw, 'single', { ...pv, construction: 'new' }, false, '0', '0');
+    expect(ids.has('rating_door')).toBe(true);
+    expect(ids.has('rating_frame')).toBe(true);
+  });
+});
+
+describe('getApplicableItems — sign_delayed_egress lives under Locking', () => {
+  it('reports section Locking, not Signage (moved to group with the Delayed Egress panel)', () => {
+    const found = item('sign_delayed_egress', '1hr_fire', { hw_delayed_egress: true } as any, 'single', pv, false, '90', '90');
+    expect(found?.section).toBe('Locking');
+  });
 });
 
 describe('getApplicableItems — hardware-driven items', () => {
@@ -84,5 +108,11 @@ describe('getApplicableItems — client-preference suppression', () => {
     expect(shownIds('1hr_fire', noHw, 'single', pvNoLaminate, false, '90', '90').has('pi_laminate_face')).toBe(true);
     // Default (opt-in) → laminate cited on non-fire too.
     expect(shownIds('smoke_barrier', noHw, 'single', pv, false, '0', '0').has('pi_laminate_face')).toBe(true);
+  });
+
+  it('applies the same suppression rule to the top-edge laminate item as the other three edges', () => {
+    expect(shownIds('smoke_barrier', noHw, 'single', pvNoLaminate, false, '0', '0').has('pi_laminate_top')).toBe(false);
+    expect(shownIds('1hr_fire', noHw, 'single', pvNoLaminate, false, '90', '90').has('pi_laminate_top')).toBe(true);
+    expect(shownIds('smoke_barrier', noHw, 'single', pv, false, '0', '0').has('pi_laminate_top')).toBe(true);
   });
 });
