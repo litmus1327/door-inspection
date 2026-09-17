@@ -107,6 +107,27 @@ describe('syncInspections', () => {
     const ids = read().map((r: any) => r.id).sort();
     expect(ids).toEqual(['a', 'cloud-1', 'mid-download']);
   });
+
+  it('flags a truncated download instead of letting a partial pull look complete', async () => {
+    write([]);
+    vi.mocked(uploadInspectionRecord).mockResolvedValue(true);
+    const cloud = Array.from({ length: 10000 }, (_, i) => ({ id: `c${i}`, pinId: `p${i}` }));
+    vi.mocked(fetchInspectionRecords).mockResolvedValue(cloud as any);
+
+    const r = await syncInspections();
+
+    expect(r.truncated).toBe(true);
+  });
+
+  it('does not flag truncation for a normal-sized download', async () => {
+    write([]);
+    vi.mocked(uploadInspectionRecord).mockResolvedValue(true);
+    vi.mocked(fetchInspectionRecords).mockResolvedValue([{ id: 'a', pinId: 'a' }] as any);
+
+    const r = await syncInspections();
+
+    expect(r.truncated).toBeFalsy();
+  });
 });
 
 // Derek's rule, 2026-08-13: the last inspector to touch a door wins. "Last"

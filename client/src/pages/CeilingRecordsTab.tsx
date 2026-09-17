@@ -204,7 +204,10 @@ export default function CeilingRecordsTab({ projectName }: Props) {
     setSyncMsg(
       r.ok
         ? `Synced: ${r.uploaded} up, ${r.downloaded} down` +
-          (r.conflicts ? ` — ${r.conflicts} door(s) inspected on two devices; kept the later one` : '')
+          (r.conflicts ? ` — ${r.conflicts} door(s) inspected on two devices; kept the later one` : '') +
+          // The download silently truncates past 10,000 rows — say so rather
+          // than let a partial download look complete.
+          (r.truncated ? ' — WARNING: hit the 10,000-record cap, not everything downloaded. Scope to this project or ask for the cap to be raised.' : '')
         : (r.error || 'Sync failed')
     );
     loadRecords(); setSyncing(false);

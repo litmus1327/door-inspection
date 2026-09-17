@@ -8,6 +8,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 if (typeof pdfjsLib.GlobalWorkerOptions !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 }
+import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -349,8 +350,17 @@ function App() {
       updateSyncStatus();
       const cfg = getSupabaseConfig();
       if (cfg.url && cfg.key) {
-        // Push anything captured offline and pull peers' work.
-        syncInspections().catch(() => {});
+        // Push anything captured offline and pull peers' work. This runs
+        // silently in the background, so anything the inspector needs to act
+        // on (a truncated download, a same-door conflict) has to surface as a
+        // toast here — it isn't shown anywhere else on this path.
+        syncInspections().then((r) => {
+          if (r.truncated) {
+            toast.warning('Sync hit its 10,000-record cap — not everything downloaded. Scope to this project or ask for the cap to be raised.');
+          } else if (r.conflicts) {
+            toast.warning(`${r.conflicts} door(s) inspected on two devices this year — kept the later inspection.`);
+          }
+        }).catch(() => {});
         flushPendingPhotos().catch(() => {});
         const local: Record<number, DoorPin[]> = JSON.parse(
           localStorage.getItem('floorPlanPins') || '{}'

@@ -12,6 +12,8 @@ export interface SyncResult {
   downloaded: number;
   /** Doors where two devices held different inspections for the same year. */
   conflicts?: number;
+  /** True when the cloud download hit its row cap — some records may be missing. */
+  truncated?: boolean;
   error?: string;
 }
 
@@ -155,8 +157,10 @@ export async function syncInspections(): Promise<SyncResult> {
   }
   // supabase.fetchInspectionRecords sends `Range: 0-9999` and does not check the
   // Content-Range that comes back, so past 10,000 rows the response is silently
-  // truncated. Say so rather than letting a partial download look complete.
-  if (cloud.length >= 10000) {
+  // truncated. Say so rather than letting a partial download look complete —
+  // both to the console and, via `truncated` below, to the inspector on screen.
+  const truncated = cloud.length >= 10000;
+  if (truncated) {
     console.warn(
       '[sync] the record download hit its 10,000-row cap, so some records were ' +
       'not downloaded. Work inside a project (which scopes the query) or raise ' +
@@ -213,7 +217,7 @@ export async function syncInspections(): Promise<SyncResult> {
     );
   }
 
-  return { ok: true, uploaded, downloaded, conflicts };
+  return { ok: true, uploaded, downloaded, conflicts, truncated };
 }
 
 /**
