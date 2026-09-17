@@ -2449,29 +2449,25 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
           {/* Hardware Variables */}
           <div className="bg-card border border-border rounded-sm p-4 space-y-3">
             <h2 className="text-xs font-semibold uppercase tracking-widest text-primary font-mono">Door Hardware</h2>
-            <p className="text-xs text-muted-foreground">Toggle ON for hardware present on this door.</p>
-            <div className="grid grid-cols-1 gap-2">
-              {HARDWARE_VARS.map(v => {
-                const hiddenWhenSingle = [
-                  'hw_coordinator',
-                  'hw_overlapping_astragal',
-                ];
-                if (doorSwingType === 'single' && hiddenWhenSingle.includes(v.id)) return null;
+            <p className="text-xs text-muted-foreground">
+              {assistedMode ? 'Tap each item you see on this door.' : 'Toggle ON for hardware present on this door.'}
+            </p>
+            {(() => {
+              // Which hardware options even apply to this door — unchanged from
+              // before the photo grid existed, and shared by both render modes
+              // below so the two can never drift on which items are offered.
+              const eligible = HARDWARE_VARS.filter(v => {
+                const hiddenWhenSingle = ['hw_coordinator', 'hw_overlapping_astragal'];
+                if (doorSwingType === 'single' && hiddenWhenSingle.includes(v.id)) return false;
 
-                const hiddenWhenNotSingleOrActive = [
-                  'hw_lockset_cylindrical',
-                  'hw_lockset_mortise',
-                ];
-                if (!['single', 'dbl_active'].includes(doorSwingType) && hiddenWhenNotSingleOrActive.includes(v.id)) return null;
+                const hiddenWhenNotSingleOrActive = ['hw_lockset_cylindrical', 'hw_lockset_mortise'];
+                if (!['single', 'dbl_active'].includes(doorSwingType) && hiddenWhenNotSingleOrActive.includes(v.id)) return false;
 
-                const hiddenWhenNotInactive = [
-                  'hw_flush_bolts_auto',
-                  'hw_flush_bolts_manual',
-                ];
-                if (doorSwingType !== 'dbl_inactive' && hiddenWhenNotInactive.includes(v.id)) return null;
+                const hiddenWhenNotInactive = ['hw_flush_bolts_auto', 'hw_flush_bolts_manual'];
+                if (doorSwingType !== 'dbl_inactive' && hiddenWhenNotInactive.includes(v.id)) return false;
 
-                if (v.id === 'hw_deadbolt' && !['single', 'dbl_active'].includes(doorSwingType)) return null;
-                if (v.id === 'hw_electric_strike' && doorSwingType === 'dbl_active') return null;
+                if (v.id === 'hw_deadbolt' && !['single', 'dbl_active'].includes(doorSwingType)) return false;
+                if (v.id === 'hw_electric_strike' && doorSwingType === 'dbl_active') return false;
 
                 // Signage only ever applies to a rated fire or smoke assembly. Fire
                 // barriers always offer it. Smoke barrier, smoke partition, and
@@ -2484,49 +2480,72 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
                     assemblyType === 'smoke_barrier' &&
                     projectVars.construction === 'new' &&
                     (doorRating === 'label_illegible' ? -1 : parseInt(doorRating) || 0) >= 20;
-                  if (!isNewConstructionRatedSmokeBarrier) return null;
+                  if (!isNewConstructionRatedSmokeBarrier) return false;
                 }
+                return true;
+              });
 
-                const meta = HARDWARE_META[v.id];
-                const img = meta?.img;
-                const img2 = meta?.img2;
-                const desc = meta?.desc;
+              // Assisted Mode: a tap-to-select photo grid — faster to scan by
+              // sight than a list of technical hardware names. Normal mode stays
+              // the lean text-only list, unchanged.
+              if (assistedMode) {
                 return (
-                  <button
-                    key={v.id}
-                    onClick={() => toggleHardware(v.id)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-sm border text-left transition-all ${
-                      hwState[v.id]
-                        ? 'border-primary bg-primary/10'
-                        : 'border-border hover:border-primary/30'
-                    }`}
-                  >
-                    {assistedMode && (
-                      <div className="flex shrink-0 gap-1">
-                        <div className="w-14 h-14 rounded-sm overflow-hidden bg-background border border-border flex items-center justify-center">
-                          {img
-                            ? <img src={img} alt="" className="w-full h-full object-cover" />
-                            : <span className="text-[10px] text-muted-foreground font-mono text-center px-1">no photo</span>}
-                        </div>
-                        {img2 && (
-                          <div className="w-14 h-14 rounded-sm overflow-hidden bg-background border border-border flex items-center justify-center">
-                            <img src={img2} alt="" className="w-full h-full object-cover" />
+                  <div className="grid grid-cols-3 gap-2">
+                    {eligible.map(v => {
+                      const meta = HARDWARE_META[v.id];
+                      const selected = hwState[v.id];
+                      return (
+                        <button
+                          key={v.id}
+                          onClick={() => toggleHardware(v.id)}
+                          className={`flex flex-col items-center gap-1.5 p-2 rounded-sm border text-center transition-all ${
+                            selected ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/30'
+                          }`}
+                        >
+                          <div className="relative w-full aspect-square rounded-sm overflow-hidden bg-background border border-border flex items-center">
+                            {meta?.img ? (
+                              <img src={meta.img} alt="" className={`h-full object-cover ${meta.img2 ? 'w-1/2' : 'w-full'}`} />
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground font-mono text-center px-1 w-full">no photo</span>
+                            )}
+                            {meta?.img2 && <img src={meta.img2} alt="" className="w-1/2 h-full object-cover" />}
+                            {selected && (
+                              <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-bold leading-none">
+                                ✓
+                              </span>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium ${hwState[v.id] ? 'text-primary' : 'text-foreground'}`}>{v.label}</p>
-                      {assistedMode && desc && <p className="text-xs text-muted-foreground">{desc}</p>}
-                      {assistedMode && meta?.imgNote && <p className="text-[11px] text-muted-foreground italic mt-0.5">{meta.imgNote}</p>}
-                    </div>
-                    <span className={`text-xs font-mono shrink-0 ${hwState[v.id] ? 'text-primary' : 'text-muted-foreground'}`}>
-                      {hwState[v.id] ? 'ON' : 'OFF'}
-                    </span>
-                  </button>
+                          <p className={`text-xs font-medium leading-tight ${selected ? 'text-primary' : 'text-foreground'}`}>
+                            {v.label}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
                 );
-              })}
-            </div>
+              }
+
+              return (
+                <div className="grid grid-cols-1 gap-2">
+                  {eligible.map(v => (
+                    <button
+                      key={v.id}
+                      onClick={() => toggleHardware(v.id)}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-sm border text-left transition-all ${
+                        hwState[v.id] ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/30'
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium ${hwState[v.id] ? 'text-primary' : 'text-foreground'}`}>{v.label}</p>
+                      </div>
+                      <span className={`text-xs font-mono shrink-0 ${hwState[v.id] ? 'text-primary' : 'text-muted-foreground'}`}>
+                        {hwState[v.id] ? 'ON' : 'OFF'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         </div>
 
