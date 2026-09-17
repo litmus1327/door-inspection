@@ -80,32 +80,41 @@ export default function ProjectsPage({ onSelectProject, onCreateProject, onDelet
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const loadFromServer = async () => {
+    if (!connected) { setLoading(false); return; }
+    const [p, i] = await Promise.all([listProjects(cfg), listInspectors(cfg)]);
+    if (p) {
+      setProjects(
+        p
+          .map((r) => ({ name: r.name, category: r.category ?? undefined, archived: !!r.archived }))
+          .filter((x) => x.name)
+      );
+      setLoadError(null);
+    } else {
+      // listProjects returns null on any failure (network error, bad
+      // response) and this used to fail silently -- the device just kept
+      // showing whatever was cached locally, with nothing telling the
+      // inspector their project list might be stale or incomplete.
+      // lastListProjectsError carries the specific reason (HTTP status or
+      // exception message) so this is diagnosable from the phone screen
+      // itself, without needing devtools.
+      setLoadError(lastListProjectsError || 'unknown error');
+    }
+    if (i) setInspectors(i);
+    setLoading(false);
+  };
+
   useEffect(() => {
-    (async () => {
-      if (connected) {
-        const [p, i] = await Promise.all([listProjects(cfg), listInspectors(cfg)]);
-        if (p) {
-          setProjects(
-            p
-              .map((r) => ({ name: r.name, category: r.category ?? undefined, archived: !!r.archived }))
-              .filter((x) => x.name)
-          );
-        } else {
-          // listProjects returns null on any failure (network error, bad
-          // response) and this used to fail silently -- the device just kept
-          // showing whatever was cached locally, with nothing telling the
-          // inspector their project list might be stale or incomplete.
-          // lastListProjectsError carries the specific reason (HTTP status or
-          // exception message) so this is diagnosable from the phone screen
-          // itself, without needing devtools.
-          setLoadError(lastListProjectsError || 'unknown error');
-        }
-        if (i) setInspectors(i);
-      }
-      setLoading(false);
-    })();
+    loadFromServer();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const [retrying, setRetrying] = useState(false);
+  const retryLoad = async () => {
+    setRetrying(true);
+    await loadFromServer();
+    setRetrying(false);
+  };
 
   const pickInspector = (name: string) => setInspectorName(name);
 
@@ -278,7 +287,12 @@ export default function ProjectsPage({ onSelectProject, onCreateProject, onDelet
             <span className="text-xs text-amber-500">Offline — showing saved projects</span>
           )}
           {connected && loadError && (
-            <span className="text-xs text-amber-500">Couldn't reach the server ({loadError}) — showing saved projects, which may be out of date</span>
+            <span className="text-xs text-amber-500 flex items-center gap-2">
+              Couldn't reach the server ({loadError}) — showing saved projects, which may be out of date
+              <button onClick={retryLoad} disabled={retrying} className="underline hover:no-underline disabled:opacity-50">
+                {retrying ? 'Retrying…' : 'Retry'}
+              </button>
+            </span>
           )}
         </div>
 
