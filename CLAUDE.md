@@ -74,6 +74,10 @@ Wall-color calibration (`lib/wallDetect.ts`) is per-project by default but can b
 
 When changing inspection rules, search this file for the relevant `id` (e.g. `gap_hinge`, `pl_fire_pin`) — every checklist item has a stable id used as the key in saved deficiencies.
 
+**Rating minimums are computed by one shared function.** `minRequiredRating()` in `lib/inspectionRules.ts` is called by both `getApplicableItems`'s `show` condition and `startInspection`'s auto-flag logic — they used to compute this independently and drifted (an existing-construction smoke barrier's 0-min override lived in one but not the other), letting a rating row show as needing attention without ever auto-flagging. Add any new rating-minimum special case there, not in either call site directly.
+
+**Checklist items display in collapsible panels**, defined in `CHECKLIST_PANELS` (`lib/inspectionRules.ts`) — a display-only grouping (which items visually cluster together, and whether a panel nests inside an outer "what's causing this?" wrapper) that has no effect on `getApplicableItems`'s applicability logic. An item id not listed anywhere in its section's entry renders as a plain standalone row. `ChecklistPanel`/`ChecklistGroupPanel` (in `InspectionWizard.tsx`, next to `DeficiencyItem`) do the rendering; adding a new checklist item does NOT require adding it to `CHECKLIST_PANELS` — it'll just show standalone until someone decides it belongs in a panel.
+
 ### Dictation
 
 An inspector can record one voice memo per pin ("dictate this location") in any of the three wizards instead of tapping through every item. `DictationRecorder.tsx` captures audio (MediaRecorder, WebM/Opus); on stop, it POSTs to `api/dictate.ts`, a Vercel serverless function — the only server code in the app that isn't a static file server, because it's the only place holding the OpenAI/Anthropic keys a browser-exposed `VITE_*` var can't hold.
