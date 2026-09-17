@@ -867,25 +867,30 @@ function ChecklistPanel({ title, items, ctx }: { title: string; items: Checklist
 }
 
 // The rare two-level case (e.g. Self-Closing's "what's causing this?" wrapping
-// Closer/Coordinator/Obstruction) — an outer collapsible containing several
-// ChecklistPanels. Same collapsed-by-default, badge-not-auto-expand rule.
+// Closer/Coordinator/Obstruction). The question itself is just a static label,
+// not another tap — its panels are always visible right underneath it. Only
+// the panels themselves (Closer, Coordinator, ...) collapse/expand; gating
+// them behind the question too meant an extra tap to see something that was
+// never optional to look at in the first place.
 function ChecklistGroupPanel({ title, panels, ctx }: {
   title: string; panels: Array<{ title: string; items: ChecklistItem[] }>; ctx: ChecklistPanelRenderCtx;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const allItems = panels.flatMap((p) => p.items);
   if (allItems.length === 0) return null;
   const flaggedCount = panelFlagCount(allItems, ctx.deficiencies);
   return (
-    <div className="rounded-sm border border-border overflow-hidden">
-      <PanelHeader title={title} itemCount={allItems.length} flaggedCount={flaggedCount} expanded={expanded} onClick={() => setExpanded((v) => !v)} />
-      {expanded && (
-        <div className="p-2 space-y-2 border-t border-border bg-background/40">
-          {panels.map((p) => (
-            <ChecklistPanel key={p.title} title={p.title} items={p.items} ctx={ctx} />
-          ))}
-        </div>
-      )}
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 px-1">
+        <span className="text-sm font-medium text-foreground">{title}</span>
+        {flaggedCount > 0 && (
+          <span className="text-xs font-mono font-semibold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-500">
+            {flaggedCount}
+          </span>
+        )}
+      </div>
+      {panels.map((p) => (
+        <ChecklistPanel key={p.title} title={p.title} items={p.items} ctx={ctx} />
+      ))}
     </div>
   );
 }
