@@ -55,6 +55,8 @@ export default function ProjectsPage({ onSelectProject, onCreateProject, onDelet
   const [menuFor, setMenuFor] = useState<string | null>(null);   // which card's ⋯ menu is open
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const cfg = getSupabaseConfig();
   const connected = !!(cfg.url && cfg.key);
@@ -87,6 +89,12 @@ export default function ProjectsPage({ onSelectProject, onCreateProject, onDelet
               .map((r) => ({ name: r.name, category: r.category ?? undefined, archived: !!r.archived }))
               .filter((x) => x.name)
           );
+        } else {
+          // listProjects returns null on any failure (network error, bad
+          // response) and this used to fail silently -- the device just kept
+          // showing whatever was cached locally, with nothing telling the
+          // inspector their project list might be stale or incomplete.
+          setLoadError(true);
         }
         if (i) setInspectors(i);
       }
@@ -265,6 +273,9 @@ export default function ProjectsPage({ onSelectProject, onCreateProject, onDelet
           {!connected && (
             <span className="text-xs text-amber-500">Offline — showing saved projects</span>
           )}
+          {connected && loadError && (
+            <span className="text-xs text-amber-500">Couldn't reach the server — showing saved projects, which may be out of date</span>
+          )}
         </div>
 
         {loading ? (
@@ -323,20 +334,44 @@ export default function ProjectsPage({ onSelectProject, onCreateProject, onDelet
                 autoFocus
               />
             </div>
-            <div>
+            <div className="relative">
               <label className="codify-label">Category / Service Line</label>
               <input
-                list="category-options"
                 value={newCategory}
-                onChange={(e) => setNewCategory(e.target.value)}
+                onChange={(e) => { setNewCategory(e.target.value); setCategoryOpen(true); }}
+                onFocus={() => setCategoryOpen(true)}
                 placeholder="Pick one or type your own"
                 className="codify-input w-full"
               />
-              <datalist id="category-options">
-                {allCategories.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
+              {categoryOpen && (() => {
+                const matches = allCategories.filter((c) =>
+                  c.toLowerCase().includes(newCategory.trim().toLowerCase())
+                );
+                return (
+                  <>
+                    {/* click-away layer, mirrors the pattern the project-card ⋯ menu already uses */}
+                    <div className="fixed inset-0 z-10" onClick={() => setCategoryOpen(false)} />
+                    <div className="absolute z-20 mt-1 w-full max-h-48 overflow-auto bg-card border border-border rounded-md shadow-lg">
+                      {matches.length > 0 ? (
+                        matches.map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => { setNewCategory(c); setCategoryOpen(false); }}
+                            className="block w-full text-left px-3 py-2 text-sm hover:bg-secondary"
+                          >
+                            {c}
+                          </button>
+                        ))
+                      ) : (
+                        <p className="px-3 py-2 text-xs text-muted-foreground">
+                          No matches — what you've typed will be used as a new category.
+                        </p>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
             <div>
               <label className="codify-label">Floor Plan (PDF)</label>
