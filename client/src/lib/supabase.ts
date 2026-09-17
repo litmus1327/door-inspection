@@ -303,18 +303,32 @@ export interface ProjectRow {
   archived?: boolean;
 }
 
+// Set on any listProjects() failure so the caller can show WHY, not just
+// that it failed -- "couldn't reach the server" covers both a real network
+// failure and the server rejecting the request outright (bad/expired key,
+// RLS policy), and those need different fixes. Read it right after a null
+// result; it's overwritten by the next call, not a persistent log.
+export let lastListProjectsError: string | null = null;
+
 /** All projects the team has created, newest first (archived ones included —
  *  the Projects page filters them into an "Archived" view client-side). */
 export async function listProjects(config: SupabaseConfig): Promise<ProjectRow[] | null> {
-  if (!config.url || !config.key) return null;
+  if (!config.url || !config.key) { lastListProjectsError = 'No Supabase URL/key configured on this device'; return null; }
   try {
     const res = await fetch(`${config.url}/rest/v1/projects?select=name,created_at,category,archived&order=created_at.desc`, {
       headers: { 'apikey': config.key, 'Authorization': `Bearer ${config.key}` },
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      lastListProjectsError = `HTTP ${res.status}${body ? ` — ${body.slice(0, 200)}` : ''}`;
+      console.error('List projects error:', lastListProjectsError);
+      return null;
+    }
     const rows = await res.json();
+    lastListProjectsError = null;
     return Array.isArray(rows) ? rows : [];
-  } catch (error) {
+  } catch (error: any) {
+    lastListProjectsError = error?.message || String(error);
     console.error('List projects error:', error);
     return null;
   }

@@ -3,6 +3,7 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import {
   getSupabaseConfig,
   listProjects,
+  lastListProjectsError,
   createProject as createProjectRow,
   archiveProject as archiveProjectRow,
   unarchiveProject as unarchiveProjectRow,
@@ -56,7 +57,7 @@ export default function ProjectsPage({ onSelectProject, onCreateProject, onDelet
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
-  const [loadError, setLoadError] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const cfg = getSupabaseConfig();
   const connected = !!(cfg.url && cfg.key);
@@ -94,7 +95,10 @@ export default function ProjectsPage({ onSelectProject, onCreateProject, onDelet
           // response) and this used to fail silently -- the device just kept
           // showing whatever was cached locally, with nothing telling the
           // inspector their project list might be stale or incomplete.
-          setLoadError(true);
+          // lastListProjectsError carries the specific reason (HTTP status or
+          // exception message) so this is diagnosable from the phone screen
+          // itself, without needing devtools.
+          setLoadError(lastListProjectsError || 'unknown error');
         }
         if (i) setInspectors(i);
       }
@@ -274,7 +278,7 @@ export default function ProjectsPage({ onSelectProject, onCreateProject, onDelet
             <span className="text-xs text-amber-500">Offline — showing saved projects</span>
           )}
           {connected && loadError && (
-            <span className="text-xs text-amber-500">Couldn't reach the server — showing saved projects, which may be out of date</span>
+            <span className="text-xs text-amber-500">Couldn't reach the server ({loadError}) — showing saved projects, which may be out of date</span>
           )}
         </div>
 
