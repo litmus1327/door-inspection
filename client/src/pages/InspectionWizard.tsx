@@ -1793,7 +1793,19 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
       return;
     }
     if (unresolvedSections.length > 0) {
-      alert(`Review every area before finishing. Still to review: ${unresolvedSections.join(', ')}.`);
+      // Same fix as the blocking-prompt branch above: land the inspector
+      // somewhere the "Areas reviewed" chip strip is actually visible, and
+      // say what to do -- the alert used to just name the sections and leave
+      // the inspector to discover the chip strip (or the assisted-mode-only
+      // "Mark all remaining" shortcut) on their own.
+      const target = visibleSections.indexOf(unresolvedSections[0]);
+      setInspectView('checklist');
+      if (target >= 0) navigateToSection(target);
+      alert(
+        `Review every area before finishing. Still to review: ${unresolvedSections.join(', ')}.\n\n` +
+        `Tap each area's chip in the "Areas reviewed" strip below the checklist to confirm no issues there` +
+        (assistedMode ? '.' : ', or use "Mark all remaining: No issues" next to the counter.')
+      );
       return;
     }
     completeInspection();
