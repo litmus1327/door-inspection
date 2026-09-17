@@ -18,13 +18,13 @@ export const ASSEMBLY_TYPE_LABELS: Record<string, string> = {
 
 // Plain-language descriptions shown under the assembly-type picker.
 export const ASSEMBLY_TYPE_DESCRIPTIONS: Record<string, string> = {
-  '3hr_fire': 'Highest-rated separation; major hazard divisions or between buildings.',
-  '2hr_fire': 'Heavy separation, e.g. exit stair enclosures in taller buildings.',
-  '1hr_fire': 'Common fire separation: corridors, stairwells, mechanical/electrical rooms.',
-  '1hr_partition': 'Lighter 1-hour separation, often tenant or corridor partitions.',
-  'smoke_barrier': 'Limits smoke spread between compartments; common in healthcare.',
-  'smoke_partition': 'Resists smoke passage but is not rated for fire.',
-  'suite_perimeter': 'Boundary of a suite of rooms (healthcare context).',
+  '3hr_fire': 'Associated with building separations and transformer vaults.',
+  '2hr_fire': 'Associated with stairs, horizontal exits, building separations, construction type separations, and occupancy separations.',
+  '1hr_fire': 'Associated with stairs that connect three or fewer floors and hazardous areas.',
+  '1hr_partition': 'Associated with atrium separations and tenant separations.',
+  'smoke_barrier': 'Use for smoke compartmentation in health care and ambulatory occupancy.',
+  'smoke_partition': 'Associated with non-rated hazardous areas and separations between suites and adjacent spaces that are not the egress corridor.',
+  'suite_perimeter': 'Associated with the boundary of a suite of rooms (healthcare context).',
 };
 
 export const FIRE_RATED = ['3hr_fire', '2hr_fire', '1hr_fire', '1hr_partition'];

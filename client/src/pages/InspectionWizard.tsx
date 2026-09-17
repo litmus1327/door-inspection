@@ -2154,7 +2154,7 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
                   {assistedMode && assemblyType !== 'smoke_partition' && assemblyType !== 'suite_perimeter' && (
                     <div className="space-y-2">
                       <p className="text-xs text-amber-400/80">
-                        The rating is stamped on a metal label on the hinge edge of the door and on the frame (reads minutes, e.g. 90 MIN). If you can't read it, choose Label Illegible.
+                        The rating is stamped on a metal label on the hinge edge or top of the door, and on the frame (reads minutes, e.g. 90 MIN). If you can't read it, choose Label Illegible.
                       </p>
                       <div className="flex gap-3">
                         <figure className="m-0">
