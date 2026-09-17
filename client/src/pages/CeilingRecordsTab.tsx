@@ -437,6 +437,22 @@ export default function CeilingRecordsTab({ projectName }: Props) {
                     <p className="text-sm text-foreground mt-0.5">{f.value || '—'}</p>
                   </div>
                 ))}
+                {selected.findings && selected.findings.length > 1 && (
+                  <div>
+                    <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                      All findings logged at this pin ({selected.findings.length})
+                    </p>
+                    <div className="space-y-1 mt-1">
+                      {selected.findings.map((f, i) => (
+                        <div key={i} className="rounded-sm border border-border p-2">
+                          <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">{f.category} · {f.priority}</p>
+                          <p className="text-sm text-foreground">{f.finding}</p>
+                          {f.note && <p className="text-xs text-muted-foreground italic mt-0.5">{f.note}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {selected.additionalComments && (
                   <div>
                     <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Comment</p>

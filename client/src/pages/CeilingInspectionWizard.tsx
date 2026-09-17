@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { getSupabaseConfig, uploadPhotoToSupabase, uploadInspectionRecord } from '@/lib/supabase';
 import { compressImage } from '@/lib/imageCompress';
-import { CeilingInspection } from '@/types';
+import { CeilingFindingEntry, CeilingInspection } from '@/types';
 import {
   CEILING_CATEGORIES,
   CEILING_PRIORITIES,
@@ -45,6 +45,10 @@ export default function CeilingInspectionWizard({ selectedPin, onClear, onPinIns
   const [catFilter, setCatFilter] = useState<CeilingCategory | 'all'>('all');
   const [findingId, setFindingId] = useState('');
   const [priority, setPriority] = useState('Priority 2');
+  // Findings already committed to this visit (pick, note, "+ Add another"). The
+  // currently-selected finding above is added to this list on save.
+  const [addedFindings, setAddedFindings] = useState<CeilingFindingEntry[]>([]);
+  const [findingNote, setFindingNote] = useState('');
   const [comment, setComment] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -73,6 +77,30 @@ export default function CeilingInspectionWizard({ selectedPin, onClear, onPinIns
   const pickFinding = (f: CeilingFinding) => {
     setFindingId(f.id);
     setPriority(f.defaultPriority);
+    setFindingNote('');
+  };
+
+  // Commits the currently-selected finding to the visit's list and returns to
+  // search so the inspector can log another finding at the same pin.
+  const addAnotherFinding = () => {
+    if (!selectedFinding) return;
+    setAddedFindings((prev) => [
+      ...prev,
+      {
+        findingId: selectedFinding.id,
+        category: selectedFinding.category,
+        finding: selectedFinding.detail,
+        priority,
+        note: findingNote.trim() || undefined,
+      },
+    ]);
+    setFindingId('');
+    setPriority('Priority 2');
+    setFindingNote('');
+  };
+
+  const removeAddedFinding = (index: number) => {
+    setAddedFindings((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleAddPhotos = async (files: FileList) => {
@@ -92,10 +120,26 @@ export default function CeilingInspectionWizard({ selectedPin, onClear, onPinIns
     setPhotoUploading(false);
   };
 
+  // The finding currently on screen (if any) plus everything already added —
+  // this is what actually gets saved.
+  const allFindings: CeilingFindingEntry[] = selectedFinding
+    ? [
+        ...addedFindings,
+        {
+          findingId: selectedFinding.id,
+          category: selectedFinding.category,
+          finding: selectedFinding.detail,
+          priority,
+          note: findingNote.trim() || undefined,
+        },
+      ]
+    : addedFindings;
+
   const complete = async () => {
-    if (!selectedFinding) return;
+    if (allFindings.length === 0) return;
     setSaving(true);
     const inspectionYear = new Date().getFullYear();
+    const primary = allFindings[0];
     const record: CeilingInspection = {
       // Per-pin, per-year id: re-inspecting an icon in the same year updates it;
       // a new year adds a record. See lib/inspectionYear.ts.
@@ -110,10 +154,13 @@ export default function CeilingInspectionWizard({ selectedPin, onClear, onPinIns
       gridBlock: selectedPin?.grid || '',
       x: selectedPin?.x,
       y: selectedPin?.y,
-      findingId: selectedFinding.id,
-      category: selectedFinding.category,
-      finding: selectedFinding.detail,
-      priority,
+      // Legacy singular fields mirror the first finding, so existing readers
+      // (ceilingExport.ts, older code) keep working unchanged.
+      findingId: primary.findingId,
+      category: primary.category,
+      finding: primary.finding,
+      priority: primary.priority,
+      findings: allFindings,
       inspectorName: inspectorName || '—',
       projectName: activeProject || '—',
       completedTime: new Date().toISOString(),
@@ -165,6 +212,28 @@ export default function CeilingInspectionWizard({ selectedPin, onClear, onPinIns
       <div className="flex-1 overflow-auto p-4 space-y-4">
         {!selectedFinding ? (
           <>
+            {/* Findings already logged at this pin visit */}
+            {addedFindings.length > 0 && (
+              <div className="space-y-1">
+                <p className="codify-label">Findings logged at this pin</p>
+                {addedFindings.map((f, i) => (
+                  <div key={i} className="flex items-start justify-between gap-2 rounded-sm border border-border bg-card p-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">{f.category} · {f.priority}</p>
+                      <p className="text-sm truncate">{f.finding}</p>
+                      {f.note && <p className="text-xs text-muted-foreground mt-0.5">{f.note}</p>}
+                    </div>
+                    <button
+                      onClick={() => removeAddedFinding(i)}
+                      className="text-xs font-mono uppercase tracking-wide text-muted-foreground border border-border rounded-sm px-2 py-1 hover:border-red-500 hover:text-red-500 whitespace-nowrap"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Guide toggle */}
             <button
               onClick={() => setShowGuide((v) => !v)}
@@ -278,6 +347,26 @@ export default function CeilingInspectionWizard({ selectedPin, onClear, onPinIns
               </div>
             </div>
 
+            {/* Note for this specific finding */}
+            <div>
+              <label className="codify-label">Note for this finding (optional)</label>
+              <textarea
+                value={findingNote}
+                onChange={(e) => setFindingNote(e.target.value)}
+                rows={2}
+                placeholder="Add detail for this specific finding…"
+                className="codify-input w-full resize-none"
+              />
+            </div>
+
+            {/* Log another finding at the same pin without leaving the wizard */}
+            <button
+              onClick={addAnotherFinding}
+              className="w-full text-left text-sm px-3 py-2 rounded-sm border border-dashed border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
+            >
+              + Add this finding &amp; log another at this pin
+            </button>
+
             {/* Photos */}
             <div>
               <label className="codify-label">Photos</label>
@@ -307,7 +396,7 @@ export default function CeilingInspectionWizard({ selectedPin, onClear, onPinIns
               </div>
             </div>
 
-            {/* Comment */}
+            {/* Comment — whole-visit context, on top of any per-finding notes above */}
             <div>
               <label className="codify-label">Comment (optional)</label>
               <textarea
@@ -327,10 +416,10 @@ export default function CeilingInspectionWizard({ selectedPin, onClear, onPinIns
         <button onClick={onClear} className="codify-btn-secondary flex-1">Cancel</button>
         <button
           onClick={complete}
-          disabled={!selectedFinding || saving}
+          disabled={allFindings.length === 0 || saving}
           className="codify-btn-primary flex-1 disabled:opacity-50"
         >
-          {saving ? 'Saving…' : 'Save Finding'}
+          {saving ? 'Saving…' : allFindings.length > 1 ? `Save ${allFindings.length} Findings` : 'Save Finding'}
         </button>
       </div>
     </div>

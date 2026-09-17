@@ -457,7 +457,12 @@ export default function DamperRecordsTab({ projectName }: Props) {
                     <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-2">Deficiencies</p>
                     <div className="space-y-1">
                       {selected.deficiencies.map((d, i) => (
-                        <div key={i} className="p-2 rounded-sm border border-red-500/30 bg-red-500/5 text-red-300 text-xs">{d}</div>
+                        <div key={i} className="p-2 rounded-sm border border-red-500/30 bg-red-500/5 text-red-300 text-xs">
+                          <p>{d}</p>
+                          {selected.deficiencyNotes?.[d] && (
+                            <p className="mt-1 italic text-red-200/80">{selected.deficiencyNotes[d]}</p>
+                          )}
+                        </div>
                       ))}
                     </div>
                   </div>

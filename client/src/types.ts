@@ -110,6 +110,10 @@ export interface DamperInspection {
   // 'no_damper' is a location with no damper, not an inspection outcome.
   status: DamperStatus;
   deficiencies: string[];    // flat sentences from DAMPER_DEFICIENCIES -> Checklist "Yes:" cells
+  // Optional per-deficiency note, keyed by the deficiency sentence itself (stable
+  // strings from DAMPER_DEFICIENCIES). Additive: deficiencies[] is unchanged, so
+  // every existing reader (export, Fieldwire pipeline) keeps working untouched.
+  deficiencyNotes?: Record<string, string>;
   noDamperPresent?: boolean; // -> Fieldwire "No Damper Present" column
   assetId?: string;
   inspectorName: string;
@@ -125,6 +129,16 @@ export interface DamperInspection {
 // scoped apart by projectName and discriminated by inspectionType — so the
 // existing sync/photo-flush path (lib/sync.ts) carries it unchanged. One record
 // per pin (id = `cinsp_<pinId>`) so re-inspecting a pin upserts, not duplicates.
+// One finding logged at a ceiling pin. Mirrors the legacy singular
+// findingId/category/finding/priority fields on CeilingInspection.
+export interface CeilingFindingEntry {
+  findingId: string;  // CeilingFinding.id
+  category: string;   // CeilingFinding.category -> CSV Category column + checklist prefix
+  finding: string;     // CeilingFinding.detail -> checklist "Yes: <category>: <detail>"
+  priority: string;    // 'Priority 1' | 'Priority 2' | 'Priority 3' -> CSV Status column
+  note?: string;
+}
+
 export interface CeilingInspection {
   id: string;
   pinId?: string;
@@ -135,10 +149,14 @@ export interface CeilingInspection {
   gridBlock: string;
   x?: number; // pin position (0-100 % of page) -> CSV X pos (%)
   y?: number; // pin position (0-100 % of page) -> CSV Y pos (%)
-  findingId: string;      // CeilingFinding.id
+  findingId: string;      // CeilingFinding.id. Legacy singular field, mirrors findings[0].
   category: string;       // CeilingFinding.category -> CSV Category column + checklist prefix
   finding: string;        // CeilingFinding.detail -> checklist "Yes: <category>: <detail>"
   priority: string;       // 'Priority 1' | 'Priority 2' | 'Priority 3' -> CSV Status column
+  // Optional full list of findings logged at this pin/visit, each with its own
+  // note. Additive: new saves populate both this and the legacy singular fields
+  // above (findings[0] mirrors them), so every existing reader keeps working.
+  findings?: CeilingFindingEntry[];
   inspectorName: string;
   projectName: string;
   completedTime: string;  // ISO; date part stamps the checklist finding tail

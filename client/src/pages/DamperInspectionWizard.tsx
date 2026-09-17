@@ -37,6 +37,7 @@ export default function DamperInspectionWizard({ selectedPin, onClear, onPinInsp
   const [status, setStatus] = useState<DamperStatus | ''>('');
   const [noDamperPresent, setNoDamperPresent] = useState(false);
   const [defs, setDefs] = useState<Set<string>>(new Set());
+  const [defNotes, setDefNotes] = useState<Record<string, string>>({});
   const [assetId, setAssetId] = useState('');
   const [comment, setComment] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
@@ -45,7 +46,16 @@ export default function DamperInspectionWizard({ selectedPin, onClear, onPinInsp
 
   const toggleDef = (d: string) => setDefs((prev) => {
     const next = new Set(prev);
-    next.has(d) ? next.delete(d) : next.add(d);
+    if (next.has(d)) {
+      next.delete(d);
+      // Drop its note too — an unchecked deficiency shouldn't leave an orphaned note behind.
+      setDefNotes((prevNotes) => {
+        const { [d]: _, ...rest } = prevNotes;
+        return rest;
+      });
+    } else {
+      next.add(d);
+    }
     // Selecting a deficiency implies a Fail.
     if (next.size > 0) setStatus('fail');
     return next;
@@ -95,6 +105,7 @@ export default function DamperInspectionWizard({ selectedPin, onClear, onPinInsp
       category: category || '—',
       status: effStatus,
       deficiencies: Array.from(defs),
+      deficiencyNotes: Object.keys(defNotes).length ? defNotes : undefined,
       noDamperPresent: noDamperPresent || undefined,
       assetId: assetId.trim() || undefined,
       inspectorName: inspectorName || '—',
@@ -140,7 +151,7 @@ export default function DamperInspectionWizard({ selectedPin, onClear, onPinInsp
 
   const setStatusExplicit = (s: DamperStatus) => {
     setStatus(s);
-    if (s !== 'fail') setDefs(new Set()); // Pass / Inaccessible clear the checklist
+    if (s !== 'fail') { setDefs(new Set()); setDefNotes({}); } // Pass / Inaccessible clear the checklist
   };
 
   return (
@@ -165,7 +176,7 @@ export default function DamperInspectionWizard({ selectedPin, onClear, onPinInsp
             // so Fail + three deficiencies + tick saved a record carrying three
             // deficiencies the inspector could no longer see. setStatusExplicit
             // already clears them for Pass and Inaccessible; same rule here.
-            if (!v) { setDefs(new Set()); setStatus(''); }
+            if (!v) { setDefs(new Set()); setDefNotes({}); setStatus(''); }
             return !v;
           })}
           className={`w-full text-left text-sm px-3 py-2 rounded-sm border transition-all ${
@@ -219,16 +230,26 @@ export default function DamperInspectionWizard({ selectedPin, onClear, onPinInsp
                 <label className="codify-label">Deficiencies</label>
                 <div className="space-y-1">
                   {DAMPER_DEFICIENCIES.map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => toggleDef(d)}
-                      className={`flex items-start gap-2 w-full text-left text-sm px-3 py-2 rounded-sm border transition-all ${
-                        defs.has(d) ? 'border-red-500 bg-red-500/5 text-red-600 dark:text-red-400' : 'border-border hover:border-primary/50'
-                      }`}
-                    >
-                      <span className="mt-0.5">{defs.has(d) ? '☑' : '☐'}</span>
-                      <span>{d}</span>
-                    </button>
+                    <div key={d}>
+                      <button
+                        onClick={() => toggleDef(d)}
+                        className={`flex items-start gap-2 w-full text-left text-sm px-3 py-2 rounded-sm border transition-all ${
+                          defs.has(d) ? 'border-red-500 bg-red-500/5 text-red-600 dark:text-red-400' : 'border-border hover:border-primary/50'
+                        }`}
+                      >
+                        <span className="mt-0.5">{defs.has(d) ? '☑' : '☐'}</span>
+                        <span>{d}</span>
+                      </button>
+                      {defs.has(d) && (
+                        <textarea
+                          value={defNotes[d] || ''}
+                          onChange={(e) => setDefNotes((prev) => ({ ...prev, [d]: e.target.value }))}
+                          rows={2}
+                          placeholder="Note for this deficiency (optional)…"
+                          className="codify-input w-full resize-none mt-1 text-xs"
+                        />
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>
