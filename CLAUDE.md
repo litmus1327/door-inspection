@@ -13,11 +13,25 @@ Package manager is **pnpm** (see `packageManager` field in `package.json`).
 - `pnpm check` — `tsc --noEmit` typecheck across `client/src`, `shared`, `server`.
 - `pnpm format` — Prettier write across the repo (config in `.prettierrc`: 2 spaces, double quotes, semicolons, 80 col).
 
-There is no test runner wired up — `vitest` is installed as a devDependency but no tests exist and there is no `test` script.
+- `pnpm test` — `vitest run`. Eleven suites, 101 tests, runs in about a second: `pages/__tests__/getApplicableItems.test.ts` (the door checklist logic), `lib/inspectionYear.test.ts`, `lib/wallDetect.test.ts` (includes per-page calibration), `lib/ceilingFindings.test.ts`, `lib/ceilingLocationSummary.test.ts`, `lib/sync.test.ts`, `lib/supabase.test.ts`, `lib/fieldwireExport.test.ts`, `lib/projectScope.test.ts`, plus two hook suites. Coverage stops there — nothing exercises the dictation feature (it needs a browser mic and real API keys) — so a green run is not proof a UI change works, but always run it after touching inspection rules, annual cycles, wall calibration, or sync.
 
 ## Architecture
 
-This is a React 19 + Vite + TypeScript single-page app for fire/smoke door inspections (Codify Door Inspection). The entire user-facing app lives client-side; the Express server (`server/index.ts`) is a thin static file server used only in production.
+This is a React 19 + Vite + TypeScript single-page app for life-safety inspections (Codify Door Inspection). The entire user-facing app lives client-side; the Express server (`server/index.ts`) is a thin static file server used only in production. The one exception is `api/dictate.ts` (see "Dictation" below) — a Vercel serverless function, the app's only server-side code that does anything besides serve static files.
+
+### Three service lines, one shell
+
+The app started as doors only and now covers three inspection types. The project's service line decides which wizard and which records tab open; the tabs, the pin/floor-plan machinery and the persistence layer are shared.
+
+| Service line value | Wizard | Records |
+|---|---|---|
+| doors (default) | `InspectionWizard.tsx` | `RecordsTab.tsx` (Tasks page: filters, batch edit, history) |
+| `above_below_ceiling` | `CeilingInspectionWizard.tsx` | `CeilingRecordsTab.tsx` |
+| `fire_smoke_damper` | `DamperInspectionWizard.tsx` | `DamperRecordsTab.tsx` |
+
+The branch that picks them is in `App.tsx` (search for `CeilingInspectionWizard`). Ceiling projects skip the door setup gate and wall calibration.
+
+Also present and not obvious from the tab list: `ProjectsPage.tsx` (multiple projects, `activeProject` in localStorage) and annual inspection cycles, which keep a per-icon inspection history across years rather than overwriting last year's result.
 
 ### Layout & build wiring
 
@@ -33,8 +47,10 @@ This is a React 19 + Vite + TypeScript single-page app for fire/smoke door inspe
 All inspection state is persisted in the browser:
 
 - **localStorage** keys: `inspectorName`, `activeProject`, `floorPlanPins` (a `Record<pageNumber, DoorPin[]>`), `doorInspections`, `hiddenPages`, `supabaseUrl`, `supabaseKey`, `syncStatus`. Mediated by the `useLocalStorage` hook in `client/src/hooks/useLocalStorage.ts`, which contains a one-shot migration: if `floorPlanPins` is read as a flat `DoorPin[]` (legacy format), it's rewrapped to `{ 1: [...] }`.
-- **IndexedDB** (`codify_floorplan` DB, `files` store) stores the uploaded floor-plan PDF blob under key `floorplan`. Open/save helpers are inlined in `App.tsx`.
-- **Supabase** is optional cloud sync, configured via UI in `ConfigTab` and accessed through `client/src/lib/supabase.ts`. Records target the `door_inspections` table and `door_inspection_photos` storage bucket. The app must work fully offline if no Supabase config is set.
+- **IndexedDB** (`codify_floorplan` DB, `files` store) stores the uploaded floor-plan PDF blob under key `floorplan`. Open/save helpers are inlined in `App.tsx`. A second DB, `codify_dictation` (`lib/dictationQueue.ts`), queues voice memos recorded offline until they can be transcribed — see "Dictation" below.
+- **Supabase** is optional cloud sync, configured via `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` if set, otherwise via UI in `ConfigTab`, and accessed through `client/src/lib/supabase.ts`. Records target the `door_inspections` table and `door_inspection_photos` storage bucket. The app must work fully offline if no Supabase config is set.
+- **There is only one Supabase project, and no test instance.** The app is still in development and no inspector has used it in the field, so the data at risk is Derek's own test data rather than real inspection records. Still, `pnpm dev` in a browser writes to the same project the deployed app uses: creating projects, dropping pins and uploading photos all land in the real database and storage bucket. Use throwaway project names, keep track of what you create, and get approval before deleting anything. This bullet needs revisiting the moment the app goes live with inspectors, because the stakes change that day.
+- **`db/supabase_reset.sql` drops `door_inspections` and recreates it.** Its header says "safe to run now because no inspection data has synced yet," which was written early and carries no date, so it is not evidence about the table today. Ask Derek before running it. The other `db/*.sql` files are additive schema scripts applied by hand in the Supabase SQL editor; the repo has no migration runner and no record of which have been applied, so check the table rather than assuming.
 
 ### Top-level data flow
 
@@ -43,6 +59,8 @@ All inspection state is persisted in the browser:
 Pin numbering is a **global sequence**: `handlePinAdded` in `App.tsx` counts pins across all pages and assigns the next integer as `iconNo`. Pin removal (`handlePinRemoved` / `handlePinsRemoved`) also purges matching `doorInspections` records from localStorage by `pinId` — keep this invariant when touching pin lifecycle code.
 
 PDFs: multiple PDFs can be uploaded; each becomes a `PdfEntry` with a `pageOffset`. The app addresses pages by a **global page number** that spans all PDFs; `resolveGlobalPage()` maps it back to `(pdfFile, localPage)`. Pages labeled "Title Sheet" (extracted via PDF text) auto-clear pins.
+
+Wall-color calibration (`lib/wallDetect.ts`) is per-project by default but can be overridden per-page: `FloorPlanViewer.tsx` checks each page's extracted strokes against the active calibration and offers a dismissible per-page recalibration banner on a mismatch (a second building or a redrawn floor using different line colors), storing that override under `wallCalibration:${project}:${page}`. Single-drawing-set projects never see this — it only fires on an actual mismatch.
 
 ### The inspection wizard
 
@@ -55,6 +73,16 @@ PDFs: multiple PDFs can be uploaded; each becomes a `PdfEntry` with a `pageOffse
 - Items can carry a `branch` (`x1`–`x14`) that opens a follow-up question, an `autoFlag: true` to mark deficient by default, and a `hint` displayed inline.
 
 When changing inspection rules, search this file for the relevant `id` (e.g. `gap_hinge`, `pl_fire_pin`) — every checklist item has a stable id used as the key in saved deficiencies.
+
+### Dictation
+
+An inspector can record one voice memo per pin ("dictate this location") in any of the three wizards instead of tapping through every item. `DictationRecorder.tsx` captures audio (MediaRecorder, WebM/Opus); on stop, it POSTs to `api/dictate.ts`, a Vercel serverless function — the only server code in the app that isn't a static file server, because it's the only place holding the OpenAI/Anthropic keys a browser-exposed `VITE_*` var can't hold.
+
+- `api/dictate.ts` transcribes the clip (OpenAI Whisper) then asks Claude (tool-use / structured output) to map the transcript onto whatever checklist candidates the client sent — it has no static knowledge of `inspectionRules.ts`/`ceilingFindings.ts`/`damperChecklist.ts`, so it never needs to be kept in sync with them. **Requires `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` set as plain (non-`VITE_`) Vercel environment variables** — dictation returns a 500 with no keys set, everything else in the app is unaffected.
+- The door wizard only ever sends dictation the **flat checklist items** (`dictationCandidates` filters out anything with a `branch`) — it never tries to resolve the x11–x14 blocking prompts; those stay a manual tap-through, consistent with the "don't touch branch logic" rule below.
+- Nothing is applied silently: `DictationReviewDialog.tsx` shows the transcript and a proposed diff, accept/edit/reject per item, before any wizard state changes — and it writes through the same setters (`setDeficiencies`, `setAddedFindings`, `setDefs`/`setDefNotes`) manual entry already uses.
+- Offline: a recording made with no signal queues in IndexedDB (`lib/dictationQueue.ts`, db `codify_dictation`) instead of failing. `App.tsx`'s reconnect handler flushes the queue, transcribes/interprets each, and stashes the result under `dictationReady[pinId]` in localStorage; the wizard for that pin picks it up and shows the review dialog the next time it opens that pin — this keeps the apply step inside the wizard's own logic rather than a background process reimplementing it.
+- Raw audio and transcripts are never persisted to Supabase — only the final accepted record (same shape the app already writes) is. A recording is discarded once its result is applied or dismissed.
 
 ### Type duplication caveat
 
@@ -88,4 +116,4 @@ These are guardrails the user has set. Follow them unless explicitly overridden 
 
 9. **Checkpoint deliverable.** When the user asks for "a checkpoint" or "a zip", produce a zip of changed files only, excluding `node_modules`, `.git`, `dist`, `.manus-logs`, and `*.log`. Place it at the repo root as `checkpoint-YYYY-MM-DD.zip`.
 
-10. **For UI bugs, ask which tab/component is affected** before searching the whole repo. The app has narrow scope — Plans, Inspect, Records, Config — and a wrong starting point wastes time.
+10. **For UI bugs, ask which tab and which service line are affected** before searching the whole repo. Four tabs (Plans, Inspect, Records, Config) times three service lines (doors, ceiling, damper) means the same symptom lives in different files. A wrong starting point wastes time, and a fix applied to the door wizard does not reach the ceiling or damper one.

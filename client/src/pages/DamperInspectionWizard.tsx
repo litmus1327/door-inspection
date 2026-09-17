@@ -5,6 +5,12 @@ import { compressImage } from '@/lib/imageCompress';
 import { DamperInspection, DoorStatus } from '@/types';
 import { DAMPER_CATEGORIES, DAMPER_DEFICIENCIES, DamperCategory, DamperStatus } from '@/lib/damperChecklist';
 import { recordId, dedupeForSave } from '@/lib/inspectionYear';
+import DictationRecorder from '@/components/DictationRecorder';
+import DictationReviewDialog, { DictationReviewRow } from '@/components/DictationReviewDialog';
+import { DictationCandidate, DictationResult } from '@/lib/dictation';
+
+const META_ROW_ID = '__damper_meta__';
+const DAMPER_CANDIDATES: DictationCandidate[] = DAMPER_DEFICIENCIES.map((d) => ({ id: d, label: d }));
 
 export interface DamperSelectedPin {
   pinId?: string;
@@ -43,6 +49,7 @@ export default function DamperInspectionWizard({ selectedPin, onClear, onPinInsp
   const [photos, setPhotos] = useState<string[]>([]);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [dictationResult, setDictationResult] = useState<DictationResult | null>(null);
 
   const toggleDef = (d: string) => setDefs((prev) => {
     const next = new Set(prev);
@@ -60,6 +67,47 @@ export default function DamperInspectionWizard({ selectedPin, onClear, onPinInsp
     if (next.size > 0) setStatus('fail');
     return next;
   });
+
+  // Builds the review dialog's rows from a raw dictation result: one synthetic
+  // row for the overall category/status (if the transcript addressed it), one
+  // per matched deficiency.
+  const dictationRows: DictationReviewRow[] = dictationResult ? [
+    ...(dictationResult.category || dictationResult.status
+      ? [{
+          id: META_ROW_ID,
+          label: 'Damper type / result',
+          proposedValue: [dictationResult.category, dictationResult.status].filter(Boolean).join(' — '),
+        }]
+      : []),
+    ...dictationResult.matches
+      .filter((m) => DAMPER_DEFICIENCIES.includes(m.id))
+      .map((m) => ({ id: m.id, label: m.id, proposedNote: m.note })),
+  ] : [];
+
+  const applyDictation = (rows: DictationReviewRow[]) => {
+    const meta = rows.find((r) => r.id === META_ROW_ID);
+    if (meta && dictationResult) {
+      if (dictationResult.category && DAMPER_CATEGORIES.includes(dictationResult.category as DamperCategory)) {
+        setCategory(dictationResult.category as DamperCategory);
+      }
+      if (dictationResult.status === 'pass' || dictationResult.status === 'inaccessible') {
+        setStatusExplicit(dictationResult.status);
+      } else if (dictationResult.status === 'fail') {
+        setStatus('fail');
+      }
+    }
+    const defRows = rows.filter((r) => r.id !== META_ROW_ID);
+    if (defRows.length > 0) {
+      setDefs((prev) => new Set([...Array.from(prev), ...defRows.map((r) => r.id)]));
+      setDefNotes((prev) => {
+        const next = { ...prev };
+        for (const r of defRows) if (r.proposedNote) next[r.id] = r.proposedNote;
+        return next;
+      });
+      setStatus('fail');
+    }
+    setDictationResult(null);
+  };
 
   const handleAddPhotos = async (files: FileList) => {
     setPhotoUploading(true);
@@ -169,6 +217,13 @@ export default function DamperInspectionWizard({ selectedPin, onClear, onPinInsp
 
       {/* Body */}
       <div className="flex-1 overflow-auto p-4 space-y-4">
+        <DictationRecorder
+          pinId={selectedPin?.pinId}
+          inspectionType="damper"
+          candidates={DAMPER_CANDIDATES}
+          onResult={setDictationResult}
+        />
+
         {/* No damper present */}
         <button
           onClick={() => setNoDamperPresent((v) => {
@@ -300,6 +355,15 @@ export default function DamperInspectionWizard({ selectedPin, onClear, onPinInsp
           {saving ? 'Saving…' : 'Save Damper'}
         </button>
       </div>
+
+      {dictationResult && (
+        <DictationReviewDialog
+          transcript={dictationResult.transcript}
+          rows={dictationRows}
+          onConfirm={applyDictation}
+          onCancel={() => setDictationResult(null)}
+        />
+      )}
     </div>
   );
 }

@@ -18,6 +18,9 @@ import {
   SECTIONS,
   BLOCKING_PROMPTS,
 } from '@/lib/inspectionRules';
+import DictationRecorder from '@/components/DictationRecorder';
+import DictationReviewDialog, { DictationReviewRow } from '@/components/DictationReviewDialog';
+import { DictationCandidate, DictationResult } from '@/lib/dictation';
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -887,6 +890,7 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
   const [diagramZone, setDiagramZone] = useState<Zone | null>(null);
   const [photos, setPhotos] = useState<string[]>([]);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [dictationResult, setDictationResult] = useState<DictationResult | null>(null);
   useEffect(() => { setPhotos([]); }, [selectedDoor?.pinId]);
 
   // Sync selectedDoor prop into form. Reopening a door: the Asset ID (and
@@ -1366,6 +1370,15 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
     ? getApplicableItems(currentDoor.assemblyType, currentDoor.hwState, currentDoor.doorSwingType, currentDoor.projectVars, currentDoor.isCrossCorridor === true, currentDoor.doorRating, currentDoor.frameRating, currentDoor.isHealthCareOccupancy, x14Compliant, currentDoor.isStairDoor === true, currentDoor.isCorridorDoor === true)
     : [], [currentDoor, x14Compliant]);
 
+  // Dictation targets the flat checklist only — never a branch question
+  // (x11-x14): those stay a manual tap-through, per the branch-logic
+  // surgical-edit rule. Rebuilt whenever the applicable set changes (a
+  // different assembly type/hardware shows different items).
+  const dictationCandidates: DictationCandidate[] = useMemo(
+    () => applicableItems.filter((item) => !item.branch).map((item) => ({ id: item.id, label: item.text, section: item.section })),
+    [applicableItems]
+  );
+
   // Standard items for a section, plus any inspector-added custom items.
   const itemsForSection = (sec: string) => [
     ...applicableItems.filter(item => item.section === sec),
@@ -1553,6 +1566,48 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
       };
     });
   }, [currentDoor]);
+
+  // Dictation review rows + apply. This sets items directly via setDeficiencies
+  // (the same state setter toggleDeficiency/updateNote already use) rather than
+  // going through branch logic — dictation only ever targets the flat checklist
+  // (see dictationCandidates above), never x11-x14.
+  const dictationRows: DictationReviewRow[] = dictationResult
+    ? dictationResult.matches
+        .map((m) => ({ m, item: applicableItems.find((i) => i.id === m.id) }))
+        .filter((x): x is { m: typeof dictationResult.matches[0]; item: typeof applicableItems[0] } => !!x.item)
+        .map(({ m, item }) => ({
+          id: item.id,
+          label: item.text,
+          proposedValue: m.status,
+          proposedNote: m.note,
+        }))
+    : [];
+
+  const applyDictation = (rows: DictationReviewRow[]) => {
+    setDeficiencies(prev => {
+      const next = { ...prev };
+      for (const r of rows) {
+        const item = applicableItems.find((i) => i.id === r.id);
+        if (!item) continue;
+        const status = r.proposedValue === 'advisory' ? 'advisory'
+          : r.proposedValue === 'compliant' ? 'compliant'
+          : 'deficient';
+        if (status === 'compliant') {
+          delete next[r.id];
+          continue;
+        }
+        next[r.id] = {
+          status,
+          text: item.text,
+          category: item.section,
+          note: r.proposedNote || '',
+          branchAnswers: next[r.id]?.branchAnswers || {},
+        };
+      }
+      return next;
+    });
+    setDictationResult(null);
+  };
 
   const handleAddPhotos = async (files: FileList) => {
     setPhotoUploading(true);
@@ -2426,6 +2481,17 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
         ))}
       </div>
 
+      {/* Dictation — one recording covers everything at this door; never
+          touches the x11-x14 blocking prompts (see dictationCandidates). */}
+      <div className="bg-card border-b border-border px-4 py-2">
+        <DictationRecorder
+          pinId={selectedDoor?.pinId}
+          inspectionType="door"
+          candidates={dictationCandidates}
+          onResult={setDictationResult}
+        />
+      </div>
+
       {/* Section nav */}
       {inspectView === 'checklist' && (
       <div className="bg-card border-b border-border px-4 py-2 flex gap-1.5 flex-wrap">
@@ -2836,6 +2902,15 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
         </div>
         </>)}
       </div>
+
+      {dictationResult && (
+        <DictationReviewDialog
+          transcript={dictationResult.transcript}
+          rows={dictationRows}
+          onConfirm={applyDictation}
+          onCancel={() => setDictationResult(null)}
+        />
+      )}
     </div>
   );
 }

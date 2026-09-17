@@ -31,6 +31,7 @@ import Plans from './pages/Plans';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { getSupabaseConfig, upsertPin, deletePin, fetchPins, uploadPlanPDF, downloadPlanPDF, planExistsInCloud } from './lib/supabase';
 import { syncInspections, flushPendingPhotos } from './lib/sync';
+import { flushPendingDictations } from './lib/dictationQueue';
 import { DoorPin } from './types';
 import { pinMapInProject } from './lib/projectScope';
 
@@ -362,6 +363,9 @@ function App() {
           }
         }).catch(() => {});
         flushPendingPhotos().catch(() => {});
+        flushPendingDictations().then((n) => {
+          if (n > 0) toast(`${n} dictation${n === 1 ? '' : 's'} ready to review — reopen the pin to apply.`);
+        }).catch(() => {});
         const local: Record<number, DoorPin[]> = JSON.parse(
           localStorage.getItem('floorPlanPins') || '{}'
         );

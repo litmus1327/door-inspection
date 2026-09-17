@@ -5,6 +5,7 @@ import { compressImage } from '@/lib/imageCompress';
 import { CeilingFindingEntry, CeilingInspection } from '@/types';
 import {
   CEILING_CATEGORIES,
+  CEILING_FINDINGS,
   CEILING_PRIORITIES,
   CeilingCategory,
   CeilingFinding,
@@ -13,6 +14,13 @@ import {
 } from '@/lib/ceilingFindings';
 import CeilingWalkthrough from '@/components/CeilingWalkthrough';
 import { recordId, dedupeForSave } from '@/lib/inspectionYear';
+import DictationRecorder from '@/components/DictationRecorder';
+import DictationReviewDialog, { DictationReviewRow } from '@/components/DictationReviewDialog';
+import { DictationCandidate, DictationResult } from '@/lib/dictation';
+
+const CEILING_CANDIDATES: DictationCandidate[] = CEILING_FINDINGS.map((f) => ({
+  id: f.id, label: f.detail, section: f.category,
+}));
 
 export interface CeilingSelectedPin {
   pinId?: string;
@@ -54,6 +62,7 @@ export default function CeilingInspectionWizard({ selectedPin, onClear, onPinIns
   const [photoUploading, setPhotoUploading] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [dictationResult, setDictationResult] = useState<DictationResult | null>(null);
 
   const selectedFinding = findingId ? getFinding(findingId) : undefined;
 
@@ -101,6 +110,35 @@ export default function CeilingInspectionWizard({ selectedPin, onClear, onPinIns
 
   const removeAddedFinding = (index: number) => {
     setAddedFindings((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const dictationRows: DictationReviewRow[] = dictationResult
+    ? dictationResult.matches
+        .map((m) => ({ m, f: getFinding(m.id) }))
+        .filter((x): x is { m: typeof dictationResult.matches[0]; f: CeilingFinding } => !!x.f)
+        .map(({ m, f }) => ({
+          id: f.id,
+          label: `${f.category}: ${f.detail}`,
+          proposedValue: m.priority || f.defaultPriority,
+          proposedNote: m.note,
+        }))
+    : [];
+
+  const applyDictation = (rows: DictationReviewRow[]) => {
+    if (rows.length === 0) { setDictationResult(null); return; }
+    const newEntries: CeilingFindingEntry[] = rows.map((r) => {
+      const f = getFinding(r.id)!;
+      const match = dictationResult?.matches.find((m) => m.id === r.id);
+      return {
+        findingId: f.id,
+        category: f.category,
+        finding: f.detail,
+        priority: match?.priority || f.defaultPriority,
+        note: r.proposedNote,
+      };
+    });
+    setAddedFindings((prev) => [...prev, ...newEntries]);
+    setDictationResult(null);
   };
 
   const handleAddPhotos = async (files: FileList) => {
@@ -210,6 +248,13 @@ export default function CeilingInspectionWizard({ selectedPin, onClear, onPinIns
 
       {/* Body */}
       <div className="flex-1 overflow-auto p-4 space-y-4">
+        <DictationRecorder
+          pinId={selectedPin?.pinId}
+          inspectionType="ceiling"
+          candidates={CEILING_CANDIDATES}
+          onResult={setDictationResult}
+        />
+
         {!selectedFinding ? (
           <>
             {/* Findings already logged at this pin visit */}
@@ -422,6 +467,15 @@ export default function CeilingInspectionWizard({ selectedPin, onClear, onPinIns
           {saving ? 'Saving…' : allFindings.length > 1 ? `Save ${allFindings.length} Findings` : 'Save Finding'}
         </button>
       </div>
+
+      {dictationResult && (
+        <DictationReviewDialog
+          transcript={dictationResult.transcript}
+          rows={dictationRows}
+          onConfirm={applyDictation}
+          onCancel={() => setDictationResult(null)}
+        />
+      )}
     </div>
   );
 }
