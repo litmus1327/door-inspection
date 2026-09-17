@@ -1,7 +1,13 @@
-import { describe, it, expect } from 'vitest';
+// @vitest-environment jsdom
+//
+// Only the per-page calibration storage tests below need localStorage; the
+// rest of this file is pure geometry/color logic and doesn't care about the
+// DOM environment.
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   detectAssemblyType, detectAssemblyTypeWithConfidence, matchCalibratedType,
   nearestWallColorAt, styleAt, ProjectCalibration, WallStroke, RGB,
+  pageMatchesCalibration, loadCalibration, saveCalibration, hasPageCalibration,
 } from './wallDetect';
 
 // A vertical wall as one segment at x=col (percent), y 50..60.
@@ -140,5 +146,48 @@ describe('detectAssemblyTypeWithConfidence', () => {
     const r = detectAssemblyTypeWithConfidence([line(50, RED)], 10, 10, cal, { radiusPct: 1.2, tolerance: 60 });
     expect(r.type).toBeNull();
     expect(r.lowConfidence).toBe(false);
+  });
+});
+
+describe('pageMatchesCalibration', () => {
+  it('matches when the page uses the calibrated colors', () => {
+    expect(pageMatchesCalibration([line(50, RED), line(51, RED), line(52, RED), line(53, RED), line(54, RED), line(55, RED)], cal, 60)).toBe(true);
+  });
+
+  it('flags a mismatch when a page\'s saturated lines use an entirely different, uncalibrated legend', () => {
+    const PURPLE: RGB = [150, 0, 200];
+    const strokes = Array.from({ length: 8 }, (_, i) => line(50 + i, PURPLE));
+    expect(pageMatchesCalibration(strokes, cal, 60)).toBe(false);
+  });
+
+  it('does not flag a page with too little saturated content to judge (e.g. a title sheet)', () => {
+    const PURPLE: RGB = [150, 0, 200];
+    expect(pageMatchesCalibration([line(50, PURPLE), line(51, PURPLE)], cal, 60)).toBe(true);
+  });
+
+  it('never flags before the project itself is calibrated', () => {
+    const PURPLE: RGB = [150, 0, 200];
+    const strokes = Array.from({ length: 8 }, (_, i) => line(50 + i, PURPLE));
+    expect(pageMatchesCalibration(strokes, { calibrated: false, types: {} }, 60)).toBe(true);
+  });
+});
+
+describe('per-page calibration storage', () => {
+  const PROJECT = 'Test Project';
+  beforeEach(() => localStorage.clear());
+
+  it('falls back to the project-level calibration when no page override exists', () => {
+    saveCalibration(PROJECT, cal);
+    expect(loadCalibration(PROJECT, 3)).toEqual(cal);
+    expect(hasPageCalibration(PROJECT, 3)).toBe(false);
+  });
+
+  it('prefers a page-scoped override over the project-level calibration', () => {
+    saveCalibration(PROJECT, cal);
+    const pageCal: ProjectCalibration = { calibrated: true, types: { '1hr_fire': { rgb: [1, 2, 3], width: 30 } } };
+    saveCalibration(PROJECT, pageCal, 3);
+    expect(loadCalibration(PROJECT, 3)).toEqual(pageCal);
+    expect(loadCalibration(PROJECT, 4)).toEqual(cal); // other pages unaffected
+    expect(hasPageCalibration(PROJECT, 3)).toBe(true);
   });
 });

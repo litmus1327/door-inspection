@@ -6,7 +6,9 @@ import WallCalibration from '@/components/WallCalibration';
 import ProjectSetupPanel from '@/components/ProjectSetupPanel';
 import { DoorPin } from '@/types';
 import {
-  ProjectCalibration, WallPick, loadCalibration, saveCalibration, emptyCalibration,
+  ProjectCalibration, WallPick, WallStroke, loadCalibration, saveCalibration, emptyCalibration,
+  pageMatchesCalibration, isPageCalibrationPromptDismissed, dismissPageCalibrationPrompt,
+  DEFAULT_TOLERANCE,
 } from '@/lib/wallDetect';
 import { ProjectSetup, loadProjectSetup, saveProjectSetup, emptyProjectSetup } from '@/lib/projectSetup';
 import { isNonDoorCategory, categoryForProject } from '@/lib/serviceLine';
@@ -88,6 +90,71 @@ export default function FloorPlanViewer({
     setCalibration(c);
     saveCalibration(projectName, c);
   };
+
+  // ── Per-page calibration override ───────────────────────────────────────────
+  // A drawing set can mix color legends across pages (a second building, a
+  // redrawn floor). `pageCalibration` is what actually gets used for detection
+  // on the page on screen: a page-scoped override if one's been saved, else the
+  // project-level calibration above (loadCalibration handles that fallback).
+  const [pageCalibration, setPageCalibration] = useState<ProjectCalibration>(emptyCalibration);
+  const [pageMismatch, setPageMismatch] = useState(false);
+  const [recalibratingPage, setRecalibratingPage] = useState(false);
+  const [pageArmedType, setPageArmedType] = useState<string | null>(null);
+  const [pageLastPickFailed, setPageLastPickFailed] = useState(false);
+
+  useEffect(() => {
+    setPageCalibration(loadCalibration(projectName, currentPage));
+    setPageMismatch(false);
+    setRecalibratingPage(false);
+    setPageArmedType(null);
+    setPageLastPickFailed(false);
+  }, [projectName, currentPage]);
+
+  // Called once a page's saturated wall strokes are extracted. Flags a
+  // mismatch banner when this page's colors don't look like the calibrated
+  // legend — but only once, and not if the inspector already dismissed it or
+  // recalibrated this specific page.
+  const handleStrokesExtracted = (pageNumber: number, strokes: WallStroke[]) => {
+    if (isCeiling || pageNumber !== currentPage) return;
+    if (isPageCalibrationPromptDismissed(projectName, pageNumber)) return;
+    setPageMismatch(!pageMatchesCalibration(strokes, pageCalibration, DEFAULT_TOLERANCE));
+  };
+
+  const dismissPageMismatch = () => {
+    dismissPageCalibrationPrompt(projectName, currentPage);
+    setPageMismatch(false);
+  };
+
+  const persistPageCalibration = (c: ProjectCalibration) => {
+    setPageCalibration(c);
+    saveCalibration(projectName, c, currentPage);
+  };
+  const handlePageWallColorPicked = (pick: WallPick | null) => {
+    if (!pageArmedType) return;
+    if (!pick) { setPageLastPickFailed(true); return; }
+    setPageLastPickFailed(false);
+    const style = pick.style === 'unknown' ? 'solid' : pick.style;
+    persistPageCalibration({
+      ...pageCalibration,
+      types: { ...pageCalibration.types, [pageArmedType]: { rgb: pick.rgb, width: 0, style } },
+    });
+    setPageArmedType(null);
+  };
+  const handlePageSetNA = (type: string) => {
+    persistPageCalibration({ ...pageCalibration, types: { ...pageCalibration.types, [type]: 'na' } });
+    if (pageArmedType === type) setPageArmedType(null);
+  };
+  const handlePageClearType = (type: string) => {
+    const types = { ...pageCalibration.types };
+    delete types[type];
+    persistPageCalibration({ ...pageCalibration, types, calibrated: false });
+  };
+  const handleFinishPageCalibration = () => {
+    persistPageCalibration({ ...pageCalibration, calibrated: true });
+    setRecalibratingPage(false);
+    setPageArmedType(null);
+    setPageMismatch(false);
+  };
   const handleWallColorPicked = (pick: WallPick | null) => {
     if (!armedType) return;
     if (!pick) { setLastPickFailed(true); return; }
@@ -115,8 +182,9 @@ export default function FloorPlanViewer({
     setShowCalibration(false);
     setArmedType(null);
   };
-  // Calibrate mode intercepts a plan tap only while a type is armed.
-  const isCalibrateMode = showCalibration && armedType !== null;
+  // Calibrate mode intercepts a plan tap only while a type is armed — either the
+  // project-wide first-time flow, or a per-page recalibration.
+  const isCalibrateMode = (showCalibration && armedType !== null) || (recalibratingPage && pageArmedType !== null);
 
   // ── Per-project setup gate (construction, gap standard, sprinklered, assisted) ──
   // First-time setup asks everything ('full'); each new inspection year re-asks
@@ -230,8 +298,9 @@ export default function FloorPlanViewer({
         onFloorNameExtracted={onFloorNameExtracted}
         initialPage={initialPage}
         isCalibrateMode={isCalibrateMode}
-        calibration={calibration}
-        onWallColorPicked={handleWallColorPicked}
+        calibration={pageCalibration}
+        onWallColorPicked={recalibratingPage ? handlePageWallColorPicked : handleWallColorPicked}
+        onStrokesExtracted={handleStrokesExtracted}
       />
 
       {/* Fieldwire-style Markup Toolbar - Bottom Right */}
@@ -361,6 +430,26 @@ export default function FloorPlanViewer({
 
       </div>
 
+      {/* Per-page calibration mismatch banner — non-blocking, dismissible. Shown
+          when this page's wall-line colors don't look like the calibrated
+          legend, e.g. a second building or a redrawn floor in the same set. */}
+      {pageMismatch && !showSetup && !showCalibration && !recalibratingPage && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-lg shadow-lg bg-amber-500 text-white px-4 py-2.5 text-sm max-w-md">
+          <span>This page's wall colors don't match your calibration.</span>
+          <div className="flex gap-2 flex-shrink-0">
+            <button
+              onClick={() => setRecalibratingPage(true)}
+              className="px-2.5 py-1 rounded-sm bg-white/20 hover:bg-white/30 font-semibold whitespace-nowrap"
+            >
+              Recalibrate page
+            </button>
+            <button onClick={dismissPageMismatch} className="px-2 py-1 rounded-sm hover:bg-white/10">
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Project setup (required, shown before calibration) */}
       {showSetup && (
         <ProjectSetupPanel
@@ -382,6 +471,20 @@ export default function FloorPlanViewer({
           onClear={handleClearType}
           onFinish={handleFinishCalibration}
           onCancel={calibration.calibrated ? () => { setShowCalibration(false); setArmedType(null); } : undefined}
+        />
+      )}
+
+      {/* Per-page recalibration — same panel, scoped to just this page's colors. */}
+      {recalibratingPage && !showSetup && !showCalibration && (
+        <WallCalibration
+          calibration={pageCalibration}
+          armedType={pageArmedType}
+          lastPickFailed={pageLastPickFailed}
+          onArm={(t) => { setPageArmedType(t); setPageLastPickFailed(false); }}
+          onSetNA={handlePageSetNA}
+          onClear={handlePageClearType}
+          onFinish={handleFinishPageCalibration}
+          onCancel={() => { setRecalibratingPage(false); setPageArmedType(null); }}
         />
       )}
     </div>

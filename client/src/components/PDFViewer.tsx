@@ -52,6 +52,10 @@ interface PDFViewerProps {
   isCalibrateMode?: boolean;
   calibration?: ProjectCalibration;
   onWallColorPicked?: (pick: WallPick | null) => void;
+  // Fires once a page's saturated wall strokes are extracted, so a caller can
+  // check them against calibration (see FloorPlanViewer's per-page mismatch
+  // prompt) without this component needing to know about that UX.
+  onStrokesExtracted?: (pageNumber: number, strokes: WallStroke[]) => void;
 }
 
 export default function PDFViewer({
@@ -75,6 +79,7 @@ export default function PDFViewer({
   isCalibrateMode = false,
   calibration,
   onWallColorPicked,
+  onStrokesExtracted,
 }: PDFViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -428,6 +433,7 @@ export default function PDFViewer({
           .then((strokes) => {
             if (isMountedRef.current && latestPageRef.current === pageForStrokes) {
               wallStrokesRef.current = strokes;
+              onStrokesExtracted?.(pageForStrokes, strokes);
             }
           })
           .catch(() => { /* non-vector or error → manual fallback */ });

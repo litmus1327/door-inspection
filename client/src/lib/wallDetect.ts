@@ -276,19 +276,74 @@ export function emptyCalibration(): ProjectCalibration {
 }
 
 const CAL_KEY = (project: string) => `wallCalibration:${project}`;
-export function loadCalibration(project: string): ProjectCalibration {
-  if (!project) return emptyCalibration();
+const PAGE_CAL_KEY = (project: string, page: number) => `wallCalibration:${project}:${page}`;
+
+function readCalKey(key: string): ProjectCalibration | null {
   try {
-    const raw = localStorage.getItem(CAL_KEY(project));
-    if (!raw) return emptyCalibration();
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === 'object' && parsed.types) return parsed as ProjectCalibration;
-    return emptyCalibration();
-  } catch { return emptyCalibration(); }
+    return null;
+  } catch { return null; }
 }
-export function saveCalibration(project: string, cal: ProjectCalibration): void {
+
+/**
+ * Loads a project's calibration. A drawing set can mix different color legends
+ * across pages (a second building, a redrawn floor), so a page-scoped override
+ * is checked first and falls back to the project-level calibration most
+ * projects (one legend, calibrated once) never need to set.
+ */
+export function loadCalibration(project: string, page?: number): ProjectCalibration {
+  if (!project) return emptyCalibration();
+  if (page != null) {
+    const pageCal = readCalKey(PAGE_CAL_KEY(project, page));
+    if (pageCal) return pageCal;
+  }
+  return readCalKey(CAL_KEY(project)) || emptyCalibration();
+}
+
+/** Saves under the page-scoped key when `page` is given, else the project-wide key. */
+export function saveCalibration(project: string, cal: ProjectCalibration, page?: number): void {
   if (!project) return;
-  try { localStorage.setItem(CAL_KEY(project), JSON.stringify(cal)); } catch { /* ignore */ }
+  const key = page != null ? PAGE_CAL_KEY(project, page) : CAL_KEY(project);
+  try { localStorage.setItem(key, JSON.stringify(cal)); } catch { /* ignore */ }
+}
+
+/** Has this project saved a calibration override specific to this page? */
+export function hasPageCalibration(project: string, page: number): boolean {
+  if (!project) return false;
+  return readCalKey(PAGE_CAL_KEY(project, page)) !== null;
+}
+
+const DISMISSED_KEY = (project: string, page: number) => `wallCalibrationDismissed:${project}:${page}`;
+/** Remembers that the inspector dismissed a page-mismatch recalibration prompt. */
+export function dismissPageCalibrationPrompt(project: string, page: number): void {
+  try { localStorage.setItem(DISMISSED_KEY(project, page), '1'); } catch { /* ignore */ }
+}
+export function isPageCalibrationPromptDismissed(project: string, page: number): boolean {
+  try { return localStorage.getItem(DISMISSED_KEY(project, page)) === '1'; } catch { return false; }
+}
+
+// Minimum saturated-line segments a page needs before a color mismatch is
+// worth flagging — a title sheet or a nearly-blank page shouldn't trigger a
+// recalibration prompt just because it has little or no wall linework.
+const MIN_STROKES_FOR_MISMATCH_CHECK = 6;
+
+/**
+ * True when a page's saturated wall-line colors look like a DIFFERENT legend
+ * than what's calibrated — i.e. the page has meaningful colored line content,
+ * but none of it is within tolerance of any calibrated color. Used to prompt a
+ * per-page recalibration rather than silently trusting the first page's
+ * calibration for every page in the drawing set.
+ */
+export function pageMatchesCalibration(
+  strokes: WallStroke[], cal: ProjectCalibration, tolerance: number
+): boolean {
+  if (!cal.calibrated) return true; // nothing to mismatch against yet
+  const saturated = strokes.filter((s) => saturation(s.rgb) >= SATURATION_MIN);
+  if (saturated.length < MIN_STROKES_FOR_MISMATCH_CHECK) return true;
+  return saturated.some((s) => calibratedTypesForColor(s.rgb, cal, tolerance).length > 0);
 }
 
 // All calibrated types whose color is within tolerance of rgb (ignores N/A).
