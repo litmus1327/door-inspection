@@ -1,9 +1,13 @@
 // Project scoping: pins and records for every project share two localStorage
 // keys, and most readers never checked which project a row belonged to.
 //
-// The two escape hatches below are the load-bearing part and both fail OPEN.
-// Getting them wrong hides real inspected doors from the plan, which is worse
-// than the leak being fixed.
+// Only the "no project selected" case fails OPEN now. A row with no
+// projectName used to match every project too (meant to keep old
+// pre-attribution pins visible somewhere), but every device this was checked
+// against had exactly zero inspection records on any such pin -- it's
+// orphaned test debris, not a recoverable inspection -- and it kept
+// resurfacing old junk inside brand-new projects. See git history on this
+// file for the incident.
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
@@ -42,13 +46,13 @@ describe('inProject', () => {
     expect(inProject({ projectName: 'B' }, '')).toBe(true);
   });
 
-  it('matches a row with no projectName, in any project', () => {
-    // Pins predating the field cannot be attributed. Showing them everywhere is
-    // the OLD behaviour for those rows and is visible and recoverable; hiding
-    // them would make real inspected doors disappear with no way back.
-    expect(inProject({}, 'A')).toBe(true);
-    expect(inProject({ projectName: '   ' }, 'A')).toBe(true);
-    expect(inProject(undefined, 'A')).toBe(true);
+  it('does NOT match a row with no projectName once a specific project is selected', () => {
+    // This used to fail open (return true) so pre-attribution legacy pins
+    // stayed visible -- but that meant an untagged pin showed up in every
+    // project forever, including a brand new one that had never seen it.
+    expect(inProject({}, 'A')).toBe(false);
+    expect(inProject({ projectName: '   ' }, 'A')).toBe(false);
+    expect(inProject(undefined, 'A')).toBe(false);
   });
 });
 
@@ -58,9 +62,9 @@ describe('pinMapInProject', () => {
     2: [pin('c', 'Hospital B', 2)],
   };
 
-  it('keeps only the project\'s pins, plus unattributed ones', () => {
+  it('keeps only the project\'s own pins, not unattributed ones', () => {
     const scoped = pinMapInProject(pins, 'Hospital A');
-    expect(scoped[1].map((p: any) => p.id)).toEqual(['a', 'legacy']);
+    expect(scoped[1].map((p: any) => p.id)).toEqual(['a']);
   });
 
   it('drops a page that ends up empty', () => {
@@ -106,8 +110,8 @@ describe('reading from localStorage', () => {
     const records = [
       { id: '1', projectName: 'Hospital A' },
       { id: '2', projectName: 'Hospital B' },
-      { id: '3' }, // legacy, unattributed
+      { id: '3' }, // unattributed -- no longer shown inside a specific project
     ];
-    expect(recordsInProject(records).map((r) => r.id)).toEqual(['1', '3']);
+    expect(recordsInProject(records).map((r) => r.id)).toEqual(['1']);
   });
 });

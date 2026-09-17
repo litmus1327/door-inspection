@@ -28,21 +28,24 @@ export function activeProject(): string {
 /**
  * Does this pin or record belong to `project`?
  *
- * Two deliberate escape hatches, both of which fail OPEN (show the data):
- *
  *  - No project selected: everything matches. The app is usable before a
  *    project is chosen and this must not blank the screen.
- *  - The row has no `projectName`: it matches. Pins created before that field
- *    was set cannot be attributed to anyone, and hiding them would make real
- *    inspected doors vanish from the plan with no way to get them back.
- *    Showing them in every project is the old behaviour for those rows only,
- *    which is visible and recoverable; hiding them is neither.
+ *  - A specific project IS selected: only an exact `projectName` match
+ *    counts. A blank/missing `projectName` used to match every project too
+ *    (meant to keep old pre-attribution pins visible somewhere), but that
+ *    "somewhere" turned out to be EVERY project, forever — a brand new
+ *    project immediately showed unrelated old test pins, repeatedly, with no
+ *    way to tell them apart from real data. Every pin that's ever fallen into
+ *    that bucket on a real device had zero inspection records attached, so an
+ *    untagged pin is orphaned debris, not a recoverable inspection. This
+ *    function still never deletes anything — an untagged pin just no longer
+ *    surfaces inside a project it was never tagged as belonging to.
  */
 export function inProject(row: { projectName?: string } | null | undefined,
                           project: string): boolean {
   if (!project) return true;
   const owner = (row?.projectName || '').trim();
-  return owner === '' || owner === project;
+  return owner === project;
 }
 
 /** Every pin on the device, flat, regardless of project. */
