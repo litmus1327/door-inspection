@@ -2364,6 +2364,20 @@ export default function InspectionWizard({ selectedDoor, onClear, onPinInspected
                 if (v.id === 'hw_deadbolt' && !['single', 'dbl_active'].includes(doorSwingType)) return null;
                 if (v.id === 'hw_electric_strike' && doorSwingType === 'dbl_active') return null;
 
+                // Signage only ever applies to a rated fire or smoke assembly. Fire
+                // barriers always offer it. Smoke barrier, smoke partition, and
+                // suite perimeter don't in existing construction; in new
+                // construction a smoke barrier still needs it, but only once it's
+                // actually rated 20 min or higher (smoke partition/suite perimeter
+                // are never rated, so they stay hidden regardless of construction).
+                if (v.id === 'hw_signage' && !FIRE_RATED.includes(assemblyType)) {
+                  const isNewConstructionRatedSmokeBarrier =
+                    assemblyType === 'smoke_barrier' &&
+                    projectVars.construction === 'new' &&
+                    (doorRating === 'label_illegible' ? -1 : parseInt(doorRating) || 0) >= 20;
+                  if (!isNewConstructionRatedSmokeBarrier) return null;
+                }
+
                 const meta = HARDWARE_META[v.id];
                 const img = meta?.img;
                 const img2 = meta?.img2;
