@@ -450,7 +450,12 @@ function App() {
 
   // Local cleanup when a project is permanently deleted from the Projects page.
   // The cloud data (row, pins, records, stored plan) is removed in supabase.ts;
-  // here we drop the project's cached floor-plan PDF from IndexedDB.
+  // this used to only drop the project's cached floor-plan PDF from IndexedDB,
+  // leaving its pins and inspection records behind in the shared
+  // `floorPlanPins`/`doorInspections` localStorage keys forever -- deleting a
+  // project never actually removed its data from the device, so it kept
+  // counting toward icon numbering (see handlePinAdded) and kept showing up in
+  // export/record totals indefinitely. Now purges both by projectName.
   const handleDeleteProjectLocal = async (name: string) => {
     if (!name) return;
     try {
@@ -461,6 +466,24 @@ function App() {
         tx.onerror = () => resolve();
         tx.objectStore('files').delete(idbKey(name));
       });
+    } catch { /* ignore */ }
+
+    setPins((prev) => {
+      const next: Record<number, DoorPin[]> = {};
+      for (const key of Object.keys(prev)) {
+        const page = Number(key);
+        const kept = (prev[page] || []).filter((p) => p.projectName !== name);
+        if (kept.length) next[page] = kept;
+      }
+      return next;
+    });
+
+    try {
+      const records = JSON.parse(localStorage.getItem('doorInspections') || '[]');
+      const kept = records.filter((r: any) => r.projectName !== name);
+      if (kept.length !== records.length) {
+        localStorage.setItem('doorInspections', JSON.stringify(kept));
+      }
     } catch { /* ignore */ }
   };
 
@@ -473,8 +496,19 @@ function App() {
     // first door continue from another facility's highest number: open a second
     // project on a device that already had 240 doors and its icon 1 came out
     // as 241.
-    const maxNo = Object.values(visiblePins)
+    //
+    // Deliberately STRICT equality here, not `visiblePins` / `inProject()`'s
+    // "blank projectName matches every project" fallback. That fallback exists
+    // so old, unattributed pins stay visible on screen rather than vanish --
+    // it was never meant to feed numbering. A device that's accumulated any
+    // blank-projectName pins (leftover test data, a project someone deleted)
+    // had a brand new project's first pin come out as 16, not 1, because those
+    // orphans were silently counted here even though they render on other
+    // pages entirely. Numbering only ever looks at pins actually tagged with
+    // this project.
+    const maxNo = Object.values(pins)
       .flat()
+      .filter((p) => p.projectName === activeProject)
       .reduce((m, p) => Math.max(m, parseInt(p.iconNo) || 0), 0);
     const pinWithNumber: DoorPin = {
       ...pin,
